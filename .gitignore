@@ -1,0 +1,4 @@
+*.luac
+*.o
+*.so
+*.dylib

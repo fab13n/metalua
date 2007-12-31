@@ -1,0 +1,36 @@
+Rings 1.1 - Multiple Lua States
+(http://www.keplerproject.org/rings/)
+
+Overview
+
+Rings is a library which provides a way to create new Lua states from within Lua. It also offers a simple way to communicate between the creator (master) and the created (slave) states.
+
+Rings is free software and uses the same license as Lua 5.1.
+
+Download
+
+Rings can be downloaded in source code from its LuaForge page. If you are using LuaBinaries, a Windows precompiled version of Rings can also be found at the same LuaForge page:
+http://luaforge.net/projects/rings/files
+
+Installation
+
+The compiled binary file should be copied to a directory in your C path.
+The file stable.lua should be copied to a directory in your Lua path. 
+
+
+History
+
+Version 1.1 [11/Jun/2007]
+    Adapted to work with Lua 5.1.
+Version 1.0 [10/Mar/2006]
+    First public version, works with Lua 5.0.
+
+Credits
+
+Rings was designed by Roberto Ierusalimschy and Tomás Guisasola as part of the Kepler Project. The implementation was coded by Tomás Guisasola.
+
+Rings development was sponsored by Fábrica Digital.
+
+For more information please contact us (info at keplerproject dot org). Comments are welcome!
+
+You can also reach other Kepler developers and users on the Kepler Project mailing list.

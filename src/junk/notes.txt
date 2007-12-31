@@ -1,0 +1,182 @@
+This distribution of metalua tries to favor ease of install over
+saving a couple of kilobytes; therefore it directly embeds pieces of
+useful other free software rather than letting users fetch and
+configure them, and it installs separately from a regular lua install,
+instead of messing it up.
+
+
+Open source code used by metalua
+
+
+Metalua current sources include (possibly slightly modified versions
+of) these open source projects:
+
+- Lua, of course.
+
+- Yueliang, a Lua compiler in written in Lua: this is
+  the base of metalua's bytecode dumper.
+
+- Rings, a part of the Kelper project, which lets handle multiple Lua
+  states from within Lua.
+
+- Editline, an interactive command line editor, very similar to GNU
+  readline but with a more permissive licence.
+
+- bitlib for bitwise manipulations (especially useful for bytecode
+  dumping)
+
+How to make it:
+1 - make lua compiler and VM
+2 - make bitlib and rings
+3 - compile metalua .lua files
+4 - compile metalua .c files
+
+
+modifications to mlc/mlr: 
+
+- when several files are compiled with mlc, each chunk receives the
+  command line arguments in '...'
+
+- luaL_loadfile() and luaL_loadstring() try to call
+  debug.getregistry().loadfile() and debug.getregistry().loadstring().
+  It affects Lua functions loadstring(), loadfile(), dostring(),
+  dofile(), require().
+
+steps:
+- take back std libs into metalua
+- take back compiler
+- put metalua compilation in separate rings
+- rework lexer: allow lexer subclassing, changing lexer dynamically in mlp
+- change AST
+- rework code generator with bitlib
+
+
+Functions to patch
+- pairs/ipairs
+- type/rawtype
+
+Comment gerer le bootstrap:
+- si ca foire, j'emets un warning mais je ne crashe pas
+- a la compil initiale, ca va pas le faire evidemment
+- je compile tous les fichiers de metalua en un seul package
+  mlc.luac
+
+
+au debut, je tente un "require 'base'"
+
+mon probleme: je voudrais eviter de charger metalua si je cherche
+juste a executer du bytecode. donc le chargement de mlc.lua se fait
+s'il y a une source a compiler, dans loadstring. Ici une variable
+booleenne statique peut faire gagner du temps, sans etre indispensable
+
+Au et puis merde, on s'en fout, si le bloc est precompile c'est
+vraiment pas la mer a boire
+
+Changing luac into mlc
+----------------------
+The first step is to patch luaL_loadfile() and luaL_loadstring(), so
+that they attempt to run a custom compiler provided in Lua. That
+compiler is taken from the registry's "loadfile" (respectively
+"loadstring") entry, which should be a function. If absent, we just
+fallback to the original compiler that comes with Lua. This takes
+little extra resources, and dramatically simplifies the bootstrapping
+process: you don't need some bytecode nor some external Lua
+distribution to compile metalua (Fixes happen in "lauxlib.c")
+
+There also are some extra options handled, -a to show the AST, -b to
+cause parsing failure to appear as Lua parser crashes (instead of
+trying to produce a sensible syntax error message: useful when your
+compile-time parts are buggy).
+
+The mlc module
+--------------
+This module contains all of the compilation stuff. The version
+available after compilation is heavily based on the pattern matching
+extension, so it isn't used in the code required for bootstrapping
+(which has to be in lua inter metalua. That is, then, Lua)
+
+Libraries
+---------
+
+The mechanism of metalua libraries is exactly the same as Lua's,
+except that the environment variable names ahve been changed to allow
+peaceful cohabitation with Lua.
+
+FIXME: il faut pouvoir verifier la presence, chargeable, d'une
+librairie sans reellement la charger. findfile() dans loadlib.c semble
+etre charge de ca. Avec ca, je peux verifier, dans extension(), si la
+lib runtime existe ou pas, et decider de l'inclure ou pas dans le
+code resultant.
+
+
+bootstrap: 
+==========
+le but c'est de compiler les bouts en pur lua pour faire un compilo
+minimaliste. Puis, l'utiliser pour generer le bytecode de la version
+complete. 
+
+Par ailleurs, je me melange entre le compilo basique et la lib. Le
+compilo doit s'appeler mlc tout court, et la lib mlc.luac.
+
+Autre approche: je laisse tomber le mlc en C, il est facile a
+implementer avec mlr. Il faut juste garder/exporter le combine().
+
+Etancheite:
+===========
+Il faut s'assurer qu'il n'y a pas de fuites entre differents niveaux
+et differentes sessions de compil. Il faut donc:
+- repartir de zero a chaque compilation (chaque
+  luaL_load[file/string]()).
+- shell interactif:
+  * separer les niveaux
+  * permettre de monter/descendre d'un niveau avec des commandes
+    dediees: "+:" et "-:"
+- 
+
+Hygiene:
+========
+Unifier freevars avec un walker plus generique. 
+
+
+Restent a faire:
+================
+- ajouter des METALUA_PATH et METALUA_CPATH qui overrident LUA_XXX
+  quand ils sont presents. [X]
+
+- choisir une structure definitive pour les librairies
+
+- swap de lexers
+
+- reflechir a l'addition automatique des mots-clef par les parsers qui
+  vont bien. Peut-etre qu'ils sont attaches optionnellement a un lexer,
+  et que cet attachement est transmis par defaut qd on insere un
+  parser ds un autre
+
+- renommer x_quote/x_splice quote/splice [X]
+
+- ipairs/pairs/type -> rawipairs/rawpairs/type [X]
+
+- ajouter std au libs autochargees [X]
+
+- splitter std/table2 [X]
+
+- le $ pour les macros en standard
+
+- extension: determiner s'il y a un runtime a la compil
+
+- etancheite
+
+- Voir le compilo d'EVE
+
+Bugs connus:
+- require qui merde -> regle
+- reentrance de in_a_quote dans mlp_meta.lua
+- refuser les flags autres qu'expr dans les splices in_a_quote
+
+Variante d'organisation:
+========================
+
+On considere le compilo comme une librairie classique, et on compte
+des les depart sur la presence d'un tas de libs standard.
+
+

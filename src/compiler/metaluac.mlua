@@ -1,0 +1,68 @@
+--*-lua-*- Set as a metalua file because it requires some metalua libs
+
+--[[do
+   local xrequire, n, ind = require, 0, "| "
+   function require (x)
+      print(ind:rep(n).."require: "..x)
+      n=n+1
+      local y = xrequire(x) 
+      n=n-1
+      print(ind:rep(n).."/"..x); 
+      return x
+   end
+end--]]
+
+require 'mlc'
+require 'clopts'
+
+local PRINT_AST, OUTPUT_FILE, EXECUTE, VERBOSE, SHARPBANG
+
+function parse_input_file(input_file)
+   local f
+   local ast = mlc.ast_of_luafile(input_file)
+   if PRINT_AST then table.print(ast, 80, 'nohash') end
+   if EXECUTE   then f = mlc.function_of_ast(ast, input_file) end
+   if not EXECUTE or OUTPUT_FILE then
+      OUTPUT_FILE = OUTPUT_FILE or input_file:gsub('%.lua$', '.luac')
+      local o = io.open (OUTPUT_FILE, 'w')
+      if SHARPBANG then 
+         o:write(SHARPBANG)
+         if not SHARPBANG:strmatch '\n$' then o:write '\n' end
+      end
+      o:write(luacstring_of_function(f, input_file))
+      o:close()
+   end
+   if EXECUTE then f() end
+   OUTPUT_FILE, EXECUTE = nil, nil
+end
+
+parser = clopts {
+   {  short  = 'a', long = 'ast',  type = 'boolean', 
+      action = function (b) PRINT_AST=b end, 
+      usage  = 'print the AST resulting from file compilation'  
+   },
+   {  short  = 'o', long = 'output', type = 'string',
+      action = function (s) OUTPUT_FILE=s end,
+      usage  = 'set the target name of the next compiled file'  
+   },
+   {  short  = 'b', long = 'metabugs', type = 'boolean', 
+      action = function (b) mlc.SHOW_METABUGS=b end,
+      usage  = 'show syntax errors at metalevel 1 as metalevel 0 runtime errors' 
+   },
+   {  short  = 'x', long = 'execute', type = 'boolean',
+      action = function (b) EXECUTE=b end,
+      usage  = 'execute the compiled file instead of saving it (unless -o is also used)'
+   },
+   {  short  = 'v', long = 'verbose', type = 'boolean',
+      action = function (b) VERBOSE=b end,
+      usage  = 'verbose mode'  
+   },
+   {  short  = 's', long = 'sharpbang', type = 'string',
+      action = function (s) SHARPBANG=s end,
+      usage  = 'set a first line to add to compiled file, typically "#!/bin/env mlr"' 
+   },
+   parse_input_file,
+   usage='Compile and/or execute a metalua source file\nmetaluac [option|file]+',
+}
+
+parser(...)

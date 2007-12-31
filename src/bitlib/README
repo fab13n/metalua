@@ -1,0 +1,48 @@
+                          bitlib release 21
+                          -----------------
+
+                   by Reuben Thomas <rrt@sc3d.org>
+                 http://luaforge.net/projects/bitlib
+
+
+bitlib is a C library for Lua 5.x that provides bitwise operations. It
+is copyright Reuben Thomas 2000-2006, and is released under the MIT
+license, like Lua (see http://www.lua.org/copyright.html; it's
+basically the same as the BSD license). There is no warranty.
+
+Please report bugs and make suggestions to the email address above, or
+use the LuaForge trackers.
+
+Thanks to John Passaniti for his bitwise operations library, some of
+whose ideas I used, and to Thatcher Ulrich for portability fixes.
+
+
+Installation
+------------
+
+The provided Makefile builds a shared library called bit.so, which can
+be installed on LUA_CPATH and used with require.
+
+
+Use
+---
+
+Lua functions provided:
+
+bit.bnot(a)       returns the one's complement of a
+bit.band(w1,...)  returns the bitwise and of the w's
+bit.bor(w1,...)   returns the bitwise or of the w's
+bit.bxor(w1,...)  returns the bitwise exclusive or of the w's
+bit.lshift(a,b)   returns a shifted left b places
+bit.rshift(a,b)   returns a shifted logically right b places
+bit.arshift(a,b)  returns a shifted arithmetically right b places
+bit.mod(a,b)      returns the integer remainder of a divided by b
+
+All function arguments should be integers. The number of bits
+available for logical operations depends on the data type used to
+represent Lua numbers; this is typically 8-byte IEEE floats, which
+give 53 bits (the size of the mantissa).
+
+The logical operations start with "b" for "bit" to avoid clashing with
+reserved words; although "xor" isn't a reserved word, it seemed better
+to use "bxor" for consistency.
