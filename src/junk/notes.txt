@@ -1,9 +1,16 @@
+=== Random personal notes ===
+
+====================================================================
+This is my persistent *scratch*. There are random notes, in random
+languages, unstructured, out of date, generally unexploitable. Don't
+expect anything here to make sense.
+====================================================================
+
 This distribution of metalua tries to favor ease of install over
 saving a couple of kilobytes; therefore it directly embeds pieces of
 useful other free software rather than letting users fetch and
 configure them, and it installs separately from a regular lua install,
 instead of messing it up.
-
 
 Open source code used by metalua
 
@@ -179,4 +186,34 @@ Variante d'organisation:
 On considere le compilo comme une librairie classique, et on compte
 des les depart sur la presence d'un tas de libs standard.
 
+
+revenir a une lib plus simple
+=============================
+Suite a discussion avec EVE, il vaut mieux distribuer metalua comme
+une lib que comme une VM patchee. Ca demande:
+
+- de patcher require proprement. Triturer un peu la table
+  package.loaders permettrait de faire ca correctement, en remplacant
+  l'entree Lua_loader.
+
+- dostring() dofile(), loadstring(), loadfile(). Je les refais en C,
+  do*() utilisant load*(). 
+
+Reste le probleme qu'en fait il y a 2 produits ds metalua: le CTMP
+compiler, et une baselib etendue. J'ai besoin au moins du 2nd au
+runtime, la plupart du temps. ==> Probleme: est-ce que je laisse les
+require() correspondants a la charge du developpeur? p/r a 0.3, au
+moins, il se rendra compte que ca manque grace a la separation des
+etats.
+
+il faudra encore fournir une boucle interactive, celle de lua n'est
+pas patchable. Idem pour le compilo.
+
+distro: il faudrait reunir tous les fichiers C (bitlib, pluto, rings,
+load) dans un binaire unique. Peut-etre precompiler les libs Lua de
+compil, et inclure le bytecode correspondant dans ce binaire. la lib
+compilo require la lib runtime, mais ne l'inclue pas.
+
+Propal de nom: metalua.runtime et metalua.compile (verifier les
+finasseries sur les namespaces de modules).
 
