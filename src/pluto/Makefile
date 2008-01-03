@@ -1,9 +1,8 @@
-include ../common.mk
+include ../config
 
 all: pluto.$(LIBEXT)
 	cp $+ $(TARGET_LUA_CPATH)
 
-macosx: all
-
-pluto.$(LIBEXT): pluto.$(OBJEXT)
-	$(MKLIB) -o $@ $+
+pluto.$(LIBEXT):
+	echo $(PLATFORM)
+	$(MKLIB) -o $@ pluto.$(OBJEXT)

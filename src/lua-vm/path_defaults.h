@@ -2,5 +2,5 @@
 #define LUA_INIT "METALUA_INIT"
 #define LUA_PATH "METALUA_PATH"
 #define LUA_CPATH "METALUA_CPATH"
-#define LUA_PATH_DEFAULT  "./?.lua;/tmp/lua/?.lua;./?.luac;/tmp/lua/?.luac"
-#define LUA_CPATH_DEFAULT "/tmp/lua/?.dylib;/tmp/lua/?/linit.dylib"
+#define LUA_PATH_DEFAULT  "./?.lua;g:/temp/metalua/?.lua;./?.luac;g:/temp/metalua/?.luac"
+#define LUA_CPATH_DEFAULT "g:/temp/metalua/?.dll;g:/temp/metalua/?/linit.dll"

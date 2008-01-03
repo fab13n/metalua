@@ -13,6 +13,9 @@
 #include "lualib.h"
 #include "lauxlib.h"
 
+LUALIB_API int luaopen_bit (lua_State *L);
+LUALIB_API int luaopen_rings (lua_State *L);
+LUALIB_API int luaopen_pluto (lua_State *L);
 
 static const luaL_Reg objlibs[] = {
   {"", luaopen_base},
@@ -23,6 +26,9 @@ static const luaL_Reg objlibs[] = {
   {LUA_STRLIBNAME, luaopen_string},
   {LUA_MATHLIBNAME, luaopen_math},
   {LUA_DBLIBNAME, luaopen_debug},
+  {"pluto", luaopen_pluto},
+  {"rings", luaopen_rings},
+  {"bit", luaopen_bit},
   {NULL, NULL}
 };
 

@@ -1,8 +1,8 @@
-include ../common.mk
+include ../config
 
-#VM = $(TARGET_LUA_CPATH)/$(VM)
-
-TARGETS = bytecode.luac mlp.luac mlc.luac metaluac
+TARGETS_LUA = bytecode.luac mlp.luac mlc.luac 
+TARGETS_BIN = metaluac
+TARGETS     = $(TARGETS_LUA) $(TARGETS_BIN)
 
 all: $(TARGETS) install
 
@@ -44,17 +44,19 @@ COMPILER_LUA = \
       metaluac.lua    
 
 %.luac: %.mlua bootstrap
-	../lua-vm/$(RUN) bootstrap $<
+	METALUA_PATH="../lib/?.lua;;" ../lua-vm/$(RUN) bootstrap $<
 
 metaluac: metaluac.luac
-	echo '#!$(TARGET_LUA_CPATH)/$(RUN)' > $@
+	echo '#!$(TARGET_BIN_PATH)/$(RUN)' > $@
 	cat   $^ >> $@
 	chmod a+x $@
 
 install: $(TARGETS)
-	cp $^ $(TARGET_LUA_CPATH)/
+	cp $(TARGETS_LUA) $(TARGET_LUA_PATH)/
+	cp $(TARGETS_BIN) $(TARGET_BIN_PATH)/	
 
 .PHONY: all install-lib
 
 clean:
-	rm *.luac $(TARGETS)
+	rm -f *.luac $(TARGETS)
+	rm -f bootstrap

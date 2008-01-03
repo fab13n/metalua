@@ -2,3 +2,11 @@
 *.o
 *.so
 *.dylib
+*.sh
+*.dll
+*.exe
+*.a
+src/compiler/bootstrap
+src/compiler/metaluac
+src/lua-vm/path_defaults.h
+
