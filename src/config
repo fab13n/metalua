@@ -1,0 +1,40 @@
+
+#########################################################
+# Installation paths
+
+TARGET_LUA_PATH  = g:/temp/metalua
+TARGET_LUA_CPATH = $(TARGET_LUA_PATH)
+TARGET_BIN_PATH = $(TARGET_LUA_PATH)
+
+#########################################################
+#
+
+MLC              = lua-vm/mlc
+MLR              = lua-vm/mlr
+CC               = gcc
+CFLAGS           = -g3 -Wall -ansi -I ../lua-vm
+OBJEXT           = o
+COMPILE          = mlc
+RUN              = mlr
+ENV_PREFIX       = METALUA
+
+ifeq ($(PLATFORM), macosx)
+  LIBEXT        = dylib
+  MKLIB         = gcc -bundle -undefined dynamic_lookup
+  LUA_BINARIES  = $(COMPILE) $(RUN)
+endif 
+
+ifeq ($(PLATFORM), mingw)
+  LIBEXT        = dll
+  MKLIB         = gcc -shared
+  LUA_BINARIES  = $(COMPILE).exe $(RUN).exe metalua.dll 
+endif
+
+# TODO [EVE] not good that names are created both here and in the lua makefile, fix that
+
+
+
+LUA_PATH_DIRS = ./?.EXT;$(TARGET_LUA_PATH)/?.EXT
+LUA_PATH      = "$(subst EXT,lua,$(LUA_PATH_DIRS));$(subst EXT,luac,$(LUA_PATH_DIRS))"
+LUA_CPATH     = "$(TARGET_LUA_CPATH)/?.$(LIBEXT);$(TARGET_LUA_CPATH)/?/linit.$(LIBEXT)"
+
