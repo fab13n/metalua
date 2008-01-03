@@ -217,3 +217,15 @@ compilo require la lib runtime, mais ne l'inclue pas.
 Propal de nom: metalua.runtime et metalua.compile (verifier les
 finasseries sur les namespaces de modules).
 
+autre probleme, les arguments '...' pour les scripts. Comme c'est
+combine() qui pose probleme, en le fixant c'est resolu.
+
+Comment lua fait pour distinguer les arguments des sources ? lua.exe
+ne charge qu'un script, le reste est passe en options. On peut avoir
+l'algo suivant:
+- les fichiers sont passes avec -s <name>
+- les trucs sans rien sont des parametres du script
+- sauf le 1er truc sans rien, qui est un fichier s'il n'y a pas eu de
+  -s avant
+- apres le premier truc sans rien ou --, tout est considere comme des
+  parametres. 

@@ -169,14 +169,30 @@ local function match_builder (tested_terms_list, cases)
       elseif "Id"    == pattern.tag then handle_id (pattern, v)
       elseif "Op"    == pattern.tag and "div" == pattern[1] then
          local n2 = n>0 and n+1 or 1
-         local regexp = pattern[3]
+         local _, regexp, sub_pattern = unpack(pattern)
+         if sub_pattern.tag=="Id" then sub_pattern = `Table{ sub_pattern } end
+         -- Sanity checks --
          assert (regexp.tag=="String", 
-                 "right hand side operand for '/' in a pattern must be "..
+                 "Left hand side operand for '/' in a pattern must be "..
                  "a literal string representing a regular expression")
-         local m  = +{ { string.strmatch( -{var(n2)}, -{regexp} ) } }
-         acc +{stat: local -{var(n2)} = -{m} }
-         acc_test +{ next (-{var(n2)}) }
-         pattern_builder (n2, pattern[2])
+         assert (sub_pattern.tag=="Table",
+                 "Right hand side operand for '/' in a pattern must be "..
+                 "an identifier or a list of identifiers")
+         for x in ivalues(sub_pattern) do
+            assert (x.tag=="Id" or x.tag=='Dots',
+                 "Right hand side operand for '/' in a pattern must be "..
+                 "a list of identifiers")
+         end
+
+         -- Can only match strings
+         acc_test +{ type(-{v}) ~= 'string' }
+         -- put all captures in a list
+         local capt_list  = +{ { string.strmatch(-{v}, -{regexp}) } }
+         -- save them in a var_n for recursive decomposition
+         acc +{stat: local -{var(n2)} = -{capt_list} }
+         -- was capture successful?
+         acc_test +{ not next (-{var(n2)}) }
+         pattern_builder (n2, sub_pattern)
       elseif "Table" == pattern.tag then
          local seen_dots, len = false, 0
          acc_test +{ type( -{v} ) ~= "table" } 
