@@ -46,23 +46,43 @@
 require 'pluto'
 require 'rings'
 
+----------------------------------------------------------------------
+-- Make the name match the module, grab state __index metamethod.
+-- We need to use the debug() API, since there is a __metatable
+-- metamethod to prevent metatable retrieval.
 -- Change the __NAME__ if you want to rename the module!
-local __NAME__ = 'springs'
+----------------------------------------------------------------------
+local __NAME__      = 'springs'
+local rings         = rings
+local ring_index    = debug.getregistry()['state metatable'].__index
+getfenv()[__NAME__] = rings
 
 ----------------------------------------------------------------------
 -- Permanent tables for Pluto's persist() and unpersist() functions.
 -- Unused for now.
 ----------------------------------------------------------------------
-local rings_p_perms = { }
-local rings_u_perms = { }
+rings.p_perms = { }
+rings.u_perms = { }
+
+----------------------------------------------------------------------
+-- For springs to work, the newly created state must load springs, so
+-- that it has the 'pcall_receive' function needed to answer :call()
+-- and :pcall().
+----------------------------------------------------------------------
+local original_rings_new = rings.new
+function rings.new ()
+   local r = original_rings_new ()
+   r:dostring (string.format ("require %q", __NAME__))
+   return r
+end
 
 ----------------------------------------------------------------------
 -- Serialize, send the request to the child state, 
 -- deserialize and return the result
 ----------------------------------------------------------------------
-local function pcall_send (r, f, ...)
-   local type_f, data = type(f), { f, ... }
+function ring_index:pcall (f, ...)
 
+   local type_f = type(f) 
    if type_f ~= 'string' and type_f ~= 'function' then 
       error "Springs can only call functions and strings"
    end
@@ -70,15 +90,16 @@ local function pcall_send (r, f, ...)
    -------------------------------------------------------------------
    -- pack and send msg, get response msg
    -------------------------------------------------------------------
-   local  msg_snd = pluto.persist (rings_p_perms, data)
+   local  data = { f, ... }
+   local  msg_snd = pluto.persist (rings.p_perms, data)
    local  st, msg_rcv = 
-      r:dostring (string.format ("return rings.pcall_receive %q", msg_snd))
+      self:dostring (string.format ("return rings.pcall_receive %q", msg_snd))
    
    -------------------------------------------------------------------
    -- Upon success, unpack and return results.
    -- Upon failure, msg_rcv is an error message
    -------------------------------------------------------------------
-   if st then return unpack(pluto.unpersist (rings_u_perms, msg_rcv))
+   if st then return unpack(pluto.unpersist (rings.u_perms, msg_rcv))
    else return st, msg_rcv end
 end
 
@@ -86,8 +107,8 @@ end
 -- Similar to pcall(), but if the result is an error, this error
 -- is actually thrown *in the sender's context*.
 ----------------------------------------------------------------------
-local function call_send (r, f, ...)
-   local results = { r.pcall(r, f, ...) }
+function ring_index:call (f, ...)
+   local results = { self:pcall(f, ...) }
    if results[1] then return select(2, unpack(results))
    else error(results[2]) end
 end
@@ -99,9 +120,9 @@ end
 -- * either a function and its arguments;
 -- * or a string, which must eval to a function, and its arguments
 ----------------------------------------------------------------------
-local function pcall_receive (rcv_msg)
+function rings.pcall_receive (rcv_msg)
    local result
-   local data = pluto.unpersist (rings_u_perms, rcv_msg)
+   local data = pluto.unpersist (rings.u_perms, rcv_msg)
    assert (type(data)=='table', "illegal springs message")
 
    -------------------------------------------------------------------
@@ -111,8 +132,7 @@ local function pcall_receive (rcv_msg)
    -------------------------------------------------------------------
    if type(data[1]) == 'string' then 
       local f, msg = loadstring ('return '..data[1])
-      if not f then result = { false, msg }
-      else 
+      if not f then result = { false, msg } else 
          local status
          status, f = pcall(f)
          if f then data[1] = f else result = { false, f } end
@@ -130,31 +150,6 @@ local function pcall_receive (rcv_msg)
    -- indicating the success status (true ==> the evaluation went
    -- successfully), then all the results of the evaluation.
    -------------------------------------------------------------------
-   return pluto.persist (rings_p_perms, result)
+   return pluto.persist (rings.p_perms, result)
 end
 
-----------------------------------------------------------------------
--- Monkey-patch rings to add the new methods.
--- I need to use the debug() API, since there is a __metatable
--- metamethod to prevent metatable retrieval.
-----------------------------------------------------------------------
-debug.getregistry()['state metatable'].__index.pcall = pcall_send
-debug.getregistry()['state metatable'].__index.call = call_send
-rings.pcall_receive = pcall_receive
-
-----------------------------------------------------------------------
--- For springs to work, we need the newly created state to load
--- springs, so that it has the 'pcall_receive' function needed 
--- to answer :call() and :pcall().
-----------------------------------------------------------------------
-local original_rings_new = rings.new
-function rings.new ()
-   local r = original_rings_new ()
-   r:dostring (string.format ("require %q", __NAME__))
-   return r
-end
-
-----------------------------------------------------------------------
--- Make the name match the module
-----------------------------------------------------------------------
-getfenv()[__NAME__] = rings
