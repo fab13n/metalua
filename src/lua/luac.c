@@ -22,21 +22,16 @@
 #include "lopcodes.h"
 #include "lstring.h"
 #include "lundump.h"
-#include "lualib.h"
 
-#define PROGNAME	"mlc"		    /* default program name */
-#define	OUTPUT		"metalua.out"   /* default output file */
+#define PROGNAME	"luac"		/* default program name */
+#define	OUTPUT		PROGNAME ".out"	/* default output file */
 
-/* These global vars are set by doargs(), and used by pmain(). */
 static int listing=0;			/* list bytecodes? */
 static int dumping=1;			/* dump bytecodes? */
 static int stripping=0;			/* strip debug information? */
 static char Output[]={ OUTPUT };	/* default output file name */
 static const char* output=Output;	/* actual output file name */
 static const char* progname=PROGNAME;	/* actual program name */
-static int showast=0; /* show resulting AST on stdout */
-static int metabugs=0; /* show errors as compile-time crashes 
-                        * rather than src syntax errors. */
 
 static void fatal(const char* message)
 {
@@ -50,9 +45,6 @@ static void cannot(const char* what)
  exit(EXIT_FAILURE);
 }
 
-/* Print an error message, followed by the usage summary, then exits the
- * program with an error status.
- */
 static void usage(const char* message)
 {
  if (*message=='-')
@@ -73,12 +65,8 @@ static void usage(const char* message)
  exit(EXIT_FAILURE);
 }
 
-/* Used by doargs() and by pmain() */
 #define	IS(s)	(strcmp(argv[i],s)==0)
 
-/* Parse command line options, returns the index of the first
- * non-option command line parameter (normally a filename or NULL. 
- */
 static int doargs(int argc, char* argv[])
 {
  int i;
@@ -110,10 +98,6 @@ static int doargs(int argc, char* argv[])
    stripping=1;
   else if (IS("-v"))			/* show version */
    ++version;
-  else if (IS("-a"))
-   showast=1;
-  else if (IS("-b"))
-   metabugs=1;
   else					/* unknown option */
    usage(argv[i]);
  }
@@ -130,18 +114,10 @@ static int doargs(int argc, char* argv[])
  return i;
 }
 
+#define toproto(L,i) (clvalue(L->top+(i))->l.p)
 
-/* Take a list of n functions on L's stack. If there's only one,
- * return it as is. If there are several of them, combine them 
- * in a single function, which calls each of them in sequence.
- * This version is modified w.r.t. Lua 5.1.2: when there are
- * several functions, each of them receives the command line's
- * argument in '...', whereas in original Lua, '...' was left
- * empty when several chunks were combined.
- */
 static const Proto* combine(lua_State* L, int n)
 {
-#define toproto(L,i) (clvalue(L->top+(i))->l.p)
  if (n==1)
   return toproto(L,-1);
  else
@@ -150,9 +126,8 @@ static const Proto* combine(lua_State* L, int n)
   Proto* f=luaF_newproto(L);
   setptvalue2s(L,L->top,f); incr_top(L);
   f->source=luaS_newliteral(L,"=(" PROGNAME ")");
-  f->maxstacksize=2;
-  f->is_vararg = VARARG_ISVARARG;
-  pc=3*n+1;
+  f->maxstacksize=1;
+  pc=2*n+1;
   f->code=luaM_newvector(L,pc,Instruction);
   f->sizecode=pc;
   f->p=luaM_newvector(L,n,Proto*);
@@ -162,16 +137,13 @@ static const Proto* combine(lua_State* L, int n)
   {
    f->p[i]=toproto(L,i-n-1);
    f->code[pc++]=CREATE_ABx(OP_CLOSURE,0,i);
-   f->code[pc++]=CREATE_ABx(OP_VARARG,1,0);
-   f->code[pc++]=CREATE_ABC(OP_CALL,0,0,1);
+   f->code[pc++]=CREATE_ABC(OP_CALL,0,1,1);
   }
   f->code[pc++]=CREATE_ABC(OP_RETURN,0,1,0);
   return f;
  }
-#undef toproto
 }
 
-/* Callback for luaU_dump(), so that bytecode is saved in a file. */
 static int writer(lua_State* L, const void* p, size_t size, void* u)
 {
  UNUSED(L);
@@ -183,13 +155,6 @@ struct Smain {
  char** argv;
 };
 
-/* Called by main():
- * - after option arguments have been removed from argc/argv
- * - with a properly setup lua_State
- * - in a cpcall(), so that errors are caught properly
- * argc & argv are passed on the lua state, in a userdata structure
- * kept on the C stack in main()'s frame.
- */
 static int pmain(lua_State* L)
 {
  struct Smain* s = (struct Smain*)lua_touserdata(L, 1);
@@ -197,22 +162,11 @@ static int pmain(lua_State* L)
  char** argv=s->argv;
  const Proto* f;
  int i;
-
  if (!lua_checkstack(L,argc)) fatal("too many input files");
-
- for (i=0; i<argc; i++) {
-   const char* filename=IS("-") ? NULL : argv[i];
-
-   /* Load the default libraries */
-   lua_gc(L, LUA_GCSTOP, 0);  /* stop collector during initialization */
-   luaL_openlibs(L);          /* open libraries */
-   lua_gc(L, LUA_GCRESTART, 0);
-
-   if (luaL_loadfile(L,filename)!=0) fatal(lua_tostring(L,-1)); /* */
- 
- if (showast) luaL_dostring( L, "mlc.showast=true");
- if (metabugs) luaL_dostring( L, "mlc.metabugs=true");
-
+ for (i=0; i<argc; i++)
+ {
+  const char* filename=IS("-") ? NULL : argv[i];
+  if (luaL_loadfile(L,filename)!=0) fatal(lua_tostring(L,-1));
  }
  f=combine(L,argc);
  if (listing) luaU_print(f,listing>1);

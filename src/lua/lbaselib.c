@@ -139,6 +139,7 @@ static int luaB_getfenv (lua_State *L) {
   return 1;
 }
 
+
 static int luaB_setfenv (lua_State *L) {
   luaL_checktype(L, 2, LUA_TTABLE);
   getfunc(L, 0);
@@ -156,10 +157,6 @@ static int luaB_setfenv (lua_State *L) {
   return 1;
 }
 
-static int luaB_initfenv (lua_State *L) {
-  luaL_openlibs( L);
-  return 0;
-}
 
 static int luaB_rawequal (lua_State *L) {
   luaL_checkany(L, 1);
@@ -281,11 +278,7 @@ static int luaB_loadstring (lua_State *L) {
   size_t l;
   const char *s = luaL_checklstring(L, 1, &l);
   const char *chunkname = luaL_optstring(L, 2, s);
-  //FIXME: no way to set the name!
-  return load_aux(L, luaL_loadstring(L, s));
-  // Was loadbuffer, but loadbuffer isn't patched to
-  // use a custom compiler.
-  //return load_aux(L, luaL_loadbuffer(L, s, l, chunkname));
+  return load_aux(L, luaL_loadbuffer(L, s, l, chunkname));
 }
 
 
@@ -448,34 +441,6 @@ static int luaB_newproxy (lua_State *L) {
   return 1;
 }
 
-/* Binary string undump */
-
-struct LoadS { const char *s; size_t size; };
-
-static const char *getS (lua_State *L, void *ud, size_t *size) {
-  struct LoadS *ls = (struct LoadS *)ud;
-  (void) L;
-  if (ls->size == 0) return NULL;
-  *size = ls->size;
-  ls->size = 0;
-  return ls->s;
-}
-
-static int luaB_undump( lua_State *L) {
-  struct LoadS ls;
-  ls.s = luaL_checklstring( L, 1, & ls.size);
-  if( LUA_SIGNATURE[0] != ls.s[0]) {
-    lua_pushstring( L, "undump: not a dump string");
-    lua_error( L);
-  }
-  if( lua_load( L, getS, & ls, luaL_optstring( L, 2, NULL))) {
-    lua_error( L);
-  }
-  return 1;
-}
-
-/* End of binary string undump */
-
 
 static const luaL_Reg base_funcs[] = {
   {"assert", luaB_assert},
@@ -485,7 +450,6 @@ static const luaL_Reg base_funcs[] = {
   {"gcinfo", luaB_gcinfo},
   {"getfenv", luaB_getfenv},
   {"getmetatable", luaB_getmetatable},
-  {"initfenv", luaB_initfenv},
   {"loadfile", luaB_loadfile},
   {"load", luaB_load},
   {"loadstring", luaB_loadstring},
@@ -500,10 +464,9 @@ static const luaL_Reg base_funcs[] = {
   {"setmetatable", luaB_setmetatable},
   {"tonumber", luaB_tonumber},
   {"tostring", luaB_tostring},
-  {"rawtype", luaB_type},
+  {"type", luaB_type},
   {"unpack", luaB_unpack},
   {"xpcall", luaB_xpcall},
-  {"undump", luaB_undump},
   {NULL, NULL}
 };
 
@@ -659,8 +622,8 @@ static void base_open (lua_State *L) {
   lua_pushliteral(L, LUA_VERSION);
   lua_setglobal(L, "_VERSION");  /* set global _VERSION */
   /* `ipairs' and `pairs' need auxliliary functions as upvalues */
-  auxopen(L, "rawipairs", luaB_ipairs, ipairsaux);
-  auxopen(L, "rawpairs", luaB_pairs, luaB_next);
+  auxopen(L, "ipairs", luaB_ipairs, ipairsaux);
+  auxopen(L, "pairs", luaB_pairs, luaB_next);
   /* `newproxy' needs a weaktable as upvalue */
   lua_createtable(L, 0, 1);  /* new table `w' */
   lua_pushvalue(L, -1);  /* `w' will be its own metatable */
@@ -677,6 +640,4 @@ LUALIB_API int luaopen_base (lua_State *L) {
   luaL_register(L, LUA_COLIBNAME, co_funcs);
   return 2;
 }
-
-
 

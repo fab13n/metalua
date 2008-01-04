@@ -31,3 +31,13 @@ end
 -- so here is an always available substitute.
 string.strmatch = string["match"]
 
+-- change a compiled string into a function
+function string.undump(str)
+   if str:strmatch '^\027LuaQ' or str:strmatch '^#![^\n]+\n\027LuaQ' then
+      return loadstring(str)
+   else
+      error "Not a chunk dump"
+   end
+end
+
+return string

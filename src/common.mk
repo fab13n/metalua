@@ -1,22 +1,19 @@
-UNAME            = Darwin
-MLC              = lua-vm/mlc
-MLR              = lua-vm/mlr
+VM_DIR           = lua
 CC               = gcc
 CFLAGS           = -g3 -Wall -ansi -I ../lua-vm
 OBJEXT           = o
 TARGET_LUA_PATH  = /tmp/lua
 TARGET_LUA_CPATH = $(TARGET_LUA_PATH)
-COMPILE          = mlc
-RUN              = mlr
-ENV_PREFIX       = METALUA
+COMPILE          = lua
+RUN              = luac
+ENV_PREFIX       = LUA
+PLATFORM         = macosx
 
-ifeq ($(UNAME),Darwin)
+ifeq ($(PLATFORM),macosx)
   LIBEXT        = dylib
-  LUA_PLATFORM  = macosx
   MKLIB         = gcc -bundle -undefined dynamic_lookup
 else
   LIBEXT        = so
-  LUA_PLATFORM ?= unix
   MKLIB         = I DONT HAVE A CLUE, uname is $(UNAME)
 endif
 

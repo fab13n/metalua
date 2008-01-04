@@ -112,7 +112,7 @@ function mlc.convert (x, src_fmt, dst_fmt, name)
    POINT 'proto', 'table' 
    x = bytecode.dump_string (x)
    POINT 'luacstring', 'string' -- normally x is a bytecode dump
-   x = undump(x, name)
+   x = string.undump(x, name)
    POINT 'function', 'function' 
    error "Can't perform this conversion (bad dst name)"
 end
@@ -139,20 +139,46 @@ mlc.luacstring_of_function = string.dump
 -- C functions will call them instead of the original versions if
 -- they're referenced in the registry.
 
-local function metalua_loadstring(str, name)
+function loadstring(str, name)
    if type(str) ~= 'string' then error 'string expected' end
-   if str:match '^\027LuaQ' then return undump(str) end
+   if str:match '^\027LuaQ' then return string.undump(str) end
    local n = str:match '^#![^\n]*\n()'
    if n then str=str:sub(n, -1) end
+   -- FIXME: handle erroneous returns (return nil + error msg)
    return mlc.function_of_luastring(str, name)
 end
 
-local function metalua_loadfile(filename)
+function loadfile(filename)
    local f = io.open(filename, 'rb')
    local src = f:read '*a'
    f:close()
-   return metalua_loadstring(src, '@'..filename)
+   return loadstring(src, '@'..filename)
 end
+
+function load(f, name)
+   while true do
+      local x = f()
+      if not x then break end
+      assert(type(x)=='string', "function passed to load() must return strings")
+      table.insert(acc, x)
+   end
+   return loadstring(table.concat(x))
+end
+
+function dostring(src)
+   local f, msg = loadstring(src)
+   if not f then error(msg) end
+   return f()
+end
+
+function dofile(name)
+   local f, msg = loadfile(name)
+   if not f then error(msg) end
+   return f()
+end
+
+
 
 debug.getregistry().loadstring = metalua_loadstring
 debug.getregistry().loadfile = metalua_loadfile
+

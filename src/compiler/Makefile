@@ -1,7 +1,5 @@
 include ../common.mk
 
-#VM = $(TARGET_LUA_CPATH)/$(VM)
-
 TARGETS = bytecode.luac mlp.luac mlc.luac metaluac
 
 all: $(TARGETS) install
@@ -15,7 +13,7 @@ BYTECODE_LUA =      \
       compile.lua   
 
 bytecode.luac: $(BYTECODE_LUA)
-	../lua-vm/$(COMPILE) -o $@ $^
+	../$(VM_DIR)/$(COMPILE) -o $@ $^
 
 # Library which compiles strings into AST
 MLP_LUA =           \
@@ -30,7 +28,7 @@ MLP_LUA =           \
       mlp_ext.lua 
 
 mlp.luac: $(MLP_LUA)
-	../lua-vm/$(COMPILE) -o $@ $^
+	../$(VM_DIR)/$(COMPILE) -o $@ $^
 
 # bootstrap is the minimal executable that turns a metalua source file into
 # a bytecode file. It's used to generate 
@@ -38,13 +36,13 @@ BOOTSTRAP_LUA = \
       bootstrap.lua
 
 bootstrap: $(BOOTSTRAP_LUA)
-	../lua-vm/$(COMPILE) -o $@ $^
+	../$(VM_DIR)/$(COMPILE) -o $@ $^
 
 COMPILER_LUA = \
       metaluac.lua    
 
 %.luac: %.mlua bootstrap
-	../lua-vm/$(RUN) bootstrap $<
+	../$(VM_DIR)/$(RUN) bootstrap $<
 
 metaluac: metaluac.luac
 	echo '#!$(TARGET_LUA_CPATH)/$(RUN)' > $@

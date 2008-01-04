@@ -359,3 +359,5 @@ function table.tostring(t, ...)
 end
 
 function table.print(...) return print(table.tostring(...)) end
+
+return table

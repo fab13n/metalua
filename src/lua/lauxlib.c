@@ -549,7 +549,7 @@ static int errfile (lua_State *L, const char *what, int fnameindex) {
 }
 
 
-static int original_loadfile (lua_State *L, const char *filename) {
+LUALIB_API int luaL_loadfile (lua_State *L, const char *filename) {
   LoadF lf;
   int status, readstatus;
   int c;
@@ -591,20 +591,6 @@ static int original_loadfile (lua_State *L, const char *filename) {
 }
 
 
-/* A hook has been added for metalua: if there is a loadfile function
- * in the registry index, it is called instead of the C implementation.
- */
-LUALIB_API int luaL_loadfile (lua_State *L, const char *filename) {
-  lua_getfield( L, LUA_REGISTRYINDEX, "loadfile");
-  if( lua_isfunction( L, -1)) {
-    if( filename) lua_pushstring( L, filename); else lua_pushnil( L);
-    return lua_pcall( L, 1, 1, 0);
-  } else {
-    lua_pop( L, 1); // drop registry.loadfile
-    return original_loadfile( L, filename);
-  }
-}
-
 typedef struct LoadS {
   const char *s;
   size_t size;
@@ -629,16 +615,9 @@ LUALIB_API int luaL_loadbuffer (lua_State *L, const char *buff, size_t size,
   return lua_load(L, getS, &ls, name);
 }
 
-/* Return 0 on success, LUA_ERRSYNTAC or LUA_ERRMEM on error */
+
 LUALIB_API int (luaL_loadstring) (lua_State *L, const char *s) {
-  lua_getfield( L, LUA_REGISTRYINDEX, "loadstring");
-  if( lua_isfunction( L, -1)) {
-    if( s) lua_pushstring( L, s); else lua_pushnil( L);
-    return lua_pcall( L, 1, 1, 0);
-  } else {
-    lua_pop( L, 1); // drop registry.loadstring
-    return luaL_loadbuffer(L, s, strlen(s), s);
-  }
+  return luaL_loadbuffer(L, s, strlen(s), s);
 }
 
 

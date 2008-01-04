@@ -16,14 +16,10 @@
 #include "luaconf.h"
 
 
-#define LUA_VERSION	"Metalua 0.4"
-#define LUA_RELEASE	"Metalua 0.4"
-#define LUA_VERSION_NUM	501 /* Keep binary compatibility with Lua 5.1 */
-#define LUA_COPYRIGHT                                                      \
-  "Metalua  Copyright (C) 2006-2007 Fabien Fleutot <metalua@gmail.com\n"   \
-  "Yueliang Copyright (C) 2005-2007 Kein-Hong Man  <khman@users.sf.net>\n" \
-  "Bitlib   Copyright (C)     -2007 Reuben Thomas  <rrt@sc3d.org>\n"       \
-  "Lua      Copyright (C) 1994-2007 Lua.org, PUC-Rio"
+#define LUA_VERSION	"Lua 5.1"
+#define LUA_RELEASE	"Lua 5.1.2"
+#define LUA_VERSION_NUM	501
+#define LUA_COPYRIGHT	"Copyright (C) 1994-2007 Lua.org, PUC-Rio"
 #define LUA_AUTHORS 	"R. Ierusalimschy, L. H. de Figueiredo & W. Celes"
 
 

@@ -58,7 +58,6 @@
 #define LUA_USE_ULONGJMP
 #endif
 
-#if 0 /* Metalua sets those variables in path_defaults.h, automatically generated. */
 
 /*
 @@ LUA_PATH and LUA_CPATH are the names of the environment variables that
@@ -69,7 +68,7 @@
 */
 #define LUA_PATH        "LUA_PATH"
 #define LUA_CPATH       "LUA_CPATH"
-#define LUA_INIT	    "LUA_INIT"
+#define LUA_INIT	"LUA_INIT"
 
 
 /*
@@ -104,12 +103,6 @@
 #define LUA_CPATH_DEFAULT \
 	"./?.so;"  LUA_CDIR"?.so;" LUA_CDIR"loadall.so"
 #endif
-
-#else /* metalua */
-
-#include "path_defaults.h"
-
-#endif /* metalua */
 
 
 /*

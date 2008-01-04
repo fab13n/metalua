@@ -10,6 +10,10 @@ METALUA_VERSION          = "v-0.4"
 METALUA_EXTLIB_PREFIX    = "ext-lib/"
 METALUA_EXTSYNTAX_PREFIX = "ext-syntax/"
 
+if not rawpairs then
+   rawpairs, rawipairs, rawtype = pairs, ipairs, type
+end
+
 function pairs(x)
    assert(type(x)=='table', 'pairs() expects a table')
    local mt = getmetatable(x)

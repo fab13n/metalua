@@ -265,12 +265,7 @@ LUA_API int lua_getinfo (lua_State *L, const char *what, lua_Debug *ar) {
 ** =======================================================
 */
 
-static int bad(const char *test, const char *file, const int line) {
-  extern int printf(const char *fmt,...);
-  printf("Code sanity check failure:%s:%i: %s\n", file, line, test); 
-  return 0;
-}
-#define check(x)		if (!(x)) return bad(#x, __FILE__, __LINE__);
+#define check(x)		if (!(x)) return 0;
 
 #define checkjump(pt,pc)	check(0 <= pc && pc < pt->sizecode)
 

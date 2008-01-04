@@ -136,7 +136,7 @@ static int dofile (lua_State *L, const char *name) {
 
 
 static int dostring (lua_State *L, const char *s, const char *name) {
-  int status = luaL_loadstring(L, s) || docall(L, 0, 1);
+  int status = luaL_loadbuffer(L, s, strlen(s), name) || docall(L, 0, 1);
   return report(L, status);
 }
 
@@ -197,7 +197,7 @@ static int loadline (lua_State *L) {
   if (!pushline(L, 1))
     return -1;  /* no input */
   for (;;) {  /* repeat until gets a complete line */
-    status = luaL_loadstring(L, lua_tostring(L, 1));
+    status = luaL_loadbuffer(L, lua_tostring(L, 1), lua_strlen(L, 1), "=stdin");
     if (!incomplete(L, status)) break;  /* cannot try to add lines? */
     if (!pushline(L, 0))  /* no more input? */
       return -1;
@@ -211,7 +211,6 @@ static int loadline (lua_State *L) {
 }
 
 
-/* Execute the interactive loop on the terminal. */
 static void dotty (lua_State *L) {
   int status;
   const char *oldprogname = progname;
