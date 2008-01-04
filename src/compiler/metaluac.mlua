@@ -21,7 +21,7 @@ function parse_input_file(input_file)
    local f
    local ast = mlc.ast_of_luafile(input_file)
    if PRINT_AST then table.print(ast, 80, 'nohash') end
-   f = assert(mlc.function_of_ast(ast, input_file))
+   f = mlc.function_of_ast(ast, input_file)
    if not EXECUTE or OUTPUT_FILE then
       OUTPUT_FILE = OUTPUT_FILE or input_file:gsub('%.lua$', '.luac')
       local o = io.open (OUTPUT_FILE, 'w')
