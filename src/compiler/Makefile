@@ -1,21 +1,26 @@
 include ../common.mk
 
-TARGETS = bytecode.luac mlp.luac mlc.luac metaluac
+all: $(LIBRARIES) $(M_LIBRARIES) install metalua
 
-all: $(TARGETS) install
+$(PLATFORM): all
+
+LUA_RUN     = ../lua/lua
+LUA_COMPILE = ../lua/luac
+
+LIBRARIES =       \
+	bytecode.luac \
+	mlp.luac      \
+	mlc.luac      
+
 
 # Library which compiles an AST into a bytecode string.
-# Written in pure lua
 BYTECODE_LUA =      \
       lopcodes.lua  \
       lcode.lua     \
       ldump.lua     \
       compile.lua   
 
-bytecode.luac: $(BYTECODE_LUA)
-	../$(VM_DIR)/$(COMPILE) -o $@ $^
-
-# Library which compiles strings into AST
+# Library which compiles source strings into AST
 MLP_LUA =           \
       lexer.lua     \
       gg.lua        \
@@ -27,32 +32,29 @@ MLP_LUA =           \
       mlp_stat.lua  \
       mlp_ext.lua 
 
+bytecode.luac: $(BYTECODE_LUA)
+	$(LUA_COMPILE) -o $@ $^
+
 mlp.luac: $(MLP_LUA)
-	../$(VM_DIR)/$(COMPILE) -o $@ $^
+	$(LUA_COMPILE) -o $@ $^
 
-# bootstrap is the minimal executable that turns a metalua source file into
-# a bytecode file. It's used to generate 
-BOOTSTRAP_LUA = \
-      bootstrap.lua
+# Plain lua files compilation
+%.luac: %.mlua bootstrap.lua mlp.luac bytecode.luac
+	$(LUA_RUN) bootstrap.lua $<
 
-bootstrap: $(BOOTSTRAP_LUA)
-	../$(VM_DIR)/$(COMPILE) -o $@ $^
+# Metalua files compilation through the bootstrap compiler
+%.luac: %.lua
+	$(LUA_COMPILE) -o $@ bootstrap $<
 
-COMPILER_LUA = \
-      metaluac.lua    
+# Compiler/interpreter
+metalua: metalua.luac $(LIBRARIES)
+	$(LUA_RUN) metalua.luac --verbose --sharpbang '#!/usr/bin/env lua' --output metalua --file metalua.mlua
 
-%.luac: %.mlua bootstrap
-	../$(VM_DIR)/$(RUN) bootstrap $<
+install: metalua $(LIBRARIES)
+	cp metalua $(TARGET_BIN_PATH)
+	cp $(LIBRARIES) $(TARGET_LUA_PATH)/
 
-metaluac: metaluac.luac
-	echo '#!$(TARGET_LUA_CPATH)/$(RUN)' > $@
-	cat   $^ >> $@
-	chmod a+x $@
-
-install: $(TARGETS)
-	cp $^ $(TARGET_LUA_CPATH)/
-
-.PHONY: all install-lib
+.PHONY: all lib install
 
 clean:
-	rm *.luac $(TARGETS)
+	rm *.luac 

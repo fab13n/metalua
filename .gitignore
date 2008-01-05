@@ -2,3 +2,12 @@
 *.o
 *.so
 *.dylib
+*.sh
+*.dll
+*.exe
+*.a
+src/copmiler/metalua
+src/lua/liblua.*
+src/lua/luac
+src/lua/lua
+

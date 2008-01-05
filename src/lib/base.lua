@@ -6,9 +6,10 @@
 ----------------------------------------------------------------------
 ----------------------------------------------------------------------
 
-METALUA_VERSION          = "v-0.4"
-METALUA_EXTLIB_PREFIX    = "ext-lib/"
-METALUA_EXTSYNTAX_PREFIX = "ext-syntax/"
+if not metalua then rawset(getfenv(), 'metalua', { }) end
+metalua.version             = "v-0.4"
+metalua.ext_compiler_prefix = 'extension-compiler.'
+metalua.ext_runtime_prefix   = 'extension-runtime.'
 
 if not rawpairs then
    rawpairs, rawipairs, rawtype = pairs, ipairs, type
@@ -34,6 +35,7 @@ function ipairs(x)
    return rawipairs(x)
 end
 
+--[[
 function type(x)
    local mt = getmetatable(x)
    if mt then
@@ -42,6 +44,7 @@ function type(x)
    end
    return rawtype(x)
 end
+]]
 
 function min (a, ...)
    for n in values{...} do if n<a then a=n end end
@@ -94,22 +97,4 @@ function keys (x)
    end
    return iterator, { list = x }
 end
-
--- Loads a couple syntax extension + support library in a single
--- operation. For instance, [-{ extension "exceptions" }] should both
--- * load the exception syntax in the parser at compile time
--- * put the instruction to load the support lib in the compiled file
-
-function extension (name, noruntime)
-   local extlib_name = METALUA_EXTLIB_PREFIX .. name
-   local extsyn_name = METALUA_EXTSYNTAX_PREFIX .. name
-   require (extsyn_name)
-   if not noruntime then
-      return {tag="Call", {tag="Id", "require"},
-                          {tag="String", extlib_name} }
-   end
-end
-
-require 'table2'
-require 'string2'
 

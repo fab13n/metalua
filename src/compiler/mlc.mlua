@@ -117,31 +117,39 @@ function mlc.convert (x, src_fmt, dst_fmt, name)
    error "Can't perform this conversion (bad dst name)"
 end
 
+--------------------------------------------------------------------------------
 -- Dynamically compose a conversion function from a function name
 -- xxx_of_yyy() or yyy_to_xxx().
+--------------------------------------------------------------------------------
 function mlc.__index(_, name)   
-   local dst, src = name:strmatch '^([a-z]+)_of_([a-z]+)$'
+   local  dst, src = name:strmatch '^([a-z]+)_of_([a-z]+)$'
    if not dst then src, dst = name:strmatch '^([a-z]+)_to_([a-z]+)$' end
-   if not src and dst then error "Bad converter name" end
-   local osrc, odst = mlc.order[src], mlc.order[dst]   
-   if not src or not dst then error ("malformed mlc function "..name) end
+   if not (src and dst) then return nil end -- not a converter
+   local  osrc, odst = mlc.order[src], mlc.order[dst] -- check existence of formats
    if not osrc then error ("unknown source format "..src) end
    if not odst then error ("unknown destination format "..src) end
    if osrc > odst then error "Can't convert in this direction" end
    return |x, name| mlc.convert(x, src, dst, name) 
 end
 
+--------------------------------------------------------------------------------
 -- This case isn't handled by the __index method, as it goes "in the wrong direction"
+--------------------------------------------------------------------------------
 mlc.function_to_luacstring = string.dump
 mlc.luacstring_of_function = string.dump
 
+--------------------------------------------------------------------------------
 -- These are drop-in replacement for loadfile() and loadstring(). The
 -- C functions will call them instead of the original versions if
 -- they're referenced in the registry.
+--------------------------------------------------------------------------------
+
+lua_loadstring = loadstring
+local lua_loadstring = loadstring
 
 function loadstring(str, name)
    if type(str) ~= 'string' then error 'string expected' end
-   if str:match '^\027LuaQ' then return string.undump(str) end
+   if str:match '^\027LuaQ' then return lua_loadstring(str) end
    local n = str:match '^#![^\n]*\n()'
    if n then str=str:sub(n, -1) end
    -- FIXME: handle erroneous returns (return nil + error msg)
@@ -177,8 +185,4 @@ function dofile(name)
    return f()
 end
 
-
-
-debug.getregistry().loadstring = metalua_loadstring
-debug.getregistry().loadfile = metalua_loadfile
 

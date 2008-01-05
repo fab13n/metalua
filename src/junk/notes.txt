@@ -229,3 +229,64 @@ l'algo suivant:
   -s avant
 - apres le premier truc sans rien ou --, tout est considere comme des
   parametres. 
+
+Metalua executable manual
+
+Allows to compile and/or run metalua programs, and to use interactive
+loop.
+
+--compile
+--run
+--interactive
+--output
+--load-library <name>[@metalevel]
+--print-ast
+
+By default, parameters are passed to all running chunks. However, if
+there is are parameters and no running chunk, the first parameter is
+taken as the running chunk.
+
+metalua --compile foo.mlua 
+
+if there is an --output, all run and compiled files will be saved in
+it.
+
+Think about "require'metalua.runtime'"
+
+- compile all files.
+- displays ASTs depending on --print-ast
+- run all files if --run
+- run loop after compile and run if -i or if no file
+- if no -a and no -o, -x is implied
+- if -x and no file, first param is a file
+
+Le ML du resultat, qu'il soit execute ou sauve, est toujours 1.
+Le niveau 0 est au besoin relance plusieurs fois, une par compile.
+
+r = rings.new()
+r:dostring [[require 'metalua.compile']]
+ast = r:call ('mlc.ast_of_luafile', foo, bar)
+
+soucis avec clopts: l'ordre peut etre important. en l'occurence,
+l'ordre relatif entre libs
+
+
+When does it compile, when does it execute?
+-------------------------------------------
+The result of the compilation is saved if --output is specified. If
+not, the result is run. if both --output and --run are specified, the
+result is both saved and run. If the compilation must be saved, it is
+mandatory to have at least one file or library.
+
+How to load chunks to compile/run
+---------------------------------
+Files can be passed, with their relative paths, with --file. Libraries
+can be loaded, from standard paths, with --library. Litteral blocks of
+code can be passed with --literal.
+
+When does it launch an interactive loop?
+----------------------------------------
+When --interactive is specified, or when no chunk is loaded.
+
+
+

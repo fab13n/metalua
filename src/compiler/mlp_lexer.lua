@@ -14,7 +14,7 @@
 ----------------------------------------------------------------------
 
 module ("mlp", package.seeall)
-require "std"
+
 require "lexer"
 
 local mlp_lexer = lexer.lexer:clone()

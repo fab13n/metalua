@@ -1,0 +1,187 @@
+--*-lua-*- Set as a metalua file because it requires some metalua libs
+
+--require 'verbose_require'
+
+require 'metalua.compiler'
+require 'clopts'
+
+-{ extension 'match' }
+
+local chunks  = { }
+local runargs = { }
+
+local acc_chunk = |kind| function (arg)
+   table.insert (chunks, { tag=kind, arg })
+end
+
+parser = clopts {
+   -- Chunk loading
+   {  short = 'f', long = 'file', type = 'string', action = acc_chunk 'File',
+      usage = 'load a file to compile and/or run'
+   },
+   {  short = 'l', long = 'library', type = 'string', action = acc_chunk 'Library',
+      usage = 'load a libary from the standard paths'
+   },
+   {  short = 'e', long = 'literal', type = 'string', action = acc_chunk 'Literal',
+      usage = 'load a literal piece of source code'
+   },
+   -- What to do with chunks
+   {  short = 'o', long = 'output', type = 'string',
+      usage = 'set the target name of the next compiled file'  
+   },
+   {  short = 'x', long = 'run', type = 'boolean',
+      usage = 'execute the compiled file instead of saving it (unless -o is also used)'
+   },
+   {  short = 'i', long = 'interactive', type = 'boolean',
+      usage = 'run an interactive loop after having run other files'
+   },
+   -- Advanced stuff
+   {  short = 'v', long = 'verbose', type = 'boolean',
+      usage = 'verbose mode'  
+   },
+   {  short = 'a', long = 'print-ast',  type = 'boolean',
+      usage = 'print the AST resulting from file compilation'  
+   },
+   {  short = 'b', long = 'metabugs', type = 'boolean',
+      usage = 'show syntax errors as compile-time execution errors' 
+   },
+   {  short = 's', long = 'sharpbang', type = 'string',
+      usage = 'set a first line to add to compiled file, typically "#!/bin/env mlr"' 
+   },
+   {  long  = 'no-runtime', type = 'boolean',
+      usage = "prevent the automatic requirement of metalua runtime"
+   },
+   {  long  = '', short = 'p', type = '*',
+      action= function (newargs) runargs=table.icat(runargs, newargs) end,
+      usage = "pass all remaining arguments to the program"
+   },
+   usage='Compile and/or execute a metalua source file\nmetaluac [option|file]+',
+}
+
+
+local function main (...)
+
+   local cfg = parser(...)
+
+   -------------------------------------------------------------------
+   -- Print messages if in verbose mode
+   -------------------------------------------------------------------
+   local function verb_print (fmt, ...) 
+      if cfg.verbose then 
+         return printf ("[ "..fmt.." ]", ...) 
+      end 
+   end
+   
+   -------------------------------------------------------------------
+   -- If there's no chunk but there are params, interpret the first
+   -- param as a file name.
+   if #chunks==0 and cfg.params then 
+      local the_file = table.remove(cfg.params, 1)
+      verb_print("Param %q considered as a source file", the_file)
+      chunks = { `File{ the_file } }
+   end
+
+   -------------------------------------------------------------------
+   -- If nothing to do, run REPL loop
+   if #chunks==0 and cfg.interactive==nil then
+      verb_print "Nothing to compile nor run, force interactive loop"
+      cfg.interactive=true
+   end
+
+
+   -------------------------------------------------------------------
+   -- Run if asked to, or if no --output has been given
+   if not cfg.run and not cfg.output then
+      verb_print("No output file specified; I'll run the program")
+      cfg.run = true
+   end
+
+
+   -------------------------------------------------------------------
+   -- List all sources  to compile if verbose
+   if cfg.verbose then
+      verb_print "Sources to compile:"
+      for s in values(chunks) do verb_print(" * %s", table.tostring(s)) end 
+   end
+
+   local code = { }
+
+   -------------------------------------------------------------------
+   -- Get ASTs from sources
+   for x in values(chunks) do
+      local ast
+      match x with
+      | `Library{ l } -> ast = `Call{ `Id 'require', `String{ l } }
+      | `Literal{ e } -> ast = mlc.ast_of_luastring(e, 'literal')
+      | `File{ f } -> 
+         ast = mlc.ast_of_luafile(f) -- FIXME: handle '-'
+         ast = +{ function (...) -{ast} end(...) }
+      | _ -> print'XXX mismatch'; table.print(x)
+      end
+      ast.origin = x
+      table.insert(code, ast)
+   end
+
+   -------------------------------------------------------------------
+   -- AST printing
+   if cfg['print-ast'] then 
+      verb_print "Resulting AST:"
+      for x in values(code) do
+         printf("--- AST From %s: ---", table.tostring(x.origin, 'nohash'))
+         if x.origin.tag=='File' then x=x[1][2][1] end
+         table.print(x, 80, 'nohash')
+      end 
+   end
+
+   -------------------------------------------------------------------
+   -- Insert runtime loader
+   if not cfg['no-runtime'] then 
+      verb_print "Inserting command \"require 'metalua.runtime'\""
+      table.insert(code, 1, +{require'metalua.runtime'})
+   end
+
+   -- FIXME: check for failures
+   -- FIXME: handle metabugs
+   local bytecode = mlc.luacstring_of_ast (code)
+   code = nil
+
+   -------------------------------------------------------------------
+   -- Insert #!... command
+   if cfg.sharpbang then
+      verb_print ("Adding sharp-bang directive %q", cfg.sharpbang)
+      if not cfg.sharpbang:strmatch'\n$' then cfg.sharpbang=cfg.sharpbang..'\n' end
+      bytecode = cfg.sharpbang..bytecode
+   end
+
+   -------------------------------------------------------------------
+   -- Save to file
+   if cfg.output then
+      -- FIXME: handle '-'
+      verb_print ("Saving to file %q", cfg.output)
+      local file, err_msg = io.open(cfg.output, 'w')
+      if not file then error("can't open output file: "..err_msg) end
+      file:write(bytecode)
+      file:close()
+      pcall(os.execute, 'chmod a+x "'..cfg.output..'"')
+   end
+
+   -------------------------------------------------------------------
+   -- Run compiled code
+   if cfg.run then
+      verb_print "Running:"
+      local f = mlc.function_of_luacstring (bytecode)
+      bytecode = nil
+      -- FIXME: check for failures
+      f(unpack (runargs))
+   end
+
+   -------------------------------------------------------------------
+   -- Run REPL loop
+   if cfg.interactive then
+      print ("*":rep(70))
+      print "*** !!! Interactive loop not implemented !!!"
+      print ("*":rep(70))
+   end
+end
+
+main(...)

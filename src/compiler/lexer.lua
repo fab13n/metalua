@@ -27,7 +27,9 @@
 ----------------------------------------------------------------------
 
 module ("lexer", package.seeall)
-require "std"
+
+require 'metalua.runtime'
+
 
 lexer = { alpha={ }, sym={ } }
 lexer.__index=lexer

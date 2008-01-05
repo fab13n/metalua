@@ -27,14 +27,15 @@ function string.split(str, pat)
    return t
 end
 
--- "match" tends to be used as a keyword for pattern matching, 
+-- "match" is regularly used as a keyword for pattern matching, 
 -- so here is an always available substitute.
 string.strmatch = string["match"]
 
 -- change a compiled string into a function
 function string.undump(str)
    if str:strmatch '^\027LuaQ' or str:strmatch '^#![^\n]+\n\027LuaQ' then
-      return loadstring(str)
+      local f = (lua_loadstring or loadstring)(str)
+      return f
    else
       error "Not a chunk dump"
    end
