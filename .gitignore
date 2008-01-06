@@ -6,7 +6,8 @@
 *.dll
 *.exe
 *.a
-src/copmiler/metalua
+.DS_Store
+src/compiler/metalua
 src/lua/liblua.*
 src/lua/luac
 src/lua/lua

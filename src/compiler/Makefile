@@ -57,4 +57,4 @@ install: metalua $(LIBRARIES)
 .PHONY: all lib install
 
 clean:
-	rm *.luac 
+	-rm *.luac metalua 
