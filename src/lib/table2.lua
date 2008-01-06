@@ -71,7 +71,7 @@ end
 
 function table.ifilter(f, t)
    local yes, no = { }, { }
-   for i=1,#t do table.insert (f(t) and yes or no, t[i]) end
+   for i=1,#t do table.insert (f(t[i]) and yes or no, t[i]) end
    return yes, no
 end
 
