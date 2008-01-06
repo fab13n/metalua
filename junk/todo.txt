@@ -1,0 +1,4 @@
+- macro hygiene, wrt inside and outside (anchoring)
+- doc: lambda isn't a multiret anymore
+- fix ^ indicator on error reports (one token too far)
+- forbid flags other than expr in +{-{flag:...}}

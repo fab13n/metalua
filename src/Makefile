@@ -43,6 +43,3 @@ clean:
 	$(MAKE) -C binlibs  clean
 
 .PHONY: all install-lua-lib binlibs lua compiler
-
-install-vm: lua-vm
-	cd lua-vm && cp $(LUA_BINARIES) $(TARGET_BIN_PATH)

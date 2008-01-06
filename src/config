@@ -1,40 +1,56 @@
+# -*-makefile-*-
 
 #########################################################
-# Installation paths
+# Platforms currently supported: mingw, macosx.
+# Feel welcome to contribute additional ones! :)
 
-TARGET_LUA_PATH  = g:/temp/metalua
+PLATFORM         = macosx
+
+#########################################################
+# Installation paths.
+# You might want to first build & install in a temporary
+# directory, to check that everything works fine,
+# before targetting /usr/local/*
+
+TARGET_LUA_PATH  = /tmp/metalua
 TARGET_LUA_CPATH = $(TARGET_LUA_PATH)
-TARGET_BIN_PATH = $(TARGET_LUA_PATH)
+TARGET_BIN_PATH  = /tmp/bin
 
 #########################################################
-#
+# Lua VM settings
+# LUA_VM_DIR is relative to $(METALUA_DIR)/src
 
-MLC              = lua-vm/mlc
-MLR              = lua-vm/mlr
+LUA_VM_DIR       = lua
+COMPILE          = luac
+RUN              = lua
+
+#########################################################
+# C compiler settings for libraries
+
 CC               = gcc
-CFLAGS           = -g3 -Wall -ansi -I ../lua-vm
+CFLAGS           = -g3 -Wall -ansi -I../$(LUA_VM_DIR)
 OBJEXT           = o
-COMPILE          = mlc
-RUN              = mlr
-ENV_PREFIX       = METALUA
+
+#########################################################
+# Platform-specific settings
 
 ifeq ($(PLATFORM), macosx)
-  LIBEXT        = dylib
+  LIBEXT        = so
   MKLIB         = gcc -bundle -undefined dynamic_lookup
   LUA_BINARIES  = $(COMPILE) $(RUN)
-endif 
+endif
 
 ifeq ($(PLATFORM), mingw)
   LIBEXT        = dll
   MKLIB         = gcc -shared
-  LUA_BINARIES  = $(COMPILE).exe $(RUN).exe metalua.dll 
+  LUA_BINARIES  = $(COMPILE).exe $(RUN).exe metalua.dll
 endif
 
-# TODO [EVE] not good that names are created both here and in the lua makefile, fix that
-
-
+#########################################################
+# Environment variables settign paths
 
 LUA_PATH_DIRS = ./?.EXT;$(TARGET_LUA_PATH)/?.EXT
-LUA_PATH      = "$(subst EXT,lua,$(LUA_PATH_DIRS));$(subst EXT,luac,$(LUA_PATH_DIRS))"
-LUA_CPATH     = "$(TARGET_LUA_CPATH)/?.$(LIBEXT);$(TARGET_LUA_CPATH)/?/linit.$(LIBEXT)"
+LUA_PATH      = $(subst EXT,luac,$(LUA_PATH_DIRS));$(subst EXT,lua,$(LUA_PATH_DIRS))
+LUA_MPATH     = $(subst EXT,mlua,$(LUA_PATH_DIRS))
+LUA_CPATH     = $(TARGET_LUA_CPATH)/?.$(LIBEXT);$(TARGET_LUA_CPATH)/?/linit.$(LIBEXT)
 
