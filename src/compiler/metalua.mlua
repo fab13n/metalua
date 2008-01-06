@@ -4,6 +4,7 @@
 
 require 'metalua.compiler'
 require 'clopts'
+require 'springs'
 
 -{ extension 'match' }
 
@@ -59,6 +60,8 @@ parser = clopts {
 }
 
 
+INIT_COMPILATION_RING = [[require 'metalua.compiler']]
+
 local function main (...)
 
    local cfg = parser(...)
@@ -112,9 +115,14 @@ local function main (...)
       local ast
       match x with
       | `Library{ l } -> ast = `Call{ `Id 'require', `String{ l } }
-      | `Literal{ e } -> ast = mlc.ast_of_luastring(e, 'literal')
+      | `Literal{ e } -> 
+         local ring = springs.new()
+         ring:dostring (INIT_COMPILATION_RING)
+         ast = ring:call('mlc.ast_of_luastring', e, 'literal')
       | `File{ f } -> 
-         ast = mlc.ast_of_luafile(f) -- FIXME: handle '-'
+         local ring = springs.new()
+         ring:dostring (INIT_COMPILATION_RING)
+         ast = ring:call('mlc.ast_of_luafile', f) -- FIXME: handle '-'
          ast = +{ function (...) -{ast} end(...) }
       | _ -> print'XXX mismatch'; table.print(x)
       end
