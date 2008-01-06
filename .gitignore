@@ -9,7 +9,8 @@
 .DS_Store
 semantic.cache
 src/compiler/metalua
-src/lua/liblua.*
 src/lua/luac
 src/lua/lua
+src/compiler/bootstrap
+src/compiler/metalua
 

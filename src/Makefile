@@ -23,9 +23,15 @@ setenv.sh: config
 	echo 'export LUA_CPATH="$(LUA_CPATH)"'       >> $@
 	echo 'export LUA_MPATH="$(LUA_MPATH)"'       >> $@
 	echo 'export PATH=$(TARGET_BIN_PATH):$$PATH' >> $@
+	mkdir -p $(TARGET_BIN_PATH)
+	echo '#!/bin/bash'                                 >  $@
+	echo 'export $(ENV_PREFIX)_INIT="require [[std]]"' >> $@
+	echo 'export $(ENV_PREFIX)_PATH=$(LUA_PATH)'       >> $@
+	echo 'export $(ENV_PREFIX)_CPATH=$(LUA_CPATH)'     >> $@
+	echo 'export PATH=$(TARGET_BIN_PATH):$$PATH'       >> $@
 	chmod a+x $@
 
-install-lua-lib: lib
+install-lua-lib: setenv.sh lib
 	cp -r lib/* $(TARGET_LUA_PATH)/
 
 lua binlibs compiler:
@@ -36,4 +42,7 @@ clean:
 	$(MAKE) -C compiler clean
 	$(MAKE) -C binlibs  clean
 
-.PHONY: all setup.sh install-lua-lib binlibs lua compiler
+.PHONY: all install-lua-lib binlibs lua compiler
+
+install-vm: lua-vm
+	cd lua-vm && cp $(LUA_BINARIES) $(TARGET_BIN_PATH)
