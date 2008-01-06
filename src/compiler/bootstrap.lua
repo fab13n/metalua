@@ -45,7 +45,7 @@ local function compile_file (src_filename)
    local proto        = bytecode.metalua_compile (ast)
    local dump         = bytecode.dump_string (proto)
    local dst_filename = src_filename:gsub ("%.mlua$", ".luac")
-   local dst_file     = io.open (dst_filename, 'w')
+   local dst_file     = io.open (dst_filename, 'wb')
    dst_file:write(dump)
    dst_file:close()
 end

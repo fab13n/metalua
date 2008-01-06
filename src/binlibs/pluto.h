@@ -22,4 +22,4 @@ void pluto_persist(lua_State *L, lua_Chunkwriter writer, void *ud);
 
 void pluto_unpersist(lua_State *L, lua_Chunkreader reader, void *ud);
 
-int pluto_open(lua_State *L);
+int luaopen_pluto(lua_State *L);

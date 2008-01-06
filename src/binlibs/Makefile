@@ -1,4 +1,4 @@
-include ../common.mk
+include ../config
 
 all: libraries install
 $(PLATFORM): all

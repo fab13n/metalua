@@ -1,17 +1,16 @@
-include ../common.mk
+include ../config
 
-all: $(LIBRARIES) $(M_LIBRARIES) install metalua
+all: $(LIBRARIES) install metalua
 
 $(PLATFORM): all
 
-LUA_RUN     = ../lua/lua
-LUA_COMPILE = ../lua/luac
+LUA_RUN     = ../$(LUA_VM_DIR)/$(RUN)
+LUA_COMPILE = ../$(LUA_VM_DIR)/$(COMPILE)
 
 LIBRARIES =       \
 	bytecode.luac \
 	mlp.luac      \
 	mlc.luac      
-
 
 # Library which compiles an AST into a bytecode string.
 BYTECODE_LUA =      \
@@ -51,10 +50,12 @@ metalua: metalua.luac $(LIBRARIES)
 	$(LUA_RUN) metalua.luac --verbose --sharpbang '#!/usr/bin/env lua' --output metalua --file metalua.mlua
 
 install: metalua $(LIBRARIES)
-	cp metalua $(TARGET_BIN_PATH)
+	mkdir -p $(TARGET_BIN_PATH)
+	cp metalua $(TARGET_BIN_PATH)/
+	mkdir -p $(TARGET_LUA_PATH)
 	cp $(LIBRARIES) $(TARGET_LUA_PATH)/
 
-.PHONY: all lib install
+.PHONY: all install
 
 clean:
 	-rm *.luac metalua 

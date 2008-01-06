@@ -1,17 +1,28 @@
-include common.mk
+PLATFORMS = macosx mingw
 
-all: setup.sh lua install-lua-lib binlibs compiler
+include config
 
-installed-vm: lua
-	cp $(VM_DIR)/$(RUN) $(VM_DIR)/$(COMPILE) $(TARGET_LUA_CPATH)/
+none:
+	@echo Please select one of supported platforms:
+	@echo $(PLATFORMS)
 
-setup.sh: common.mk
+all: setenv.sh lua install-lua-lib install-vm binlibs compiler
+
+$(PLATFORMS):
+	PLATFORM=$@ $(MAKE) all
+
+install-vm: lua
+	cp $(LUA_VM_DIR)/$(RUN) $(LUA_VM_DIR)/$(COMPILE) $(TARGET_BIN_PATH)/
+
+setenv.sh: config
+	mkdir -p $(TARGET_BIN_PATH)
 	mkdir -p $(TARGET_LUA_PATH)
 	mkdir -p $(TARGET_LUA_CPATH)
-	echo '#!/bin/bash'                                   >  $@
-	echo 'export $(ENV_PREFIX)_PATH="$(LUA_PATH)"'       >> $@
-	echo 'export $(ENV_PREFIX)_CPATH="$(LUA_CPATH)"'     >> $@
-	echo 'export $(ENV_PREFIX)_MPATH="$(LUA_MPATH)"'     >> $@
+	echo '#!/bin/bash'                           >  $@
+	echo 'export LUA_PATH="$(LUA_PATH)"'         >> $@
+	echo 'export LUA_CPATH="$(LUA_CPATH)"'       >> $@
+	echo 'export LUA_MPATH="$(LUA_MPATH)"'       >> $@
+	echo 'export PATH=$(TARGET_BIN_PATH):$$PATH' >> $@
 	chmod a+x $@
 
 install-lua-lib: lib
@@ -24,12 +35,5 @@ clean:
 	$(MAKE) -C lua      clean
 	$(MAKE) -C compiler clean
 	$(MAKE) -C binlibs  clean
-
-# lua:
-# 	$(MAKE) -C lua/ $(PLATFORM)
-# binlibs:
-# 	$(MAKE) -C binlibs/ $(PLATFORM)
-# compiler:
-# 	$(MAKE) -C compiler/ $(PLATFORM)
 
 .PHONY: all setup.sh install-lua-lib binlibs lua compiler
