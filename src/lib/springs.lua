@@ -18,6 +18,10 @@
 -- let both states communicate arbitrary data, by serializing them
 -- as strings.
 --
+-- This module is designed to avoid touching Rings and Pluto, in order
+-- to ease maintenance. This requires a bit of monkey-patching here
+-- and there.
+--
 -- API
 -- ---
 --
@@ -39,8 +43,9 @@
 --   For instance:
 --   > assert('xxx' == r:call('string.rep', 'x', 3))
 --
--- Springs requires Rings and Pluto to be accessibel through require()
--- in order to work
+-- Springs requires modules Rings and Pluto to be accessible to
+-- require() in order to work.
+--
 ----------------------------------------------------------------------
 
 require 'pluto'

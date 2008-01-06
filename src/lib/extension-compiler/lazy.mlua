@@ -38,8 +38,8 @@ local function lazy_table_builder(x)
    local c = x[1]
    local d = `Table
    for i = 1, #c do
-      if   c[i].tag=="Key"
-      then d[i] = `Key{ c[i][1], mk_thunk (c[i][2]) }
+      if   c[i].tag=="Pair"
+      then d[i] = `Pair{ c[i][1], mk_thunk (c[i][2]) }
       else d[i] = mk_thunk (c[i]) end
    end
    return +{ lazy.table(-{d})}

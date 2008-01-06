@@ -135,7 +135,7 @@ local function match_builder (tested_terms_list, cases)
       acc +{stat: if -{it} then -{`Goto{ on_failure }} end } end
    local function acc_assign (lhs, rhs)
       local_vars[lhs[1]] = true
-      acc (`Let{ {lhs}, {rhs} }) end
+      acc (`Set{ {lhs}, {rhs} }) end
 
    -------------------------------------------------------------------
    -- Set of variables bound in the current pattern, to find
@@ -198,7 +198,7 @@ local function match_builder (tested_terms_list, cases)
          acc_test +{ type( -{v} ) ~= "table" } 
          for i = 1, #pattern do
             local key, sub_pattern
-            if pattern[i].tag=="Key" then -- Explicit key
+            if pattern[i].tag=="Pair" then -- Explicit key/value pair
                key, sub_pattern = unpack (pattern[i])
                assert (literal_tags[key.tag], "Invalid key")
             else -- Implicit key

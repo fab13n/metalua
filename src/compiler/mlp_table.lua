@@ -55,7 +55,7 @@ local function _expr (lx) return expr(lx) end
 --------------------------------------------------------------------------------
 -- [[key] = value] table field definition
 --------------------------------------------------------------------------------
-local bracket_field = gg.sequence{ "[", _expr, "]", "=", _expr, builder = "Key" }
+local bracket_field = gg.sequence{ "[", _expr, "]", "=", _expr, builder = "Pair" }
 
 --------------------------------------------------------------------------------
 -- [id = value] or [value] table field definition;
@@ -67,7 +67,7 @@ function table_field (lx)
    if lx:is_keyword (lx:peek(), "=") then 
       if e.tag ~= 'Id' then _G.table.print(e,80) end
       assert (e.tag == "Id", "Identifier required on the left of = in table")
-      lx:next(); return {tag="Key", {tag="String", e[1]}, _expr(lx)} 
+      lx:next(); return {tag="Pair", {tag="String", e[1]}, _expr(lx)} 
    else return e end
 end
 

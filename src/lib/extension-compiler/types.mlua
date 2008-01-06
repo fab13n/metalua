@@ -283,7 +283,7 @@ function checktype_builder(type, term, kind)
 
    -- Shove type-checking code into the term to check:
    local v = mlp.gensym()
-   local non_const_tags = { Dots=1, Op=1, Index=1, Call=1, Method=1, Table=1 }
+   local non_const_tags = { Dots=1, Op=1, Index=1, Call=1, Invoke=1, Table=1 }
    if kind=="expr" and non_const_tags[term.tag] then
       return `Stat{ { `Local{ {v}, {term} }; `Call{ type, v } }, v }
    elseif kind=="expr" then

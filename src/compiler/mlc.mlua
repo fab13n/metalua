@@ -68,6 +68,7 @@ mlc.order = table.transpose{
 
 function mlc.convert (x, src_fmt, dst_fmt, name)
    -- printf(" *** Convert a %s into a %s", src_fmt, dst_fmt)
+
    -{ jump_to_point }
 
    error "Can't perform this conversion (bad src name)"
@@ -100,7 +101,7 @@ function mlc.convert (x, src_fmt, dst_fmt, name)
    then status, x = false, "Unexpected 'end' keyword" end
    if not status and x then 
       -- x = error msg; get rid of ???
-      x = x:match "[^:]+:[0-9]+: (.*)" or x
+      x = x:strmatch "[^:]+:[0-9]+: (.*)" or x
       printf("Parsing error in %s line %s, char %s: \n%s",
              filename or "?", lx.line, lx.i, x)
       return nil

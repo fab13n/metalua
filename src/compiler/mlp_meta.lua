@@ -50,13 +50,13 @@ module ("mlp", package.seeall)
 -- an AST).
 --------------------------------------------------------------------------------
 
-local function splice (ast)
+function splice (ast)
    --printf(" [SPLICE] Ready to compile:\n%s", _G.table.tostring (ast, "nohash", 60))
    local f = mlc.function_of_ast(ast)
    --printf " [SPLICE] Splice Compiled."
-   local r = f()   
+   local result = f()   
    --printf " [SPLICE] Splice Evaled."
-   return r
+   return result
 end
 
 --------------------------------------------------------------------------------
@@ -72,7 +72,7 @@ function quote (t)
          assert (#t==1, "Invalid splice")
          return t[1]
       elseif t.tag then
-         _G.table.insert (mt, { tag = "Key", quote "tag", quote (t.tag) })
+         _G.table.insert (mt, { tag = "Pair", quote "tag", quote (t.tag) })
       end
       for _, v in ipairs (t) do
          _G.table.insert (mt, quote(v))

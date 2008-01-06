@@ -147,7 +147,7 @@ local function funcdef_builder(x)
       name = { tag="Index", name, method }
       _G.table.insert (func[1], 1, {tag="Id", "self"}) 
    end
-   return { tag="Let", {name}, {func} } 
+   return { tag="Set", {name}, {func} } 
 end 
 
 
@@ -186,7 +186,7 @@ local function assign_or_call_stat_parser (lx)
       assert (#e > 0)
       if #e > 1 then 
          gg.parse_error (lx, "comma is not a valid statement separator") end
-      if e[1].tag ~= "Call" and e[1].tag ~= "Method" then
+      if e[1].tag ~= "Call" and e[1].tag ~= "Invoke" then
          gg.parse_error (lx, "This expression is of type '%s'; "..
             "only function and method calls make valid statements", 
             e[1].tag or "<list>")
@@ -224,6 +224,6 @@ stat = gg.multisequence {
    default = assign_or_call_stat_parser }
 
 stat.assignments = {
-   ["="] = "Let" }
+   ["="] = "Set" }
 
 function stat.assignments:add(k, v) self[k] = v end

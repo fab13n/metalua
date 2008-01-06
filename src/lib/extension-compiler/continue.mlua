@@ -31,7 +31,7 @@ local function loop_transformer (ast)
    -- This function will be called on every "Continue" in the loop
    -- body which isn't into a Forin/Fornum/While/Repeat/Function:
    --------------------------------------------------------------
-   function cfg.stat.map_down (x)
+   function cfg.stat.down (x)
       if not label then label = mlp.gensym() end
       x <- `Goto{ label }
    end

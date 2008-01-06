@@ -907,10 +907,10 @@ end
 ------------------------------------------------------------------------
 
 -- FIXME: it's cumbersome to write this in this semi-recursive way.
-function stat.Let (fs, ast)
+function stat.Set (fs, ast)
    local ast_lhs, ast_vals, e = ast[1], ast[2], { }
 
-   --print "\n\nLet ast_lhs ast_vals:"
+   --print "\n\nSet ast_lhs ast_vals:"
    --print(disp.ast(ast_lhs))
    --print(disp.ast(ast_vals))
 
@@ -957,9 +957,9 @@ end
 
 ------------------------------------------------------------------------
 
-function stat.Method (fs, ast)
+function stat.Invoke (fs, ast)
    local v = {  }
-   expr.Method (fs, ast, v)
+   expr.Invoke (fs, ast, v)
 --FIXME: didn't check that, just copied from stat.Call
    luaP:SETARG_C (luaK:getcode(fs, v), 1)
 end
@@ -1091,7 +1091,7 @@ function expr.Number (fs, ast, v)
    v.nval = ast[1] 
 end
 
-function expr.One (fs, ast, v) 
+function expr.Paren (fs, ast, v) 
    expr.expr (fs, ast[1], v)
    luaK:setoneret (fs, v)
 end
@@ -1116,7 +1116,7 @@ function expr.Table (fs, ast, v)
   for i = 1, #ast do
     assert(cc.v.k == "VVOID" or cc.tostore > 0)
     closelistfield(fs, cc);
-    (ast[i].tag == "Key" and recfield or listfield) (fs, ast[i], cc)
+    (ast[i].tag == "Pair" and recfield or listfield) (fs, ast[i], cc)
   end    
   lastlistfield(fs, cc)
 
@@ -1165,8 +1165,8 @@ function expr.Call (fs, ast, v)
 end  
 
 ------------------------------------------------------------------------
--- `Method{ table key args }
-function expr.Method (fs, ast, v)
+-- `Invoke{ table key args }
+function expr.Invoke (fs, ast, v)
    expr.expr (fs, ast[1], v)
    luaK:dischargevars (fs, v)
    local key = { }

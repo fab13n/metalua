@@ -26,7 +26,7 @@ local function dots_builder (x) return `Dots{ x } end
 local function for_builder (x, h)
    match x with
    | `Comp{ _, acc } -> table.insert (acc, h[1]); return x
-   | `Key{ _, _ }    -> error "No explicit key in a for list generator"
+   | `Pair{ _, _ }   -> error "No explicit key in a for list generator"
    |  _              -> return `Comp{ x, {h[1]} }
    end
 end
@@ -34,7 +34,7 @@ end
 local function if_builder (x, p)
    match x with
    | `Comp{ _, acc } -> table.insert (acc, `If{ p[1] }); return x
-   | `Key{ _, _ }    -> error "No explicit key in a list guard"
+   | `Pair{ _, _ }   -> error "No explicit key in a list guard"
    |  _              -> return `Comp{ x, p[1] }
    end
 end
@@ -53,8 +53,8 @@ local function comp_builder(core, list, no_unpack)
    | `Dots{ x } -> 
       local w = mlp.gensym()
       r = +{stat: for -{w} in values( -{x} ) do -{ `Call{ ti, v, w } } end }
-   | `Key{ k, w } ->
-      r = `Let{ { `Index{ v, k } }, { w } }
+   | `Pair{ k, w } ->
+      r = `Set{ { `Index{ v, k } }, { w } }
    |  x -> r = `Call{ ti, v, x }
    end
 

@@ -11,7 +11,7 @@ module ("mlp", package.seeall)
 --------------------------------------------------------------------------------
 local function adt (lx)
    local tagval = id (lx) [1]
-   local tagkey = {tag="Key", {tag="String", "tag"}, {tag="String", tagval} }
+   local tagkey = {tag="Pair", {tag="String", "tag"}, {tag="String", tagval} }
    if lx:peek().tag == "String" or lx:peek().tag == "Number" then
       return { tag="Table", tagkey, lx:next() }
    elseif lx:is_keyword (lx:peek(), "{") then
@@ -75,7 +75,7 @@ local function op_assign(kw, op)
       return { tag="Op", op, a, b } 
    end
    local function f(a,b) 
-      return { tag="Let", a, _G.table.imap(rhs, a, b) }
+      return { tag="Set", a, _G.table.imap(rhs, a, b) }
    end
    mlp.lexer:add (kw)
    mlp.stat.assignments[kw] = f

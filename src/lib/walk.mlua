@@ -79,7 +79,7 @@ walk = { traverse = { } }
 --------------------------------------------------------------------------------
 local traverse = walk.traverse
 
--- In `Call{ } and `Method{ } as statements, each strict subexpression 
+-- In `Call{ } and `Invoke{ } as statements, each strict subexpression 
 -- is treated as an expression, but the whole AST is *not* treated
 -- as en expr. This allows to target calls-as-statements without
 -- targetting calls-as-real-expr.
@@ -91,11 +91,11 @@ function traverse.stat (cfg, x)
    match x with
    | `Do{...}              -> B(x)
    | {...} if x.tag == nil -> B(x)
-   | `Let{ lhs, rhs }      -> EL(lhs); EL(rhs)
+   | `Set{ lhs, rhs }      -> EL(lhs); EL(rhs)
    | `While{ cond, body }  -> E(cond); B(body)
    | `Repeat{ body, cond } -> B(body); E(cond)
    | `Local{ _, rhs } | `Localrec{ _, rhs }   -> EL(rhs)
-   | `Call{...} | `Method{...} | `Return{...} -> EL(x)
+   | `Call{...} | `Invoke{...} | `Return{...} -> EL(x)
    | `Fornum{ _, a, b, body } 
    | `Fornum{ _, a, b, c, body } -> E(a); E(b); if #x==5 then E(c) end; B(body)
    | `Forin{ _, rhs, body }      -> EL(rhs); B(body)
@@ -113,15 +113,15 @@ function traverse.expr (cfg, x)
    local E  = walk.expr(cfg)
    local EL = walk.expr_list(cfg)
    match x with
-   | `One{ e }                 -> E(e)
-   | `Call{...} | `Method{...} -> EL(x)
+   | `Paren{ e }               -> E(e)
+   | `Call{...} | `Invoke{...} -> EL(x)
    | `Index{ a, b }            -> E(a); E(b)
    | `Op{ opid, ... }          -> E(x[2]); if #x==3 then E(x[3]) end
    | `Function{ params, body } -> B(body)
    | `Stat{ b, e }             -> B(b); E(e)
    | `Table{ ... }             ->
       for i = 1, #x do match x[i] with
-         | `Key{ k, v } -> E(k); E(v)
+         | `Pair{ k, v } -> E(k); E(v)
          | v            -> E(v)
       end end
    |`Nil|`Dots|`True|`False|`Number{_}|`String{_}|`Id{_} -> -- nothing 

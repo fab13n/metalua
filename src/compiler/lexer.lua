@@ -89,6 +89,12 @@ lexer.extractors = {
    "extract_short_string", "extract_word", "extract_number", 
    "extract_long_string", "extract_symbol" }
 
+lexer.token_metatable = { 
+--         __tostring = function(a) 
+--            return string.format ("`%s{'%s'}",a.tag, a[1]) 
+--         end 
+      } 
+
 ----------------------------------------------------------------------
 -- Really extract next token fron the raw string 
 -- (and update the index).
@@ -112,11 +118,7 @@ function lexer:extract ()
          a.comments = self.attached_comments 
          self.attached_comments = nil
       end
-      local amt = { 
-         __tostring = function() 
-            return _G.string.format ("`%s{'%s'}",a.tag, a[1]) end } 
-      setmetatable (a, amt)
-      return a
+      return setmetatable (a, self.token_metatable)
    end
 
    self.attached_comments = { }

@@ -140,6 +140,40 @@ et differentes sessions de compil. Il faut donc:
     dediees: "+:" et "-:"
 - 
 
+Call across stages:
+- on cree et garde in ring the compil pour chaque operation ML0:
+  * mlp.lexer.newstream() l.84
+  * mlp.chunk() l.93-95
+  
+mlc a un champ mlc.meta_ring, le ring dans lequel la CTMP se
+passe. Dans ce ring, il y a metalua.compiler charge. quand on splice,
+le mlc.function_of_ast() a lieu dans le meta_ring, ///
+
+plus simplement:
+- la compilation se fait dans un ring a part (metalua.mlua)
+- si plusieurs fichiers sont compiles, on change de ring a chaque
+  fois.
+- il peut y avoir un probleme avec l'acces au niveau -1, mais il faut
+  d'abord voir comment ca peut arriver
+
+-{ extension 'match'
+   function mlp.macros.log(x)
+      match x with
+      | `Id{i} -> return +{printf("%s: %s"-{`String{i}}, table.tostring(-{x}))}
+      | `String{s} -> return +{print(-{s})}
+      end
+   end }
+
+Il faut faire la part entre la synthese de l'AST et l'evaluation. La
+synthese de l'AST est faite en amont de mlc.splice(). Apparemment, le
+lexer est commun a tout le monde... et mlp aussi.
+
+
+r = rings.new()
+r:dostring [[require 'metalua.compile']]
+ast = r:call ('mlc.ast_of_luafile', foo, bar)
+
+
 Hygiene:
 ========
 Unifier freevars avec un walker plus generique. 
@@ -263,9 +297,6 @@ Think about "require'metalua.runtime'"
 Le ML du resultat, qu'il soit execute ou sauve, est toujours 1.
 Le niveau 0 est au besoin relance plusieurs fois, une par compile.
 
-r = rings.new()
-r:dostring [[require 'metalua.compile']]
-ast = r:call ('mlc.ast_of_luafile', foo, bar)
 
 soucis avec clopts: l'ordre peut etre important. en l'occurence,
 l'ordre relatif entre libs
