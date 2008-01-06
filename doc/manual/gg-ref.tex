@@ -1,0 +1,506 @@
+\section{Library reference: gg}
+
+\verb|gg| is the grammar generator, the library with which Metalua
+parser is built. Knowing it allows you to easily write your own
+parsers, and to plug them into mlp, the existing Metalua source
+parser. It defines a couple of generators, which take parsers as
+parameters, and return a more complex parser as a result by combining
+them.
+
+Notice that \verb|gg| sources are thoroughly commented, and try to be
+readable as a secondary source of documentation.
+
+There are four main classes in gg, which allow to generate:
+\begin{itemize}
+\item sequences of keywords and subparsers;
+\item keyword-driven sequence sets, i.e. parsers which select a
+  sequence parser depending on an initial keyword;
+\item lists, i.e. series of an undetermined number of elements of the
+  same type, optionnaly separated by a keyword (typically ``{\tt,}'');
+\item expressions, built with infix, prefix and suffix operators
+  around a primary expression element;
+\end{itemize}
+
+
+
+\subsection{Sequences}
+
+A sequence parser combines sub-parsers together, calling them one after
+the other. A lot of these sub-parsers will simply read a keyword, and
+do nothing of it except making sure that it is indeed here: these can
+be specified by a simple string. For instance, the following
+declarations create parsers that read function declarations, thanks
+to some subparsers:
+\begin{itemize}
+\item \verb|func_stat_name| reads a function name (a list of
+  identifiers separated by dots, plus optionally a semicolon and a
+  method name);
+\item \verb|func_params_content| reads a possibly empty list of
+  identifiers separated with commas, plus an optional ``\verb|...|'';
+\item \verb|mlp.block| reads a block of statements (here the function
+  body);
+\item \verb|mlp.id| reads an identifier.
+\end{itemize}
+
+\begin{verbatim}
+-- Read a function definition statement
+func_stat = gg.sequence{ "function", func_stat_name, "(",
+                         func_params_content, ")", mlp.block, "end" }
+
+-- Read a local function definition statement
+func_stat = gg.sequence{ "local", "function", mlp.id, "(",
+                         func_params_content, ")", mlp.block, "end" }
+
+\end{verbatim}
+
+\subsubsection{Constructor}
+
+\begin{verbatim}
+gg.sequence (config_table)  
+\end{verbatim}
+
+This function returns a sequence parser. \verb|config_table| contains,
+in its array part, a sequence of string representing keyword parsers,
+and arbitrary sub-parsers. Moreover, the following fields are allowed
+in the hash part of the table:
+
+\begin{itemize}
+\item\verb|name = <string>|: the parser's name, used to generate error
+  messages;
+\item\verb|builder = <function>|: if present, whenever the parser is
+  called, the list of the sub-parsers results is passed to this
+  function, and the function's return value is returned as the
+  parser's result. If absent, the list of sub-parser results is simply
+  returned. It can be updated at anytime with:\\
+  \verb|x.builder = <newval>|.
+\item\verb|builder = <string>|: the string is added as a tag to the
+  list of sub-parser results. \verb|builder = "foobar"| is equivalent
+  to:\\
+ \verb|builder = function(x) x.tag="foobar"; return x end|
+\item\verb|transformers = <function list>|: applies all the functions
+  of the list, in sequence, to the result of the parsing: these
+  functions must be of type AST$\rightarrow$AST. For instance, if the
+  transformers list is {\tt\{f1, f2, f3\}}, and the builder returns
+  {\tt x}, then the whole parser returns {\tt f3(f2(f1(x)))}.
+\end{itemize}
+
+\subsubsection{Method {\tt parse}}
+
+\begin{verbatim}
+x:parse (lexer)
+\end{verbatim}
+
+Read a sequence from the lexer. If the sequence can't be entirely
+read, an error occurs. The result is either the list of results of
+sub-parsers, or the result of \verb|builder| if it is non-nil. In the
+\verb|func_stat| example above, the result would be a list of 3
+elements: the results of \verb|func_stat_name|,
+\verb|func_params_content| and \verb|mlp.block|.
+
+It can also be directly called as simply \verb|x(lexer)| instead of
+\verb|x:parse(lexer)|.
+
+\subsubsection{Method {\tt transformers:add}}
+Adds a function at the end of the transformers list.
+
+\subsection{Sequence sets}
+
+In many cases, several sequence parsers can be applied at a given
+point, and the choice of the right parser is determined by the next
+keyword in the lexer. This is typically the case for Metalua's
+statement parser. All the sequence parsers must start with a keyword
+rather than a sub-parser, and that initial keyword must be different
+for each sequence parser in the sequence set parser. The sequence set
+parser takes care of selecting the appropriate sequence
+parser. Moreover, if the next token in the lexer is not a keyword, or
+if it is a keyword but no sequence parser starts with it, the sequence
+set parser can have a default parser which is used as a fallback.
+
+For instance, the declaration of \verb|mlp.stat| the Metalua statement
+parser looks like:
+
+\begin{verbatim}
+mlp.stat = gg.multisequence{
+  mlp.do_stat, mlp.while_stat, mlp.repeat_stat, mlp.if_stat... }
+\end{verbatim}
+
+\subsubsection{Constructor}
+
+\begin{verbatim}
+gg.multisequence (config_table)
+\end{verbatim}
+
+This function returns a sequence set parser. The array part of
+\verb|config_table| contains a list of parsers. It also accepts tables
+instead of sequence parsers: in this case, these tables are supposed
+to be config tables for \verb|gg.sequence| constructor, and are
+converted into sequence parsers on-the-fly by calling
+\verb|gg.sequence| on them. Each of these sequence parsers has to
+start with a keyword, distinct from all other initial keywords,
+e.g. it's illegal for two sequences in the same multisequence to start
+with keyword {\tt do}; it's also illegal for any parser but the
+default one to start with a subparser, e.g. {\tt mlp.id}.
+
+It also accepts the following fields in the table's hash part:
+\begin{itemize}
+\item\verb|default = <parser>|: if no sequence can be chosen, because
+  the next token is not a keyword, or no sequence parser in the set
+  starts with that keyword, then the default parser is run instead; if
+  no default parser is provided and no sequence parser can be chosen,
+  an error is generated when parsing.
+\item\verb|name = <string>|: the parser's name, used to generate arror
+  messages;
+\item\verb|builder = <function>|: if present, whenever the parser is
+  called, the selected parser's result is passed to this
+  function, and the function's return value is returned as the
+  parser's result. If absent, the selected parser's result is simply
+  returned. It can be updated at anytime with
+  \verb|x.builder = <newval>|.
+\item\verb|builder = <string>|: the string is added as a tag to the
+  list of sub-parser results. \verb|builder = "foobar"| is equivalent
+  to:\\
+ \verb|builder = function(x) return { tag = "foobar"; unpack (x) } end|
+\item\verb|transformers = <function list>|: applies all the functions
+  of the list, in sequence, to the result of the parsing: these
+  functions must be of type AST$\rightarrow$AST.
+\end{itemize}
+
+\subsubsection{Method {\tt parse}}
+
+\begin{verbatim}
+x:parse (lexer)
+\end{verbatim}
+
+Read from the lexer. The result returned is the result of the selected
+parser (one of the sequence parsers, or the default parser). That
+result is either returned directly, or passed through \verb|builder|
+if this field is non-nil.
+
+It can also be directly called as simply \verb|x(lexer)| instead of
+\verb|x:parse(lexer)|.
+
+\subsubsection{Method {\tt add}}
+
+\begin{verbatim}
+x:add (seq_parser)
+\end{verbatim}
+
+Take a sequence parser, or a config table that would be accepted by
+\verb|gg.sequence| to build a sequence parser. Add that parser to the
+set of sequence parsers handled by x. Cause an error if the parser
+doesn't start with a keyword, or if that initial keyword is already
+reserved by a registered sequence parser, or if the parser is not a
+sequence parser.
+
+\subsubsection{Field {\tt default}}
+This field contains the default parser, and can be set to another
+parser at any time.
+
+\subsubsection{Method {\tt transformers:add}}
+Adds a function at the end of the transformers list.
+
+\subsubsection{Method {\tt get}}
+Takes a keyword (as a string), and returns the sequence in the set
+starting with that keyword, or nil if there is no such sequence.
+
+\subsubsection{Method {\tt remove(kw)}}
+Removes the sequence parser starting with keyword {\tt kw}.
+
+\subsection{List parser}
+
+Sequence parsers allow to chain several different sub-parser. Another
+common need is to read a series of identical elements into a list, but
+without knowing in advance how many of such elements will be
+found. This allows to read lists of arguments in a call, lists of
+parameters in a function definition, lists of statements in a
+block\ldots
+
+Another common feature of such lists is that elements of the list are
+separated by keywords, typically semicolons or commas. These are
+handled by the list parser generator.
+
+A list parser needs a way to know when the list is finished. When
+elements are separated by keyword separators, this is easy to
+determine: the list stops when an element is not followed by a
+separator. But two cases remain unsolved:
+\begin{itemize}
+\item When a list is allowed to be empty, no separator keyword allows
+  the parser to realize that it is in front of an empty list: it would
+  call the element parser, and that parser would fail;
+\item when there are no separator keyword separator specified, they
+  can't be used to determine the end of the list.
+\end{itemize}
+
+For these two cases, a list parser can specify a set of terminator
+keywords: in separator-less lists, the parser returns as soon as a 
+terminator keyword is found where an element would otherwise have been
+read. In lists with separators, if terminators are specified, and such
+a terminator is found at the beginning of the list, then no element is
+parsed, and an empty list is returned. For instance, for argument
+lists, ``\verb|)|'' would be specified as a terminator, so that empty
+argument lists ``\verb|()|'' are handled properly.
+
+Beware that separators are consumed from the lexer stream, but
+terminators are not.
+
+%\caveat{FIXME: check that it works as advertized (for list parserd
+%  with separators AND terminators; it's related to the trailing
+%  separator issue in block and table\_content parsers). There still is
+%  a design issue to settle here.}
+
+\subsubsection{Constructor}
+
+\begin{verbatim}
+gg.list (config_table)
+\end{verbatim}
+
+This function returns a list parser. \verb|config_table| can contain
+the following fields:
+\begin{itemize}
+
+\item\verb|primary = <parser>| (mandatory): the parser used to read
+  elemetns of the list;
+
+\item\verb|separators = <list> |: list of strings representing the
+  keywords accepted as element separators. If only one separator is
+  allowed, then the string can be passed outside the list:\\
+  \verb|separators = "foo"| is the same as 
+  \verb|separators = { "foo" }|.
+
+\item\verb|terminators = <list> |: list of strings representing the
+  keywords accepted as list terminators. If only one separator is
+  allowed, then the string can be passed outside the list.
+
+\item\verb|name = <string>|: the parser's name, used to generate arror
+  messages;
+
+\item\verb|builder = <function>|: if present, whenever the parser is
+  called, the list of primary parser results is passed to this
+  function, and the function's return value is returned as the
+  parser's result. If absent, the list of sub-parser results is simply
+  returned. It can be updated at anytime with
+  \verb|x.builder = <newval>|.
+
+\item\verb|builder = <string>|: the string is added as a tag to the
+  list of sub-parser results. \verb|builder = "foobar"| is equivalent
+  to:\\
+ \verb|builder = function(x) return { tag = "foobar"; unpack (x) } end|
+
+\item\verb|transformers = <function list>|: applies all the functions
+  of the list, in sequence, to the result of the parsing: these
+  functions must be of type AST$\rightarrow$AST.
+
+\item if keyless element is found in \verb|config_table|, and there is
+  no \verb|primary| key in the table, then it is expected to be a
+  parser, and it is considered to be the primary parser.
+\end{itemize}
+
+\subsubsection{Method {\tt parse}}
+
+\begin{verbatim}
+x:parse (lexer)
+\end{verbatim}
+
+Read a list from the lexer. The result is either the list of elements
+as read by the primary parser, or the result of that list passed
+through \verb|builder| if it is specified.
+
+It can also be directly called as simply \verb|x(lexer)| instead of
+\verb|x:parse(lexer)|.
+
+\subsubsection{Method {\tt transformers:add}}
+Adds a function at the end of the transformers list.
+
+\subsection{Method {\tt separators:add}}
+Adds a string to the list of separators.
+
+\subsection{Method {\tt terminators:add}}
+Adds a string to the list of terminators.
+
+\subsection{Expression parser}
+
+This is a very powerfull parser generator, but it ensues that its API
+is quite large. An expression parser relies on a primary parser, and
+the elements read by this parser can be:
+\begin{itemize}
+\item combined pairwise by infix operators;
+\item modified by prefix operators;
+\item modified by suffix operators.
+\end{itemize}
+
+All operators are described in a way analoguous to sequence config
+tables: a sequence of keywords-as-strings and subparsers in a table,
+plus the usual \verb|builder| and \verb|transformers|
+fields. Each kind of operator has its own signature for \verb|builder|
+functions, and some specific additional information such as precedence
+or associativity. As in multisequences, the choice among operators is
+determined by the initial keyword. Therefore, it is illegal to have
+two operator sequences which start with the same keyword (for
+instance, two infix sequences starting with keyword ``\$'').
+
+Most of the time, the sequences representing operators will have a
+single keyword, and no subparser. For instance, the addition is
+represented as:\\
+\verb~{ "+",  prec=60, assoc="left", builder= |a, _, b| `Op{ `Add, a, b } }~
+
+
+\paragraph{Infix operators}
+Infix operators are described by a table whose array-part works as for
+sequence parsers. Besides this array-part and the usual {\tt
+  transformers} list, the table accepts the following fields in its hash-part:
+\begin{itemize}
+
+\item\verb|prec = <number>| its precedence. The higher the precedence, 
+  the tighter the operator bind with respect to other operators. For
+  instance, in Metalua, addition precedence is 60, whereas
+  multiplication precedence is 70.
+
+\item\verb|assoc = <string>| is one of \verb|"left"|, \verb|"right"|,
+  \verb|"flat"| or \verb|"none"|, and specifies how an operator
+  associates. If not specified, the default associativity is
+  \verb|"left"|. 
+
+  Left and right describe how to read sequences of operators with the
+  same precedence, e.g. addition is left associative ({\tt 1+2+3} reads as
+  {\tt(1+2)+3}), whereas exponentiation is right-associative (\verb|1^2^3|
+  reads as \verb|1^(2^3)|).
+
+  If an operator is non-associative and an ambiguity is found, a
+  parsing error occurs. 
+
+  Finally, flat operators get series of them collected in a list,
+  which is passed to the corresponding builder as a single
+  parameter. For instance, if \verb|++| is declared as flat and its
+  builder is \verb|f|, then whenever {\tt 1++2++3++4} is parsed, the
+  result returned is {\tt f\{1, 2, 3, 4\}}.
+
+\item\verb|builder = <function>| the usual result transformer. The
+  function takes as parameters the left operand, the result of the
+  sequence parser (i.e. \verb|{ }| if the sequence contains no
+  subparser), and the right operand; it must return the resulting AST.
+
+\end{itemize}
+
+%For instance, Metalua's addition parser could be described by:
+
+%\begin{verbatim}
+%{ "+", assoc = "left", prec = 60, builder = |a,_,b| `Op{ `Add, a, b } }
+%\end{verbatim}
+
+\paragraph{Prefix operators}
+These operators are placed before the sub-expression they modify. They
+have the same properties as infix operators, except that they don't
+have an \verb|assoc| field, and \verb|builder| takes {\tt|operator,
+  operand|} instead of {\tt|left\_operand, operator, right\_operand|}.
+
+\paragraph{Suffix operators}
+Same as prefix operators, except that \verb|builder| takes
+{\tt|operand, operator|} instead of {\tt|operator, operand|}.
+
+\subsubsection{Constructor}
+
+\begin{verbatim}
+gg.expr (config_table)
+\end{verbatim}
+
+This function returns an expression parser. \verb|config_table|
+is a table of fields which describes the kind of expression to be
+read by the parser. The following fields can appear in the table:
+
+\begin{itemize}
+\item\verb|primary| (mandatory): the primary parser, which reads the
+  primary elements linked by operators. In Metalua expression parsers,
+  that would be numbers, strings, identifiers\ldots It is often a
+  multisequence parser, although that's not mandatory.
+\item\verb|prefix|: a list of tables representing prefix operator
+  sequences, as described above. It supports a {\tt default} parser:
+  this parser is considered to have succesfully parsed a prefix
+  operator if it returns a non-false result.
+\item\verb|infix|: a list of tables representing infix operator
+  sequences, as described above. Supports a {\tt default} parser.
+\item\verb|suffix|: a list of tables representing suffix operator
+  sequences, as described above. Supports a {\tt default} parser.
+\end{itemize}
+
+\subsubsection{Methods {\tt prefix:add}, {\tt infix:add}, {\tt
+    suffix:add}}
+Add an operator in the relevant table. The argument must be an
+operator sequence table, as described above.
+
+\subsubsection{Method {\tt add}}
+This is just a shortcut for {\tt primary.add}. Unspecified behavior if
+{\tt primary} doesn't support method {\tt add}.
+
+
+\subsubsection{Method {\tt parse}}
+
+\begin{verbatim}
+x:parse (lexer)
+\end{verbatim}
+
+Read a list from the lexer. The result is built by \verb|builder1| calls.
+
+It can also be directly called as simply \verb|x(lexer)| instead of
+\verb|x:parse(lexer)|.
+
+\subsubsection{Method {\tt tostring}}
+
+\begin{verbatim}
+x.tostring()
+\end{verbatim}
+
+Returns a string representing the parser. Mainly useful for error
+message generation.
+
+\subsection{{\tt onkeyword} parser}
+
+Takes a list of keywords and a parser: if the next token is one of the
+keywords in the list, runs the parser; if not, simply returns
+\verb|false|.
+
+Notice that by default, the keyword is consumed by the
+\verb|onkeyword| parser. If you want it not to be consumed, but
+instead passed to the internal parser, add a \verb|peek=true| entry in
+the config table.
+
+\subsubsection{Constructor}
+
+\begin{verbatim}
+gg.onkeyword (config_table)
+\end{verbatim}
+
+Create a keyword-conditionnal parser. \verb|config_table| can contain:
+
+\begin{itemize}
+\item strings, representing the triggerring keywords (at least one);
+\item the parser to run if one of the keywords is found (exactly one);
+\item \verb|peek=<boolean>| to indicate whether recognized keywords
+  must be consumed or passed to the inner parser.
+\end{itemize}
+The order of elements in the list is not relevant.
+
+\subsubsection{Method {\tt parse}}
+
+Run the parser. The result is the internal parser's result, or
+\verb|false| if the next token in the lexer wasn't one of the
+specified keywords.
+
+It can also be directly called as simply \verb|x(lexer)| instead of
+\verb|x:parse(lexer)|.
+
+\subsection{{\tt optkeyword} parser}
+
+Watch for optional keywords: an \verb|optkeyword| parser has a list of
+keyword strings as a configuration. If such a keyword is found as the
+nex lexer element upon parsing, the keyword is consumed and that
+string is returned. If not, \verb|false| is returned.
+
+\subsubsection{Constructor}
+
+\begin{verbatim}
+gg.optkeyword (keyword1, keyword2, ...)
+\end{verbatim}
+
+Return a \verb|gg.optkeyword| parser, which accepts all of the
+keywords given as parameters, and returns either the found keyword, or
+\verb|false| if none is found.

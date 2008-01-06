@@ -1,0 +1,186 @@
+\section{Concepts}
+
+\paragraph{Lua}
+Lua\footnote{\url{http://www.lua.org}} is an very clean and powerful
+language, with everything the discrimiating hacker will love: advanced
+data structures, true function closures, coroutines (a.k.a collaborative
+multithreading), powerful runtime introspection and metaprogramming
+abilities, ultra-easy integration with C.
+
+The general approach in Lua's design is to implement a small number of
+very powerful concepts, and use them to easily offer particular
+services. For instance, objects can be implemented through metatables
+(which allow to customize the behavior of data structures), or through
+function closures. It's quite easy to develop a class based system
+with single or multiple inheritance, or a prototype based system 
+{\`a la} Self\footnote{\url{http://research.sun.com/self}}, or
+the kind of more advanced and baroque things that only CLOS users
+could dream of...
+
+Basically, Lua could be though of as Scheme, with:
+\begin{itemize}
+\item a conventional syntax (similar to Pascal's or Ruby's);
+\item the associative table as basic datatype instead of the list;
+\item no full continuations (although coroutines are actually one-shot
+  semi-continuations);
+\item no macro system.
+\end{itemize}
+
+\paragraph{Metalua}
+Metalua is an extension of Lua, which essentially addresses the lack
+of a macro system, by providing compile-time metaprogramming (CTMP)
+and the ability for user to extend the syntax from within Lua.
+
+Runtime metaprogramming (RTMP) allows a program to inspect itself
+while running: an object can thus enumerate its fields and methods,
+their properties, maybe dump its source code; it can be modified
+on-the-fly, by adding a method, changing its class, etc. But this
+doesn't allow to change the shape of the language itself: you cannot
+use this to add exceptions to a language that lacks them, nor
+call-by-need (a.k.a. ``lazy'') evaluation to a traditional language,
+nor continuations, nor new control structures, new operators... To do
+this, you need to modify the compiler itself. It can be done, if you
+have the sources of the compiler, but that's generally not worth it,
+given the complexity of a compiler program and the portability and
+maintenance issues that ensue.
+
+\paragraph{Metaprogramming}
+A compiler is essentially a system which takes sources (generally as
+a set of ASCII files), turn them into a practical-to-play-with data
+structure, does stuff on it, then feeds it to a bytecode or machine
+code producer. The source and byte-code stages are bad abstraction
+levels to do anything practical: the sensible way to represent code,
+when you want to manipulate it with programs, is tha abstract syntax
+tree (AST). This is the practical-to-play-with abstraction level
+mentionned above: a tree in which each node corresponds to a control
+structure, where the inclusion relationship is respected (e.g. if an
+instruction I is in a loop's body B, then the node representing I
+is a subtree of the tree representing B)...
+
+CTMP is possible if the compiler allows its user to read, generate and
+modify AST, and to splice these generated AST back into programs. This
+is done by Lisp and Scheme by making the programmer write programs
+directly in AST (hence the lot of parentheses in Lisp sources), and by
+offering a magic instruction that executes during compilation a piece
+of code which generates an AST, and inserts this AST into the source
+AST: that magic couple of instructions is the macro system.
+
+Metalua has a similar execute-and-splice-the-result magic construct;
+the main difference is that it doesn't force the programmer to
+directly write in AST (although he's allowed to if he finds it most
+suitable for a specific task). However, supporting ``real language
+syntax'' adds a couple of issues to CTMP: there is a need for
+transformation from real syntax to AST and the other way around, as
+well as a need for a way to extend syntax.
+
+This manual won't try to teach Lua, there's a wealth of excellent
+tutorials on the web for this. I highly recommand Roberto
+Ierusalimschy's ``Programming in Lua''
+book\footnote{Programming in Lua, 2nd edition.\\
+  Published by Lua.org, March 2006\\
+  ISBN 85-903798-2-5 Paperback, 328 pages\\
+  Distributed by Ingram and Baker \& Taylor.}, 
+a.k.a. ``the blue PiL'', probably one of the best programming books
+since K\&R's ``The C Language''. Suffice to say that a seasonned
+programmer will be able to program in Lua in a couple of hours,
+although some advanced features (coroutines, function environments,
+function closures, metatables, runtime introspection) might take
+longer to master if you don't already know a language supporting them.
+
+Among resources available online, my personal favorites would be:
+\begin{itemize}
+\item The reference manual: \url{http://www.lua.org/manual/5.1}
+\item The first edition of PiL, kindly put online by its author at
+  \url{http://www.lua.org/pil}
+\item A compact reference sheet (grammar and standard libraries) by
+  Enrico Colombini: \url{http://lua-users.org/wiki/LuaShortReference}
+\item Generally speaking, the Lua community wiki
+  (\url{http://lua-users.org/wiki}) is invaluable.
+\item The mailing list (\url{http://www.lua.org/lua-l.html})
+  and the IRC channel (\url{irc://irc.freenode.net/#lua}) are
+  populated with a very helpful community.
+\item You will also find a lot of useful programs and libraries for
+  Lua hosted at \url{http://luaforge.net}: various protocol parsers, 
+  bindings to 2D/3D native/portable GUI, sound, database drivers...
+\item A compilation of the community's wisdom will eventually be
+  plubished as ``Lua Gems''; you can already check its ToC at
+  \url{http://www.lua.org/gems}
+\end{itemize}
+
+So, instead of including yet another Lua tutorial, this manual will
+rather focus on the features specific to Metalua, that is mainly:
+\begin{itemize}
+\item The couple of syntax extensions offered by Metalua over Lua;
+\item The two CTMP magic constructs \verb|+{...}| and \verb|-{...}|;
+\item The libraries which support CTMP (mainly for syntax extension).
+\end{itemize}
+
+\paragraph{Metalua design philosophy}
+Metalua has been designed to occupy a vacant spot in the space of
+CTMP-enabled languages:
+\begin{itemize}
+
+\item Lisp offers a lot of flexibility, at the price of macro-friendly
+  syntax, rather than user-friendly. Besides the overrated problem of
+  getting used to those lots of parentheses, it's all too tempting to
+  mix macros and normal code in Lisp, in a way that doesn't visually
+  stand out; this really doesn't encourage the writing of reusable,
+  mutually compatible libraries. As a result of this extreme
+  flexibility, large scale collaboration doesn't seem to happen, and
+  Lisps lack a {\em de facto} comprehensive set of standard libs,
+  besides those included in Common Lisp's specification. Comparisons
+  have been drawn between getting Lispers to work together and herding
+  cats\ldots
+
+\item Macro-systems bolted on existing languages (Template
+  Haskell\footnote{\url{http://}}, CamlP4\footnote{\url{http://}},
+  MetaML\footnote{\url{http://}}\ldots) tend to be hard to use: the
+  syntax and semantics of these target languages are complex, and make
+  macro writing much harder than necessary. Moreover, for some reason,
+  most of these projects target statically typed languages: although
+  static inference type systems {\`a la} Hindley-Milner are extremely
+  powerful tools in many contexts, my intuition is that static types
+  are more of a burden than a help for many macro-friendly problems.
+
+\item Languages built from scratch, such as
+  converge\footnote{\url{http://}} or Logix\footnote{\url{http://}},
+  have to bear with the very long (often decade) maturing time
+  required for a programming language. Moreover, they lack the
+  existing libraries and developpers that come with a succesful
+  language.
+
+\end{itemize}
+
+\noindent Lua presents many features that beg for a real macro system:
+
+\begin{itemize}
+\item Its compact, clear, orthogonal, powerful semantics, and its
+  approach of giving powerful generic tools rather than ready-made
+  closed features to its users.
+\item Its excellent supports for runtime metaprogramming.
+\item Its syntax, despite (or due to its) being very readable and easy
+  to learn, is also extremely simple to parse. This means no extra
+  technology gets in the way of handling syntax (no BNF-like
+  specialized language, no byzantine rules and exceptions). Even more
+  importantly, provided that developers respect a couple of
+  common-sense rules, cohabitation of multiple syntax extensions in a
+  single project is made surprizingly easy.
+\end{itemize}
+
+Upon this powerful and sane base, Metalua adds CTMP with the following
+design goals:
+
+\begin{itemize}
+\item Simple things should be easy and look clean: writing simple
+  macros shouldn't require an advanced knowledge of the language's
+  internals. And since we spend 95\% of our time {\em not} writing
+  macros, the syntax should be optimized for regular code rather than
+  for code generation.
+\item Good coding practices should be encouraged. Among others,
+  separation between meta-levels must be obvious, so that it stands
+  out when something {\em interesting} is going on. Ideally, good code
+  must look clean, and messy code should look ugly.
+\item However, the language must be an enabler, not handcuffs: it
+  should ensure that users know what they're doing, but it must
+  provide them with all the power they're willing to handle.
+\end{itemize}

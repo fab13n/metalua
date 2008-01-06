@@ -1,0 +1,343 @@
+\subsection{Exceptions}
+As a first non-trivial example of extension, we'll pick exception:
+there is a mechanism in Lua, {\tt pcall()}, which essentially provides
+the raw functionality to catch errors when some code is run, so
+enhancing it to get full exceptions is not very difficult. We will aim
+at:
+\begin{itemize}
+\item Having a proper syntax, the kind you get in most
+  exception-enabled languages;
+\item being able to easily classify exception hierarchically;
+\item being able to attach additional data to exception (e.g. an error
+  message);
+\item not interfere with the usual error mechanism;
+\item support the ``finally'' feature, which guaranties that a piece
+  of code (most often about resource liberation) will be executed.
+\end{itemize}
+
+\subsubsection{Syntax}
+There are many variants of syntaxes for exceptions. I'll pick one
+inspired from OCaml, which you're welcome to dislike. And in case you
+dislike it, writing one which suits your taste is an excellent
+exercice. So, the syntax for exceptions will be something like:
+\begin{verbatim}
+try
+   <protected block of statements>
+with
+  <exception_1> -> <block of statements handling exception 1>
+| <exception_2> -> <block of statements handling exception 2>
+  ...
+| <exception_n> -> <block of statements handling exception n>
+end
+\end{verbatim}
+
+Notice that OCaml lets you put an optional ``{\tt|}'' in front of the
+first exception case, just to make the whole list look more regular,
+and we'll accept it as well. Let's write a {\tt gg} grammar parsing
+this:
+
+\begin{verbatim}
+trywith_parser = 
+   gg.sequence{ "try",  mlp.block,  "with",  gg.optkeyword "|",
+                gg.list{ gg.sequence{ mlp.expr,  "->",  mlp.block },
+                         separators = "|", terminators = "end" },
+                "end", 
+                builder = trywith_builder }
+mlp.stat:add(trywith_parser)
+mlp.lexer:add{ "try", "with", "->" }
+mlp.block.terminator:add{ "|", "with" }
+\end{verbatim}
+
+We use {\tt gg.sequence} to chain the various parsers; {\tt
+  gg.optkeyword} lets us allow the optional ``{\tt|}''; {\tt gg.list}
+lets us read an undetermined series of exception cases, separated by
+keyword ``{\tt|}'', until we find the terminator ``{\tt end}''
+keyword. The parser delegates the building of the resulting statement
+to {\tt trywith\_builder}, which will be detailled later. Finally, we
+have to declare a couple of mundane things:
+\begin{itemize}
+\item that {\tt try}, {\tt with} and {\tt->} are keywords. If we don't
+  do this, the two firsts will be returned by the lexer as identifiers
+  instead of keywords; the later will be read as two separate keywords
+  ``{\tt-}'' and ``{\tt>}''. We don't have to declare explicitly
+  ``{\tt|}'', as single-character symbols are automatically considered to
+  be keywords.
+\item that ``{\tt|}'' and ``{\tt with}'' can terminate a block of
+  statements. Indeed, metalua needs to know when it reached the end of
+  a block, and introducing new constructions which embed blocks often
+  introduce new block terminators. In our case, ``{\tt with}'' marks
+  the end of the block in which exceptions are monitored, and ``{\tt|}''
+  marks the beginning of a new exception handling case, and therefore
+  the end of the previous case's block.
+\end{itemize}
+
+That's it for syntax, at least for now. The next step is to decide
+what kind of code we will generate.
+
+The fundamental mechanism is {\tt pcall(func, arg1, arg2, ...,
+  argn)}: this call will evaluate\\
+{\tt func(arg1, arg2, ..., argn)}, and:
+\begin{itemize}
+\item if everything goes smoothly, return {\tt true}, followed by any
+  value(s) returned by {\tt func()};
+\item if an error occurs, return {\tt false}, and the error object,
+  most often a string describing the error encountered.
+\end{itemize}
+
+We'll exploit this mechanism, by enclosing the guarded code in a
+function, calling it inside a {\tt pcall()}, and using special error
+objects to represent exceptions.
+
+\subsubsection{Exception objects}
+We want to be able to classify exceptions hierarchically: each
+exception will inherit form a more generic exception, the most generic
+one being simply called ``{\tt exception}''. We'll therefore design a
+system which allows to specialize an exception into a sub-exception,
+and to compare two exceptions, to know whether one is a special case
+of another. Comparison will be handled by the usual {\tt< > <= >=}
+operators, which we'll overload through metatables. Here is an
+implementation of the base exception {\tt exception}, with working
+comparisons, and a {\tt new()} method which allow to specialize an
+exception. Three exceptions are derived as an example, so that
+{\tt exception > exn\_invalid > exn\_nullarg} and {\tt exception >
+  exn\_nomorecoffee}:
+
+\begin{verbatim}
+exception = { } ; exn_mt = { } 
+setmetatable (exception, exn_mt)
+
+exn_mt.__le = |a,b| a==b or a<b 
+exn_mt.__lt = |a,b| getmetatable(a)==exn_mt and 
+                    getmetatable(b)==exn_mt and
+                    b.super and a<=b.super
+
+function exception:new()
+   local e = { super = self, new = self.new }
+   setmetatable(e, getmetatable(self))
+   return e
+end
+
+exn_invalid     = exception:new()
+exn_nullarg     = exn_invalid:new()
+exn_nomorecofee = exception:new()
+\end{verbatim}
+
+To compile a {\tt try/with} block, after having put the guarded block
+into a {\tt pcall()} we need to check whether an exception was raised,
+and if is has been raised, compare it with each case until we find one
+that fits. If none is found (either it's an uncaught exception, or a
+genuine error which is not an exception at all), it must be rethrown. 
+
+Notice that throwing an exception simply consists into sending it as
+an error:
+\begin{verbatim}
+throw = error
+\end{verbatim}
+
+To fix the picture, here is some simple code using {\tt try/catch},
+followed by its translation:
+
+\begin{verbatim}
+-- Original code:
+try
+   print(1)
+   print(2)
+   throw(exn_invalid:new("toto"))
+   print("You shouldn't see that")
+with
+| exn_nomorecofee -> print "you shouldn't see that: uncomparable exn"
+| exn_nullarg     -> print "you shouldn't see that: too specialized exn"
+| exn_invalid     -> print "exception caught correctly"
+| exception       -> print "execution should never reach that far"
+end 
+print("done")
+\end{verbatim}
+
+\begin{verbatim}
+-- Translated version:
+local status, exn = pcall (function ()
+   print(1)
+   print(2)
+   throw(exn_invalid)
+   print("You shouldn't see that")
+   end)
+
+if not status then
+   if exn < exn_nomorecoffee then
+      print "you shouldn't see that: uncomparable exn"
+   elseif exn < exn_nullarg then
+      print "you shouldn't see that: too specialized exn"
+   elseif exn < exn_invalid then
+      print "exception caught correctly"
+   elseif exn < exception then
+      print "execution should never reach that far"
+   else error(exn) end
+end 
+print("done")
+\end{verbatim}
+
+In this, the only nontrivial part is the sequence of {\tt
+  if/then/elseif} tests at the end. If you check the doc about AST
+representation of such blocks, you'll come up with some generation
+code which looks like:
+
+\pagebreak
+
+\begin{verbatim}
+function trywith_builder(x)
+   ---------------------------------------------------------
+   -- Get the parts of the sequence:
+   ---------------------------------------------------------
+   local block, _, handlers = unpack(x)
+
+   ---------------------------------------------------------
+   -- [catchers] is the big [if] statement which handles errors
+   -- reported by [pcall].
+   ---------------------------------------------------------
+   local catchers = `If{ }
+   for _, x in ipairs (handlers) do
+      -- insert the condition:
+      table.insert (catchers, +{ -{x[1]} <= exn })
+      -- insert the corresponding block to execute on success:
+      table.insert (catchers, x[2])
+   end
+
+   ---------------------------------------------------------
+   -- Finally, put an [else] block to rethrow uncought errors:
+   ---------------------------------------------------------
+   table.insert (catchers, +{error (exn)})
+
+   ---------------------------------------------------------
+   -- Splice the pieces together and return the result:
+   ---------------------------------------------------------
+   return +{ block:
+      local status, exn  = { pcall (function() -{block} end) }
+      if not status then
+         -{ catchers }
+      end }
+end
+\end{verbatim}
+
+\subsubsection{Not getting lost between metalevels}
+This is the first non-trivial example we see, and it might require a
+bit of attention in order not to be lost between metalevels. Parts of
+this library must go at metalevel (i.e. modify the parser itself at
+compile time), other parts must be included as regular code:
+\begin{itemize}
+\item {\tt trywith\_parser} and {\tt trywith\_builder} are at metalevel:
+  they have to be put between \verb|-{...}|, or to be put in a file
+  which is loaded through \verb|-{ require ... }|. 
+\item the definitions of {\tt throw}, the root {\tt exception} and the
+  various derived exceptions are regular code, and must be included normally.
+\end{itemize}
+
+The whole result in a single file would therefore look like:
+
+\begin{verbatim}
+-{ block:
+   local trywith_builder = ...
+   local trywith_parser  = ...
+   mlp.stat:add ...
+   mlp.lexer:add ...
+   mlp.block.terminator:add ... }
+
+throw     = ...
+exception = ...
+exn_mt    = ...
+
+exn_invalid     = ...
+exn_nullarg     = ...
+exn_nomorecofee = ...
+
+-- Test code
+try
+   ...
+with
+| ... -> ...
+end
+\end{verbatim}
+
+Better yet, it should be organized into two files:
+\begin{itemize}
+\item the parser modifier, i.e. the content of ``{\tt-\{block:...\}}''
+  above, goes into a file ``ext-syntax/exn.lua'' of Lua's path;
+\item the library part, i.e. {\tt throw ... exn\_nomorecoffee ...}
+  goes into a file ``ext-lib/exn.lua'' of Lua's path;
+\item the sample calls them both with metalua standard lib's {\tt
+extension} function:
+\end{itemize}
+
+\begin{verbatim}
+-{ extension "exn" }
+try
+  ...
+with
+| ... -> ...
+ene
+\end{verbatim}
+
+\subsubsection{shortcomings}
+This first attempt is full of bugs, shortcomings and other
+traps. Among others:
+\begin{itemize}
+\item Variables {\tt exn} and {\tt status} are subject to capture;
+\item There is no way to put personalized data in an exception. Or,
+  more accurately, there's no practiccal way to retrieve it in the
+  exception handler.
+\item What happens if there's a {\tt return} statement in the guraded
+  block?
+\item There's no {\tt finally} block in the construction.
+\item Coroutines can't yield across a {\tt pcall()}. Therefore, a
+yield in the guarded code will cause an error.
+\end{itemize}
+
+Refining the example to address these shortcomings is left as an
+exercice to the reader, we'll just give a couple of design
+hints. However, a more comprehensive implementation of this exception
+system is provided in metalua's standard libraries; you can consider
+its sources as a solution to this exercice!
+
+\subsubsection{Hints}
+Addressing the variable capture issue is straightforward: use {\tt
+  mlp.gensym()} to generate unique identifiers (which cannot capture
+anything), and put anti-quotes at the appropriate places. Eventually,
+metalua will include an hygienization library which will automate this
+dull process. 
+
+Passing parameters to exceptions can be done by adding arbitrary
+parameters to the {\tt new()} method: these parameters will be stored
+in the exception, e.g. in its array part. finally, the
+syntax has to be extended so that the caught exception can be given a
+name. Code such as the one which follows should be accepted:
+
+\begin{verbatim}
+try
+   ...
+   throw (exn_invalid:new "I'm sorry Dave, I'm afraid I can't do that.")
+with
+| exn_invalid e -> printf ("The computer choked: %s", e[1])
+end
+\end{verbatim}
+
+The simplest way to detect user-caused returns is to create a unique
+object (typically an empty table), and return it at the end of the
+block. when no exception has been thrown, test whether that object was
+returned: if anything else than it was returned, then propagate it (by
+{\tt return}ing it again). If not, do nothing. Think about the case
+when multiple values have been returned.
+
+The {\tt finally} block poses no special problem: just go through it,
+whether an exception occured or not. Think also about going through it
+even if there's a {\tt return} to propagate.
+
+As for yielding from within the guarded code, there is a solution,
+which you can find by searching Lua's mailing list archives. The idea
+is to run the guarded code inside a coroutine, and check what's
+returned by the coroutine run:
+\begin{itemize} 
+\item if it's an error, treat it as a {\tt pcall()} returning false;
+\item if it's a normal termination, treat it as a {\tt pcall()}
+  returning true;
+\item if it's a yield, propagate it to the upper level; when resumed,
+  propagate the resume to the guarded code which yielded.
+\end{itemize}

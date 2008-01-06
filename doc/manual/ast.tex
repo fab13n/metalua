@@ -1,0 +1,97 @@
+% \documentclass{article}
+% \title{MetaLua Abstract Syntax Trees}
+% \setlength{\columnseprule}{1pt}
+\def\T#1{{\bf`#1}}
+\def\L#1{\{#1\}}
+\def\P#1{{\it #1}}
+\def\C#1{[\hspace{-.4em}[#1]\hspace{-.4em}]}
+\def\V#1{{\it #1}}
+\def\plus{\ensuremath{{}^{+}}}
+\def\star{\ensuremath{{}^{*}}}
+\def\TRANS{\ensuremath{\Longrightarrow}}
+% \usepackage{alltt}
+% \begin{document}
+% \maketitle
+
+\section{Abstract Syntax Tree grammar}
+
+\begin{alltt}
+
+block: \L{ stat\star (\T{Return}\L{expr\star} | \T{Break})? }
+
+stat:
+| \T{Do}\L{ block }
+| \T{Set}\L{ \L{lhs\plus} \L{expr\plus} }
+| \T{While}\L{ expr block }
+| \T{Repeat}\L{ block expr }
+| \T{If}\L{ (expr block)\plus block? }
+| \T{Fornum}\L{ ident expr expr expr? block }
+| \T{Forin}\L{ \L{ident\plus} \L{expr\plus} block }
+| \T{Local}\L{ \L{ident\plus} \L{expr\plus}? }
+| \T{Localrec}\L{ \L{ident\plus} \L{expr\plus}? }
+| apply
+
+expr:
+| \T{Nil} | \T{Dots} | \T{True} | \T{False}
+| \T{Number}\L{ \P{number} }
+| \T{String}\L{ \P{string} }
+| \T{Function}\L{ \L{ ident\star \T{Dots}? } block } 
+| \T{Table}\L{ ( \T{Pair}\L{ expr expr } | expr )\star }
+| \T{Op}\L{ opid expr expr? }
+| \T{Paren}\L{ expr }
+| apply
+| lhs
+
+apply:
+| \T{Call}\L{ expr expr\star }
+| \T{Invoke}\L{ expr \T{String}\L{ \P{string} } expr\star }
+
+lhs: ident | \T{Index}\L{ expr expr }
+
+ident: \T{Id}\L{ \P{string} }
+
+opid: \T{Add}    | \T{Sub}    | \T{Mul}    | \T{Div} 
+    | \T{Mod}    | \T{Pow}    | \T{Concat} | \T{Eq} 
+    | \T{Lt}     | \T{Le}     | \T{And}    | \T{Or}
+    | \T{Not}    | \T{Len}
+
+\end{alltt}
+  
+% {\bf{}Relaxed forms:}
+
+% stat +=
+% | \L{ stat\star }
+% | \T{Let}\L{ (\L{lhs\plus}|lhs) (\L{expr\plus}|expr) }
+% | \T{Forin}\L{ (\L{ident\plus}|ident)  (\L{expr\plus}|expr) block }
+% | \T{Local}\L{ (\L{ident\plus}|ident)  (\L{expr\plus}|expr)? }
+
+% lhs += \T{Index}\L{ expr expr\plus }
+
+% expr += 
+% | \T{Function}\L{ ident? block }
+% | \P{number}
+% | \P{string}
+
+% {\bf{}Translations:}
+% \C{do \V{foo}; \V{bar} end} \TRANS \T{Do}\L{ \C{\V{foo}}, \C{\V{bar}}}
+% \C{\V{v1},\V{v2},\V{v3} = \V{e1},\V{e2},\V{e3}} \TRANS \T{Let}\L{\L{\C{\V{v1}},\C{\V{v2}},\C{\V{v3}}}, \L{\C{\V{e1}},\C{\V{e2}},\C{\V{e3}}}}
+% \C{\V{foo}(\V{bar1}, \V{bar2})} \TRANS \T{Call}\L{\C{\V{foo}},\C{\V{bar1}},\C{\V{bar2}}}
+% \C{while \V{foo} do \V{bar}; \V{gna} end} \TRANS \T{While}\L{\C{\V{foo}},\T{Do}\L{\C{\V{bar}},\C{\V{gna}}}}
+% \C{repeat \V{foo}; \V{bar} until \V{gna}} \TRANS \T{Repeat}\L{\T{Do}\L{\C{\V{foo}},\C{\V{bar}}},\C{\V{gna}}}
+
+% \end{alltt}
+
+
+%\end{document}
+
+%stat:
+%| \T{Splice}\L{ expr }
+
+%expr:
+%| \T{Quote}\L{ \T{Exprr}, expr  }
+%| \T{Quote}\L{ \T{Stat}, stat }
+%| \T{Quote}\L{ \T{Id},   ident }
+%| \T{Splice}\L{ expr }
+
+%expr relaxed:
+%| \T{Quote}\L{ expr }

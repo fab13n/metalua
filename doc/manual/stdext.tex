@@ -1,0 +1,99 @@
+\section{Standard extensions}
+Metalua comes with a set of general purpose extensions. They are
+currently undocumented in this manual, but their sources are
+thoroughly commented, so by reading them you should be able to use
+them.
+
+\subsection{Classes extension}
+FIXME: doc missing, check the source comments for now.
+
+\subsection{Structural pattern matching extension}
+
+FIXME: look at the pattern matching sample, it implements most of this
+extension's basic features. Check also the sources, they're commented.
+
+FIXME again: there's a known bug about variable capture in the
+macro. To be fixed in 0.3.1.
+
+\subsection{Exceptions extension}
+FIXME: doc missing. Check the tutorial, it's a simplified version of
+this extension.
+
+\subsection{List comprehension extension} 
+
+This extension offers improved tables-as-list syntax:
+\begin{itemize}
+\item lists by comprehension;
+\item literal lists splicing;
+\item list sub-sampling.
+\end{itemize}
+
+Lists by comprehensions allow to describe a list in terms of
+generation loops and filtering. The loops are the two flavors of
+``for'' controls, and the syntax is {\tt\{ <value> <loop\_header>
+  \}}. For instance, the list {\tt\{10, 20, 30, 40, 50\}} can be generated
+as {\tt\{ x for x=10, 50, 10 \}}, or {\tt\{ 10*x for i=1, 5 \}}. The
+list of all keys from table {\tt t} can be gathered with {\tt\{ k for
+  k, v in pairs(t) \}}. Several loops can be nested. For instance, the
+list of all products of elements taken from list {\tt a} and {\tt b}
+can be computed with {\tt\{ i*j for \_, i in ipairs(a) for \_, j in
+  ipairs(b) \}}.
+
+Finally, results can be filtered out of a list. For instance, the
+elements of {\tt a} which are multiple of 3 can be gathered with
+{\tt\{ x for \_, x in ipairs(a) if x\%3==0 \}}.
+
+In Lua, when a list is defined and one of its elements is a multiple
+return function, only the first returned value is kept, except for the
+last element (cf. Lua manual 2.5.7). For instance, in the example
+below, {\tt x} is set to {\tt\{1, 1, 1, 2, 3\}}: only the last call to
+{\tt f()} is expanded:
+
+\begin{verbatim}
+function f()
+  return 1, 2, 3
+end
+x = { f(), f(), f() }
+\end{verbatim}
+
+The extension offers a way to expand intermediate response: they ahve
+to be followed by {\tt...}. In the example above, {\tt y = \{f()...,
+  f()..., f()...\}} would expand as {\tt\{1, 2, 3, 1, 2, 3, 1, 2,
+  3\}}.
+
+Comprehensions are naturally expanded, i.e. another way to write {\tt
+  y} would have been {\tt y = \{i for i=1,3; i for i=1,3; i for
+  i=1,3\}} (notice however that we had to separate elements with
+semicolons rather than commas: if we didn't, the {\tt i} of the second
+loop would have been tekane as a third parameter to the first for loop
+header).
+
+Sub-sampling is done with indexes, by using the comma to separate
+indices, and {\tt...} as an infix operator to denote intervals. The
+latter binds tighter than the former. For instance:
+
+\begin{verbatim}
+x = { i for i=101, 130 }
+y = x[1 ... 10, 20, 25]
+z = { i for i=101,110; 120; 125 }
+
+assert (#y == #z)
+for i = 1, #x do
+  assert (y[i] == z[i]
+end
+\end{verbatim}
+
+Beware of a lexing issue: if you write ``{\tt[1...n]}'', it will be
+interpreted as number {\tt 1.} followed by operator {\tt..}: put a
+space between literal numbers and operators starting with a dot.
+
+Notice taht there are now two substancially different operators with
+very similar syntaxes: the original index operator, which returns a
+single element, and the sub-sampling operators, which returns a list
+of elements. If you want to returna single element list, you can
+either reconstruct it from the regular index operator ({\tt
+  y=\{x[i]\}}), or use a single element wide interval ({\tt
+  y=x[i...i]}).
+
+FIXME: there should be \verb|x[...i]| and \verb|x[i...]| sub-sampling
+notations, but they aren't currently implemented.

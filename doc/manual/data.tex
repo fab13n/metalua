@@ -1,0 +1,650 @@
+\section{Data structures}
+
+\subsection{Algebraic Datatypes (ADT)}
+
+(ADT is also the usual accronym for Abstract DataType. However, I'll
+never talk about abstract datatypes in this manual, so there's no
+reason to get confused about it. ADT always refers to algebraic
+datatypes). 
+
+Metalua's distinctive feature is its ability to easily work on program
+source codes as trees, and this include a proper syntax for tree
+manipulation. The generic table structure offered by Lua is
+definitely good enough to represent trees, but since we're going to
+manipulate them a lot, we give them a specific syntax which makes them
+easier to read and write.
+
+So, a tree is basically a node, with:
+\begin{itemize}
+\item a tag (a string, stored in the table field named ``{\tt tag}'')
+\item some children, which are either sub-trees, or atomic values
+  (generally strings, numbers or booleans). These children are stored
+  in the array-part\footnote{Tables in Lua can be indexed by integers,
+    as regular arrays, or by any other Lua data. Moreover, their
+    internal representation is able to optimize both array-style and
+    hashtable-style usage, and both kinds of keys can be used in the
+    same table. In this manual, I'll refer to the integer-indexed part
+    of a table as its array-part, and the other one as its hash-part.}
+  of the table, i.e. with consecutive integers as keys.
+\end{itemize}
+
+\paragraph{Example 1}
+
+The most canonical example of ADT is probably the inductive list. Such
+a list is described either as the empty list \verb+Nil+, or a pair
+(called a \verb+cons+ in Lisp) of the first element on one side
+(\verb+car+ in Lisp), and the list of remaining elements on the other
+side (\verb+cdr+ in Lisp). These will be represented in Lua as
+\verb+{ tag = "Nil" }+ and {\tt\{ tag = "Cons", car, cdr \}}. The list
+(1, 2, 3) will be represented as:
+
+\begin{verbatim}
+{ tag="Cons", 1, 
+  { tag="Cons", 2, 
+    { tag="Cons", 3, 
+      { tag="Nil" } } } }
+\end{verbatim}
+
+\paragraph{Example 2}
+
+Here is a more programming language oriented example: imagine that we
+are working on a symbolic calculator. We will have to work this:
+\begin{itemize}
+\item litteral numbers, represented as integers;
+\item symbolic variables, represented by the string of their
+  symbol;
+\item formulae, i.e. numbers, variables an/or sub-formulae
+  combined by operators. Such a formula is represented by the symbol
+  of its operator, and the sub-formulae / numbers / variables it
+  operates on.
+\end{itemize}
+Most operations, e.g. evaluation or simplification, will do different
+things depending on whether it is applied on a number, a variable or a
+formula. Moreover, the meaning of the fields in data structures depends
+on that data type. The datatype is given by the name put in the
+\verb+tag+ field. In this example, \verb+tag+ can be one of
+\verb+Number+, \verb+Var+ or \verb+Formula+. The formula $e^{i\pi}+1$
+would be encoded as:
+\begin{verbatim}
+{ tag="Formula", "Addition", 
+  { tag="Formula", "Exponent", 
+    { tag="Variable", "e" },
+    { tag="Formula", "Multiplication", 
+      { tag="Variable", "i" },
+      { tag="Variable", "pi" } } },
+  { tag="Number", 1 } }
+\end{verbatim}
+
+\paragraph{Syntax}
+
+The simple data above already has a quite ugly representation, so here
+are the syntax extensions we provide to represent trees in a more
+readable way:
+
+\begin{itemize}
+\item The tag can be put in front of the table, prefixed with a
+  backquote. For instance, {\tt\{ tag = "Cons", car, cdr \}} can be
+  abbreviated as {\tt`Cons\{ car, cdr \}}.
+\item If the table contains nothing but a tag, the braces can be
+  omitted. Therefore, \verb+{ tag = "Nil" }+ can be abbreviated as
+  \verb+`Nil+ (although \verb|`Nil{ }| is also legal).
+\item If there is only one element in the table besides the tag, and
+  this element is a literal number or a literal string, braces can be
+  omitted. Therefore {\tt\{ tag = "Foo", "Bar" \}} can be abbreviated
+  as \verb+`Foo "bar"+.
+\end{itemize}
+
+With this syntax sugar, the $e^{i\pi}+1$ example above would read:
+\begin{verbatim}
+`Formula{ "Addition", 
+   `Formula"{ "Exponent", 
+      `Variable "e",
+      `Formula{ "Multiplication", `Variable "i", `Variable "pi" } },
+   `Number 1 }
+\end{verbatim}
+
+This is the way you'll actually write ADT in Metalua, although
+expressions are not represented with this ``formula'' data type.
+
+\subsection{Abstract Syntax Trees (AST)}
+
+An AST is an Abstract Syntax Tree, a data representation of source
+code suitable for easy manipulation. AST are just a particular usage
+of ADT, and we will represent them with the ADT syntax described
+above.
+
+\paragraph{Example} this is the tree representing the source code
+\verb+print(foo, "bar")+:
+
+\verb+`Call{ `Id "print", `Id "foo", `String "bar" }+
+
+Metalua tries, as much as possible, to shield users from direct AST
+manipulation, and a thorough knowledge of them is generally not
+needed. Metaprogrammers should know their general form, but it is
+reasonnable to rely on a cheat-sheet to remember the exact details of
+AST structures. Such a summary is provided
+in appendix of this tutorial, as a reference when dealing with them.
+
+In the rest of this section, we will present the translation from Lua
+source to their corresponding AST.
+
+\subsection{AST  $\Longleftrightarrow$ Lua source translation}
+
+This subsection explains how to translate a piece of lua source code
+into the corresponding AST, and conversely. Most of time, users will
+rely on a mechanism called quasi-quotes to produce the AST they will
+work with, but it is sometimes necessary to directly deal with AST,
+and therefore to have at least a superficial knowledge of their
+structure.
+
+\subsubsection{Expressions}
+
+The expressions are pieces of Lua code which can be evaluated to give a
+value. This includes constants, variable identifiers, table
+constructors, expressions based on unary or binary operators, function
+definitions, function calls, method invocations, and index selection
+from a table.
+
+Expressions should not be confused with statements: an expression has
+a value with can be returned through evaluation, whereas statements
+just execute themselves and change the computer state (mainly memory
+and IO). For instance, \verb|2+2| is an expression which evaluates to
+4, but \verb|four=2+2| is a statement, which sets the value of
+variable \verb|four| but has no value itself.
+
+\paragraph{Number constants} 
+A number is represented by an AST with tag \verb+Number+ and the
+number value as its sole child. For instance, \verb+6+ is represented
+by \verb+`Number 6+\footnote{As explained in the section about ADT,
+  {\tt `Number 6} is exactly the same as {\tt `Number\{ 6 \}}, or
+  plain Lua {\tt\{ tag="Number", 6\}} }.
+
+\paragraph{String constants}
+A string is represented by an AST with tag \verb+String+ and the
+string as its sole child. For instance, \verb+"foobar"+ is
+represented by \verb+`String "foobar"+.
+
+\paragraph{Variable names}
+A variable identifier is represented by an AST with tag \verb+Id+ and the
+number value as its sole child. For instance, variable \verb+foobar+ is
+represented by \verb+`Id "foobar"+.
+
+\paragraph{Other atomic values}
+Here are the translations of other keyword-based atomic values:
+\begin{itemize}
+\item \verb+nil+ is encoded as \verb+`Nil+\footnote{which is a
+  short-hand for {\tt`Nil\{ \}}, or {\tt\{ tag="Nil" \}} in plain Lua.};
+\item \verb+false+ is encoded as \verb+`False+;
+\item \verb+true+ is encoded as \verb+`True+;
+\item \verb+...+ is encoded as \verb+`Dots+.
+\end{itemize}
+
+\paragraph{Table constructors}
+A table constructor is encoded as:
+
+\verb+`Table{ ( `Pair{ expr expr } | expr )* }+
+
+This is a list, tagged with \verb+Table+, whose elements are either:
+\begin{itemize}
+\item the AST of an expression, for array-part entries without an
+  explicit associated key;
+\item a pair of expression AST, tagged with \verb+Key+: the first
+  expression AST represents a key, and the second represents the value
+  associated to this key.
+\end{itemize}
+
+\subparagraph{Examples}
+\begin{itemize}
+
+\item The empty table \verb+{ }+ is represented as \verb+`Table{ }+;
+
+\item \verb+{1, 2, "a"}+ is represented as:\\
+  \verb+`Table{ `Number 1, `Number 2, `String "a" }+;
+
+\item \verb+{x=1, y=2}+ is syntax sugar for \verb+{["x"]=1, ["y"]=2}+,
+  and is represented by:\\
+  \verb+`Table{ `Key{ `String "x", `Number 1 }, `Key{ `String "y", `Number 2} }+;
+
+\item indexed and non-indexed entries can be mixed:
+  \verb+{ 1, [100]="foo", 3}+ is represented as \\
+  \verb+`Table{ `Number 1, `Key{ `Number 100, `String "foo"}, `Number 3 }+;
+
+\end{itemize}
+
+\paragraph{Binary Operators}
+Binary operations are represented by
+\verb+`Op{ operator, left, right}+, where \verb+operator+ is a
+childless AST describing the operator, \verb+left+ is the AST of the
+left operand, and \verb+right+ the AST of the right operand.
+
+The following table associates a Lua operator to its AST:
+
+\begin{center}
+\begin{tabular}{|c|c||c|c||c|c||c|c|}
+  \hline
+  \bf Op. & \bf AST & 
+  \bf Op. & \bf AST & 
+  \bf Op. & \bf AST & 
+  \bf Op. & \bf AST \\
+  
+  \hline\hline %%%%%%%%%%%%%%%%%
+  \verb|+|   & \verb+"add"+    & 
+  \verb+-+   & \verb+"sub"+    & 
+  \verb+*+   & \verb+"mul"+    & 
+  \verb+/+   & \verb+"div"+    \\
+  \hline %%%%%%%%%%%%%%%%%%%%%%%
+  \verb+%+   & \verb+"mod"+    & 
+  \verb+^+   & \verb+"pow"+    & 
+  \verb+..+  & \verb+"concat"+ & 
+  \verb+==+  & \verb+"eq"+     \\
+  \hline %%%%%%%%%%%%%%%%%%%%%%%
+  \verb+<+   & \verb+"lt"+     &
+  \verb+<=+  & \verb+"le"+     & 
+  \verb+and+ & \verb+"and"+    & 
+  \verb+or+  & \verb+"or"+     \\
+  \cline{1-6} %%%%%%%%%%%%%%%%%%
+\end{tabular}
+\end{center}
+
+Operator names are the sames as the corresponding Lua metatable entry,
+without the prefix \verb+"__"+. There are no operator for operators
+\verb+~=+, \verb+>=+ and \verb+>+. They can be simulated by swapping
+the arguments of \verb+<=+ and \verb+<+, or adding a \verb+not+ to
+operator \verb+==+.
+
+\subparagraph{Examples}
+\begin{itemize}
+\item \verb|2+2| is represented as
+  \verb|`Op{ `Add, `Number 2, `Number 2 }|;
+\item \verb|1+2*3| is represented as
+  \verb|`Op{ `Add, `Number 1, `Op{ `Mul, `Number 2, `Number 3 } }|;
+\item \verb|(1+2)*3| is represented as
+  \verb|`Op{ `Mul, `Op{ `Add, `Number 1, `Number 2 }, `Number 3 }|
+\item \verb|x>=1 and x<42 | is represented as:
+\begin{verbatim}
+`Op{ `And, `Op{ `Le, `Number  1, `Id "x" },
+           `Op{ `Lt, `Id "x", `Number 42 } }
+
+\end{verbatim}
+\end{itemize}
+
+\paragraph{Unary Operators}
+Unary operations are similar to binary operators, except that they
+only take the AST of one subexression.  The following table associates
+a Lua unary operator to its AST:
+
+\begin{center}
+\begin{tabular}{|c|c||c|c||c|c|}
+  \hline
+  \bf Op. & \bf AST & 
+  \bf Op. & \bf AST & 
+  \bf Op. & \bf AST \\
+  
+  \hline\hline %%%%%%%%%%%%%%
+  \verb+-+   & \verb+"sub"+ & 
+  \verb+#+   & \verb+"len"+ & 
+  \verb+not+ & \verb+"not"+ \\
+  \hline %%%%%%%%%%%%%%%%%%%%
+\end{tabular}
+\end{center}
+
+\subparagraph{Examples}
+\begin{itemize}
+\item \verb|-x| is represented as \verb|`Op{ `Sub, `Id "x" }|;
+\item \verb|-(1+2)| is represented as
+  \verb|`Op{ `Sub, `Op{ `Add, `Number 1, `Number 2 } }|
+\item \verb|#x| is represented as
+  \verb|`Op{ `Len, `Id "x" }|
+\end{itemize}
+
+\paragraph{Indexed access}
+They are represented by an AST with tag \verb+Index+, the table's AST
+as first child, and the key's AST as second child.
+
+\subparagraph{Examples}
+\begin{itemize}
+\item \verb+x[3]+ is represented as \verb+`Index{ `Id "x", `Number 3 }+;
+\item \verb+x[3][5]+ is represented as
+  \verb+`Index{ `Index{ `Id "x", `Number 3 }, `Number 5 }+;
+\item \verb+x.y+ is syntax sugar for \verb+x["y"]+, and is represented as
+  \verb+`Index{ `Id "x", `String "y" }+;
+\end{itemize}
+
+Notice that index AST can also appear as left-hand side of
+assignments, as shall be shown in the subsection dedicated to
+statements.
+
+\paragraph{Function call}
+Function call AST have the tag \verb+Call+, the called function's AST
+as first child, and its arguments as remaining children.
+
+\subparagraph{Examples}
+\begin{itemize}
+\item \verb+f()+ is represented as \verb+`Call{ `Id "f" }+;
+\item \verb+f(x, 1)+ is represented as
+  \verb+`Call{ `Id "f", `Id "x", `Number 1 }+;
+\item \verb+f(x, ...)+ is represented as
+  \verb+`Call{ `Id "f", `Id "x", `Dots }+.
+\end{itemize}
+
+Notice that function calls can be used as expressions, but also as statements. 
+
+\paragraph{Method invocation}
+Method invocation AST have the tag \verb+Invoke+, the object's AST as
+first child, the string name of the method as a second child, and
+the arguments as remaining children.
+
+\subparagraph{Examples}
+\begin{itemize}
+\item \verb+o:f()+ is represented as \verb+`Invoke{ `Id "o", String "f" }+;
+\item \verb+o:f(x, 1)+ is represented as
+  \verb+`Invoke{ `Id "o", `String "f", `Id "x", `Number 1 }+;
+\item \verb+o:f(x, ...)+ is represented as
+  \verb+`Invoke{ `Id "o", `String "f", `Id "x", `Dots }+;
+\end{itemize}
+
+Notice that method invocations can be used as expressions, but also as
+statements.  Notice also that ``{\tt function o:m (x) return x end}'' is
+not a method invocation, but syntax sugar for statement
+``{\tt o["f"] = function (self, x) return x end}''. See the paragraph
+about assignment in statements subsection for its AST representation.
+
+
+\paragraph{Function definition}
+A function definition consists of a list of parameters and a block of
+statements. The parameter list, which can be empty, contains only
+variable names, represented by their \verb+`Id{...}+ AST, except for
+the last element of the list, which can also be a dots AST \verb+`Dots+
+(to indicate that the function is a vararg function).
+
+The block is a list of statement AST, optionnaly terminated with a
+\verb+`Return{...}+ or \verb+`Break+ pseudo-statement. These
+pseudo-statements will be described in the statements subsection.
+
+FIXME: finally, return and break will be considered as regular
+statements: it's useful for many macros.
+
+The function definition is encoded as
+\verb+`Function{ parameters block }+
+
+\subparagraph{Examples}
+\begin{itemize}
+
+\item \verb+function (x) return x end+ is represented as:\\
+  \verb+`Function{ { `Id x } { `Return{ `Id "x" } } }+;
+
+\item \verb+function (x, y) foo(x); bar(y) end+ is represented as:
+\begin{verbatim}
+`Function{ { `Id x, `Id y } 
+           { `Call{ `Id "foo", `Id "x" },
+             `Call{ `Id "bar", `Id "y" } } }
+\end{verbatim}
+ 
+\item \verb+function (fmt, ...) print (string.format (fmt, ...)) end+
+  is represented as:
+\begin{verbatim}
+`Function{ { `Id "fmt", `Dots } 
+           { `Call{ `Id "print",
+                    `Call{ `Index{ `Id "string", `String "format" }, 
+                           `Id "fmt", 
+                           `Dots } } } }
+\end{verbatim}
+
+\item \verb+function f (x) return x end+ is not an expression, but a
+  statement: it is actually syntax sugar for the assignment
+  \verb+f = function (x) return x end+, and as such, is represented
+  as:
+\begin{verbatim}
+`Let{ { `Id "f" }, 
+      { `Function{ { `Id x } { `Return{ `Id "x" } } } } }
+\end{verbatim}
+  (see assignment in the statements subsection for more details);
+
+\end{itemize}
+
+\paragraph{Parentheses}
+
+In Lua, parentheses are sometimes semantically meaningful: when the
+parenthesised expression returns multiple values, putting it between
+parentheses foreces it to return only one value. For instance, ``{\tt
+  local function f() return 1, 2, 3 end; return \{ f() \}}'' will
+return ``{\tt\{1, 2, 3\}}'', whereas ``{\tt local function f() return
+  1, 2, 3 end; return \{ (f()) \}}'' will return ``{\tt\{ 1 \}}''
+(notice the parentheses around the function call).
+
+Parentheses are represented in the AST as a node ``{\tt`Paren\{
+  \}}''. The second example above has the following AST:
+
+\begin{verbatim}
+{ `Localrec{ { `Id "f" },  
+             { `Function{ { },
+                          `Return{ `Number 1, `Number 2, `Number 3 } } } },
+  `Return{ `Table{ `Paren{ `Call{ `Id "f" } } } } }
+\end{verbatim}
+
+\subsubsection{Statements}
+
+Statements are instructions which modify the state of the
+computer. There are simple statement, such as variable assignment,
+local variable declaration, function calls and method invocation;
+there are also control structure statements, which take simpler
+statement and modify their action: these are if/then/else,
+repeat/until, while/do/end, for/do/end and do/end statements.
+
+\paragraph{Assignment}
+Variable assignment \verb+a, b, c = foo, bar+ is represetned by AST
+\verb+`Set{ lhs, rhs }+, with {\tt lhs} being a list of variables or
+table indexes, and {\tt rhs} the list of values assigned to them.
+
+\subparagraph{Examples}
+\begin{itemize}
+
+\item \verb+x[1]=2+ is represented as:\\
+  \verb+`Set{ { `Index{ `Id "x", `Number 1 } }, { `Number 2 } }+;
+
+\item \verb+a, b = 1, 2+ is represented as:\\
+  \verb+`Set{ { `Id "a",`Id "b" }, { `Number 1, `Number 2 } }+;
+
+\item \verb+a = 1, 2, 3+ is represented as:\\
+  \verb+`Set{ { `Id "a" }, { `Number 1, `Number 2, `Number 3 } }+;
+
+\item \verb+function f(x) return x end+ is syntax sugar for
+  \verb+f = function (x) return x end+, and as such, is represented as:\\
+  \verb+`Set{ { `Id "f" }, { `Function{ { `Id x } { `Return{ `Id "x" } } } } }+
+
+\item \verb+function o:m(x) return x end+ is syntax sugar for:\\
+  \verb+o["f"] = function (self, x) return x end+, and as such, is
+  represented as:
+\begin{verbatim}
+`Set{ { `Index{ `Id "o", `String "f" } }, 
+      { `Function{ { `Id "self, "`Id x } 
+                   { `Return{ `Id "x" } } } } }
+\end{verbatim}
+
+\end{itemize}
+
+\paragraph{Local declaration}
+Local declaration \verb+local a, b, c = foo, bar+ works just as
+assignment, except that the tag is \verb+Local+, and it is allowed to
+have an empty list as values.
+
+\subparagraph{Examples}
+\begin{itemize}
+
+\item \verb+local x=2+ is represented as
+  \verb+`Local{ { `Id "x" }, { `Number 2 } }+;
+
+\item \verb+local a, b+ is represented as
+  \verb+`Local{ { `Id "a",`Id "b" }, { } }+;
+
+\end{itemize}
+
+\paragraph{Recursive local declaration}
+In a local declaration, the scope of local variables starts {\em
+  after} the statement. Therefore, it is not possible to refer to a
+variable inside the value it receives, and
+``{\tt local function f(x) f(x) end}'' is not equivalent to
+``{\tt local f = function (x) f(x) end}'': in the latter, the \verb|f|
+call inside the function definition probably refers to some global
+variable, whereas in the former, it refers to the local variable
+currently being defined (f this therefore a forever looping function).
+
+To handle this, the AST syntax defines a special \verb|`Localrec|
+local declaration statement, in which the variables enter in scope
+{\em before} their content is evaluated. Therefore, the AST
+corresponding to {\tt local function f(x) f(x) end} is:
+\begin{verbatim}
+`Localrec{ { `Id "f" }, 
+           { `Function{ { `Id x } 
+                        { `Call{ `Id "f", `Id "x" } } } } }
+\end{verbatim}
+
+\caveat{In the current implementation, both variable names list and
+  values list have to be of lenght 1. This is enough to represent
+  {\tt local function ... end}, but should be generalized in the
+  final version of Metalua.}
+
+
+\paragraph{Function calls and method invocations}
+They are represented the same way as their expression counterparts,
+see the subsection above for details.
+
+\paragraph{Blocks and pseudo-statements}
+Control statements generally take a block of instructions as
+parameters, e.g. as the body of a \verb|for| loop. Such statement
+blocks are represented as the list of the instructions they
+contain. As a list, the block itself has no \verb|tag| field.
+
+\subparagraph{Example}
+\verb|foo(x); bar(y); return x,y| is represented as:
+\begin{verbatim}
+{ `Call{ `Id "foo", `Id "x" },
+  `Call{ `Id "bar", `Id "y" },
+  `Return{ `Id "x", `Id "y" } }
+\end{verbatim}
+
+\paragraph{Do statement}
+These represent \verb|do ... end| statements, which limit local
+variables scope. They are represented as
+blocks with a \verb|Do| tag.
+
+\subparagraph{Example}
+\verb|do foo(x); bar(y); return x,y end| is represented as:
+\begin{verbatim}
+`Do{ `Call{ `Id "foo", `Id "x" },
+     `Call{ `Id "bar", `Id "y" },
+     `Return{ `Id "x", `Id "y" } }
+\end{verbatim}
+
+\paragraph{While statement}
+\verb|while <foo> do <bar1>; <bar2>; ... end| is represented as \\
+\verb|`While{ <foo>, { <bar1>, <bar2>, ... } }|.
+
+\paragraph{Repeat statement} 
+\verb|repeat <bar1>; <bar2>; ... until <foo>| is represented as \\
+\verb|`Repeat{ { <bar1>, <bar2>, ... }, <foo> }|.
+
+\paragraph{For statements}
+
+{\tt for x=<first>,<last>,<step> do <foo>; <bar>; ... end} is
+represented as {\tt `Fornum\{ `Id "x", <first>, <last>, <step>, \{
+  <foo>, <bar>, ... \} \}}.
+
+The \verb|step| parameter can be omitted if equal to 1.
+
+\begin{verbatim}
+for x1, x2... in e1, e2... do
+  <foo>;
+  <bar>;
+  ...
+end
+\end{verbatim}
+isrepresented as:\\ 
+{\tt `Forin\{ \{`Id "x1",`Id "x2",...\}, \{ <e1>, <e2>,... \} \{
+ <foo>, <bar>, ... \} \}}.
+
+\paragraph{If statements}
+``If'' statements are composed of a series of (condition, block)
+pairs, and optionnaly of a last default ``else'' block. The conditions
+and blocks are simply listed in an \verb|`If{ ... }| ADT. Notice that
+an ``if'' statement without a final ``else'' block will have an even
+number of children, whereas a statement with a final ``else'' block
+will have an odd number of children.
+
+\subparagraph{Examples}
+\begin{itemize}
+
+\item \verb+if <foo> then <bar>; <baz> end+ is represented as:
+  \verb+`If{ <foo>, { <bar>, <baz> } }+;
+
+\item \verb+if <foo> then <bar1> else <bar2>; <baz2> end+
+  is represented as: \\
+  \verb+`If{ <foo>, { <bar1> }, { <bar2>, <baz2> } }+;
+
+\item
+  \verb+if <foo1> then <bar1>; <baz1> elseif <foo2> then <bar2>; <baz2> end+
+  \\ is represented as: \\
+  \verb+`If{ <foo1>, { <bar1>, <baz1> }, <foo2>,{ <bar2>, <baz2> } }+;
+
+\item
+\begin{verbatim}
+if     <foo1> then <bar1>; <baz1> 
+elseif <foo2> then <bar2>; <baz2> 
+else               <bar3>; <baz3> end+ 
+\end{verbatim}
+is represented as:
+\begin{verbatim}
+`If{ <foo1>, { <bar1>, <baz1> }, 
+     <foo2>, { <bar2>, <baz2> },
+             { <bar3>, <baz3> } }
+\end{verbatim}
+
+\end{itemize}
+
+\paragraph{Breaks and returns} 
+Breaks are represented by the childless \verb|`Break| AST. Returns are
+retpresented by the (possibly empty) list of returned values.
+
+\subparagraph{Example}
+{\tt return 1, 2, 3} is represented as {\tt`Return\{ `Number 1, `Number
+    2, `Number 3 \}}.
+
+\subsubsection{Extensions with no syntax}
+
+A couple of AST nodes do not exist in Lua, nor in Metalua native
+syntax, but are provided because they are particularly useful for
+writing macros. They are presented here.
+
+\paragraph{Goto and Labels}
+
+Labels can be string AST, identifier AST, or simply string; they
+indicate a target for goto statements.  A very common idiom is ``{\tt
+  local x = mlp.gensym(); ... `Label\{ x \} }''. You just jump to that
+label with ``{\tt `Goto\{ x \} }''.
+
+Identifiers, string AST or plain strings are equivalent: 
+``{\tt`Label\{ `Id "foo"\}}'' is synonymous for ``{\tt`Label\{ `String
+  "foo"\}}'' and ``{\tt`Label "foo"}''. The same equivalences apply
+for gotos, of course.
+
+Labels are local to a function; you can safely jump out of a block,
+but if you jump {\em inside} a block, you're likely to get into unspecified
+trouble, as local variables will be in a random state.
+
+\paragraph{Statements in expressions}
+A common need when writing a macro is to insert a statement in the
+middle of an expression. It can be done by using an anonymous function
+closure, but that would be expensive, so Metalua offers a better
+solution. The \verb|`Stat| node evaluates a statement block in the
+middle of an expression, then returns an arbitrary expression as its
+result. Notice one important point: the expression is evaluated in
+the block's context, i.e. if there are some local variables declared
+in the block, the expression can use them.
+
+For instance, {\tt `Stat\{ +\{local x=3\}, +\{x\}\}} evaluates to 3.
+
+\subsubsection{Formal translation defintion}
+
+\caveat{FIXME: here should go a formal, inductive definition of
+  AST/syntax translation, to serve as a reference}
+

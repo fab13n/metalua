@@ -1,0 +1,143 @@
+\section{Digging in the sources}
+
+This section is dedicated to people who want to dig into Metalua
+sources. It presents the main files, their current state, and where to
+start your exploration.
+
+\subsection{gg}
+
+The real core of Metalua is gg, implemented in a single file {\bf
+  gg.ml}. Understanding it is really the key to getting the big
+picture. gg is written in a rather functional style, with a lot of
+functors and closures.
+
+Gg is a restricted version of Haskell's parser combinator library
+parsec: parsec allows to build complex parsers by combining simpler
+ones with concatenation, alternative choices, etc; it allows, among
+others, to handle backtracking, i.e. a given parser can have several
+interpretations of a single sentence, and parser combinators handle
+this non-determinism by choosing the interpretation which allows the
+combined parser to yield a result.
+
+Gg intentionnaly doesn't support backtracking: not only would it be
+slightly harder to read in a non-lazy language such as Lua, but it
+isn't required to parse Lua. More importantly, built-in backtracking
+would encourage people to create ambiguous syntax extensions, which is
+an awfully bad idea: indeed, we expect different extensions to
+cohabitate as smoothly as possible, and two extensions with ambiguous
+grammars generally cause a lot of chaos when mixed together. Finally,
+a lot of Lua's essence is about friendly, unsurprizing, clear
+syntax. We want to encourage people into respecting this spirit as
+much as possible, so if they want to introduce chaotic syntax, Metalua
+won't actively prevent them to do so, but it certainly won't help by
+providing the tools.
+
+Gg offers no atomic parser, besides keyword parser generators; it's up
+to the programmer to provide these. Parsers are simply functions which
+take a lexer as a parameter, and return an AST. Such function examples
+are provided for mlp in mlp\_expr.lua. Lexers are objects with a
+couple of mandatory methods: peek, next and is\_keyword. Lexer API
+shall be discussed in the part about mll.
+
+\paragraph{State} 
+gg.lua is correctly refactored and commented, and should be readable
+by anyone with some notions of Lua and functional programming. Having
+dealt with parsec might help a bit, but is definitely not required.
+
+\paragraph{Going further} 
+From gg, there are two main leads to follow: either look down to mll,
+Metalua's lexer, or look up to mlp, the Metalua parser implemented on
+top of gg.
+
+\subsection{mll}
+
+As stated above, gg relies on a lexer respecting a certain API. We
+provide such a lexer for Metalua parsing, which deals with the usual
+lexing tasks: getting rid of spaces and comments, and discriminating
+between keywords, identifiers, strings, numbers etc. It's implemented
+in the file {\bf mll.lua}
+
+\paragraph{State}
+Mll is not in a very good shape: it does the job, but often in a
+somewhat hackish way. Its functional core is written as a single
+next\_token() function, which offer very little opportunity for
+reuse, and whose readability ought to be improved. Ideally,
+there should be a generic lexer generator library, analog to what gg
+does for grammars, and a specific lexer implementation for
+Metalua. However, my current efforts don't focus on this, as people
+are much more likely to hack the grammar than the lexer.
+
+Today, if someone wants to create a custom lexer, the best way is
+probably to broadly cut and paste from mll.
+
+\subsection{mlp}
+
+Mlp is a very important part of Metalua, the one most people will
+actually have to deal with. Understanding it requires to understand
+gg. Mlp is cut into several parts:
+
+\begin{itemize}
+\item {\bf mlp\_expr.lua} parses expressions, except literal tables
+  and quotes. It includes other constants (booleans, strings,
+  numbers), the compound expressions built by combining them with
+  operators, and function bodies. Most of its complexity is handled by
+  the expression parser generator gg.expr.
+\item {\bf mlp\_table.lua} parses tables. Not much to say about this,
+  this is probably the simplest subpart of mlp.
+\item {\bf mlp\_stat.lua} parses statements. Except for assignements,
+  every different statement is introduced by a distinct initial
+  keyword, and it should remain that way.
+\end{itemize}
+
+\subsection{Bytecode generation}
+Bytecode generation by metalua is a quick and dirty hack, which
+sort-of does the trick for now, but will be scrapped as soon as
+possible. I hacked the current scaffolding from Kein-Hong Man's
+Yueliang project (\url{http://luaforge.net/projects/yueliang}), but
+Yueliang design rationales don't really fit metalua's needs. Indeed,
+Yueliang is a translation, almost statement by statement, of the
+official C compiler included in Lua distribution. This has the
+following consequences:
+
+\begin{itemize}
+\item it helps to understand the original compiler in C;
+\item it's easy to backport extensions from the C version to Yueliang
+  (I had to do it, since Yueliang was 5.0 and I neede 5.1)
+\item it's rather easy to get bitwise-identical compilations, between
+  what Yueliang produces and what the C version does. And that's good,
+  because testing a compiler is a non-trivial problem.
+\item being in Lua, it's much easier to debug and extend than C.
+\end{itemize}
+
+The big drawback is that the code is very much structured like C, and
+is therefore, big, memory and time hungry, harder than necessary to
+understand and maintain, not suitable for clean and easy
+extensions. Two possible evolutions could be considered for metalua:
+
+\begin{itemize}
+\item either port the bytecode producer to C, to speed up things;
+\item or rewrite it in ``true'' (meta)Lua\footnote{Pure Lua would
+    probably be a much better idea: it would keep bootstrapping issues
+    trivial.} , i.e. by leveraging all the power of tables, closures
+  etc. This would allow the bytecode producer to be extensible, and
+  interesting things could be done with that. Whether it's a good
+  idea, I don't know. The drawback is, it would be much harder to keep
+  compatibility with the next Lua VM versions.
+\end{itemize}
+
+So, the files borrowed from Yueliang are {\bf lopcode.lua}, {\bf
+  lcode.lua}, and {\bf ldump.lua}. They've been quickly hacked to
+produce 5.1 bytecode rather than 5.0. Finally, {\bf compile.lua},
+which uses the previous modules to convert AST to bytecode, is a
+grossly abused version of Yueliang's lparse.lua.
+
+A short-term change that should be done would be to modify lopcode: it
+does some bit shuffling with floats in a very naive and inefficient
+way: the bare minimum would be to make it use a native bit
+manipulation lib, when available. I'd guess it would roughly halve
+compilation times of large files.
+ 
+\subsection{mstd}
+{\bf mstd.ml} contains a couple of generic functions, which ought to
+go into some extended standard library. Until metalua ships with its
+standard lib, mstd fills the gap.

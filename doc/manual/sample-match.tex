@@ -1,0 +1,612 @@
+\subsection{Structural pattern matching}
+\subsubsection{Basic principles}
+In many languages, including Lua, ``pattern matching'' generally
+refers to the ability to:
+\begin{itemize}
+\item Analyse the general shape of a string;
+\item capture specified parts of it into temporary variables
+\item do some computation when the string matches a certain pattern,
+  generally using the temporary captured variables.
+\end{itemize}
+
+In languages derived from ML\footnote{for instance OCaml, SML, Haskell
+  or Erlang.}, pattern matching can be done on arbitrary data, not
+only strings. One can write patterns which describe the shape of a
+data structure, bind some interesting sub-parts of it to variables,
+and execute some statements associated with a given pattern whenever
+the data matches.
+
+This sample aims to implement this capability into metalua. It will
+discuss:
+\begin{itemize}
+\item How to describe data patterns (it turns out that we'll hijack
+  metalua's expression parser, which is a great time-saving trick when
+  it can be pulled).
+\item How to compile them into equivalent code.
+\item How to wrap all this up into a working compiled statement
+\item What improvements can be done to the proposed design.
+\end{itemize}
+
+\subsubsection{Patterns}
+A match statement consists of a tested term, and a series of (pattern,
+block) pairs. At execution, the first pair whose pattern accurately
+describes the tested term is selected, and its corresponding block is
+evaluated. Other blocks are ignored. 
+
+We will keep the implementation of patterns as simple as possible. To
+do that, we will put a first constraint: the AST of a pattern must be
+a legal expression AST. This way, we save most of the syntax handling
+trouble. More specifically:
+
+\begin{itemize}
+\item numbers are valid patterns, which only match identical numbers;
+\item strings are valid patterns, which only match identical strings;
+\item tables are valid patterns if all of their keys are integers or
+  strings, and all of their values are valid patterns. A table pattern
+  matches a tested term if:
+  \begin{itemize}
+  \item the tested term is a table;
+  \item every key that appears in the pattern also appears in the
+    tested term;
+  \item for every key, the value associated to this key in the tested
+    term is matched by the sub-pattern associated to this key in the
+    pattern;
+  \end{itemize}
+\item variables are valid patterns, and match everything. Moreover,
+  the term matched by the variable captures it, i.e. in the
+  corresponding block, that variable is set to the
+  matched term.
+\end{itemize}
+
+Notice that since \verb|tag| is a regular field in metalua (albeit
+with an optional dedicated syntax), it doesn't need a special case in
+our pattern definition.
+
+\paragraph{Example} Let's consider implementing an evaluator for
+Metalua expressions. We will restrict ourselves to binary operators,
+variables and numbers; we will also consider that we have a
+\verb|values| table mapping variable names to their value, and
+\verb|binopfuncs| which associate an operator name with the corresponding
+function. The evaluator would be written:
+
+\begin{verbatim}
+function eval(t)
+   match t with
+   | `Op{ op, a, b } -> return binopfuncs[op](eval(a), eval(b))
+   | `Number{ n }    -> return n
+   | `Variable{ v }  -> return values[v]
+   end
+end
+\end{verbatim}
+
+\subsubsection{Pattern compilation}
+
+A pattern in a case will translate into:
+\begin{itemize}
+\item tests: testing that the type of the tested case is the same as
+  the pattern's type for numbers, strings and tables;
+\item local declarations: a variable must be bound to the
+  tested term's value;
+\item nested tests for every pattern key/value pair, when the pattern
+  is a table. Moreover, since there might be multiple tests to run
+  against the tested term's field, it should be put in a temporary
+  variable.
+\end{itemize}
+
+For instance, consider the following pattern:
+
+\begin{verbatim}
+{ tag = "Foo", 10, { 20 }, { x = a }, b }
+\end{verbatim}
+
+It corresponds to the series of tests and assignments on the left:
+
+\begin{minipage}{6cm}
+\begin{verbatim}
+let v1 = <tested_term>
+type(v1) == "table"
+let v2 = v1.tag
+v2 ~= nil
+type(v2) == "string"
+v2 == "Foo"
+let v2 = v1[1]
+v2 ~= nil
+type(v2) == "number"
+v2 == 10
+let v2 = v1[2]
+v2 ~= nil
+type(v2) == "table"
+let v3 = v2[1]
+v3 ~= nil
+type(v3) == "number"
+v3 == 20
+let v2 = v1[3]
+v2 ~= nil
+type(v2) == "table"
+let v3 = v2.x
+v3 ~= nil
+local a = v3
+let v2 = v1[4]
+v2 ~= nil
+local b = v2
+
+
+\end{verbatim}
+\end{minipage}
+\begin{minipage}{6cm}
+\begin{verbatim}
+let v1 = tested_term
+if type(v1) == "table" then
+ let v2 = v1.tag
+ if v2 ~= nil then
+  if type(v2) == "string" then
+   if v2 == "Foo" then
+    let v2 = v1[1]
+    if v2 ~= nil then
+     if type(v2) == "number" then
+      if v2 == 10 then
+       let v2 = v1[2]
+       if v2 ~= nil then
+        if type(v2) == "table" then
+         let v3 = v2[1]
+         if v3 ~= nil then
+          if type(v3) == "number" then
+           if v3 == 20 then
+            let v2 = v1[3]
+            if v2 ~= nil then
+             if type(v2) == "table" then
+              let v3 = v2.x
+              if v3 ~= nil then
+               local a = v3
+               let v2 = v1[4]
+               if v2 ~= nil then
+                local b = v2
+                <inner_term>
+end ... end -- (16 times)
+\end{verbatim}
+\end{minipage}
+~\\~\\
+
+Notice that the relative order of tests and assignments is meaningful:
+we cannot put all assignments on one side, and all tests on an
+other, e.g. \verb|v2 = v1.tag| on line 3 doesn't make sense if
+\verb|type(v1) == table| on line 2 fails.
+
+We will compile patterns in several steps: first, accumulate all the
+tests and assignments in order; then, we will collapse them in a
+single big nesting of ``if'' statements. At first, we won't try
+to optimize the form of the final term. The list above left would be
+collapsed into the single compound statement above on the right.
+
+\paragraph{Accumulating constraints and tests}
+This is done by a \verb|parse_pattern()| function, which does just what
+is described in the bullet list above:
+
+\begin{verbatim}
+      -------------------------------------------------------------------
+      -- Turn a pattern into a list of conditions and assignations,
+      -- stored into [acc]. [n] is the depth of the subpattern into the
+      -- toplevel pattern; [tested_term] is the AST of the term to be 
+      -- tested; [pattern] is the AST of a pattern, or a subtree of that
+      -- pattern when [n>0].
+      -------------------------------------------------------------------
+      local function parse_pattern (n, pattern)
+         local v = var(n)
+         if "Number" == pattern.tag or "String" == pattern.tag then
+            accumulate (+{ -{v} == -{pattern} })
+         elseif "Id" == pattern.tag then
+            accumulate (+{stat: local -{pattern} = -{v} })
+         elseif "Table" == pattern.tag then
+            accumulate (+{ type( -{v} ) == "table" } )
+            local idx = 1
+            for _, x in ipairs (pattern) do
+               local w = var(n+1)
+               local key, sub_pattern
+               if x.tag=="Key" 
+               then key = x[1];           sub_pattern = x[2]
+               else key = `Number{ idx }; sub_pattern = x; idx=idx+1 end
+               accumulate (+{stat: (-{w}) = -{v} [-{key}] })
+               accumulate (+{ -{w} ~= nil })
+               parse_pattern (n+1, sub_pattern)
+            end
+         else error "Invalid pattern type" end
+      end
+      -------------------------------------------------------------------
+\end{verbatim}
+
+This function relies on the following helper functions:
+\begin{itemize}
+\item {\tt var($n$)} generates the variable name ``\verb|v|$n$'', which
+  is used to store the tested term at depth level $n$. Indeed,
+  sub-patterns in table fields are matched against sub-terms of the
+  tested term. It also remembers of the biggest $n$  it ever received, 
+  and stores it into \verb|max_n| (this will be used to know which
+  local vars have to be generated, see below);
+\item {\tt accumulate()} just stores an additional code snippet in a
+  dedicated list;
+\end{itemize}
+
+In the quotes, you might notice the parentheses around the variable in
+``\verb|(-{w}) = -{v} [-{key}]|'': they're here to let the compiler
+know that what's in \verb|-{...}| is an expression, not a
+statement. Without them, it would expect {\tt w} to be the AST of a
+statement (since we're in a statement context at this point), then
+choke on the unexpected ``='' symbol. This is a common idiom, which
+you should think about everytime you generate an assignment to an
+anti-quoted identifier.
+
+\paragraph{Collapsing the accumulated quotes}
+As written above, our collapsing function will be kept as simple
+as possible, and will not try to minimize the amount of generated
+code. It takes as parameters {\tt n}, the index of the quote currently
+collapsed in the accumulator, and {\tt inner\_term} the statement
+block to put inside the innermost part of the test. It calls itself
+recursively, so that the collapsed term is built inside out (generally
+speaking, working with trees, including AST, involves a lot of
+recursive functions). \verb|acc| is the list filled by the
+\verb|accumulate()| function:
+
+\begin{verbatim}
+      -------------------------------------------------------------------
+      -- Turn a list of tests and assignations into [acc] into a
+      -- single term of nested conditionals and assignments.
+      -- [inner_term] is the AST of a term to be put into the innermost
+      -- conditionnal, after all assignments. [n] is the index in [acc]
+      -- of the term currently parsed.
+      -- 
+      -- This is a recursive function, which builds the inner part of
+      -- the statement first, then surrounds it with nested 
+      -- [if ... then ... end], [local ... = ...] and [let ... = ...]
+      -- statements.
+      -------------------------------------------------------------------
+      local function collapse (n, inner_term)
+         assert (not inner_term.tag, "collapse inner term must be a block")
+         if n > #acc then return inner_term end
+         local it = acc[n]
+         local inside = collapse (n+1, inner_term)
+         assert (not inside.tag, "collapse must produce a block")
+         if "Op" == it.tag then 
+            -- [it] is a test, put it in an [if ... then .. end] statement
+            return +{block: if -{it} then -{inside} end }
+         else 
+            -- [it] is a statement, just add it at the result's  beginning.
+            assert ("Let" == it.tag or "Local" == it.tag)
+            return { it, unpack (inside) }
+         end
+      end
+\end{verbatim}
+
+To fully understand this function, one must remember that test
+operations are translated into {\tt`Op\{ <opname>, <arg1>, <arg2>\}}
+AST. That's why we didn't have to put an explicit reminder in the
+accumulator, remembering whether a quote was a test or a statement:
+we'll just check for \verb|`Op|'s presence.
+
+\subsubsection{Match statement compilation}
+We already know how to translate a single pattern into a Lua test
+statement. This statement will execute a given block, with all pattern
+variables bound appropriately, if and only if the tested term matches
+the pattern.
+
+To build a complete match statement, we need to test all patterns in
+sequence. When one of them succeeds, we must skip all the following
+cases. We could do that with some complex ``\verb|else|'' parts in the
+tests, but there is a simpler way to jump out of some nested blocks:
+the ``\verb|break|'' statement. Therefore, we will enclose the cases
+into a loop that executes exactly once, so that a ``\verb|break|''
+will jump just after the last case. Then, we will add a
+``\verb|break|'' at the end of every statement that doesn't already
+finish with a ``\verb|return|'', so that other cases are skipped upon
+successful matching. To sum up, we will translate this:
+
+\begin{verbatim}
+match <foo> with
+| <pattern_1> -> <x1>
+| <pattern_2> -> <x2>
+  ...
+| <pattern_n> -> <xn>
+end
+\end{verbatim}
+
+\noindent into this:
+
+\begin{verbatim}
+repeat
+  local v1, v2, ... vx -- variables used to store subpatterns
+  let v1 = <tested_term>
+  if <compilation of pattern_1> ... then x1; break end
+  if <compilation of pattern_2> ... then x2; break end
+  ...
+  if <compilation of pattern_n> ... then xn; break end
+until true
+\end{verbatim}
+
+First, we add final \verb|break| statements where required, and we
+compile all (pattern, block) pairs:
+
+\begin{verbatim}
+      -------------------------------------------------------------------
+      -- parse all [pattern ==> block] pairs. Result goes in [body].
+      -------------------------------------------------------------------
+      local body = { }
+      for _, case in ipairs (cases) do
+         acc = { } -- reset the accumulator
+         parse_pattern (1, case[1], var(1)) -- fill [acc] with conds and lets
+         local last_stat = case[2][#case[2]]
+         if last_stat and last_stat.tag ~= "Break" and 
+            last_stat.tag ~= "Return" then
+            table.insert (case[2], `Break) -- to skip other cases on success
+         end
+         local compiled_case = collapse (1, case[2])
+         for _, x in ipairs (compiled_case) do table.insert (body, x) end
+      end
+\end{verbatim}
+
+\noindent Then, we can just splice it into the appropriate quote:
+
+\begin{verbatim}
+      -------------------------------------------------------------------
+      local local_vars = { }
+      for i = 1, max_n do table.insert (local_vars, var(i))  end
+      
+      -------------------------------------------------------------------
+      -- cases are put inside a [repeat until true], so that the [break]
+      -- inserted after the value will jump after the last case on success.
+      -------------------------------------------------------------------
+      local result = +{ stat: 
+         repeat
+            -{ `Local{ local_vars, { } } }
+            (-{var(1)}) = -{tested_term}
+            -{ body }
+         until true }
+      return result
+      -------------------------------------------------------------------
+\end{verbatim}
+
+There is one point to notice in this quote: \verb|body| is used where
+a statement is expected, although it contains a {\em list} if
+statements rather than a single statement. Metalua is designed to
+accept this, i.e. if {\tt a, b, c, d} are statements, AST {\tt
+`Do\{  a, b, c, d \}} and {\tt`Do\{ a, \{ b, c \}, d\} } are
+equivalent. This feature partially replaces Lisp's \verb|@(...)|
+operator.
+
+\subsubsection{Syntax extension}
+To use this, we provide a syntax inspired by OCaml\footnote{It is
+  actually the same syntax as OCaml's, except that we introduced an
+  explicit {\tt end} terminator, to stay homogeneous with Lua.}: 
+
+\begin{verbatim}
+match <foo> with
+  <pattern> -> block
+| <pattern> -> block
+  ...
+| <pattern> -> block
+end
+\end{verbatim}
+
+For this, we need to declare new keywords \verb|match|,
+\verb|with| and \verb|->|. Then, we build the (pattern, block) parser
+with \verb|gg.sequence{ }|, and read a list of them, separated with
+``\verb+|+'', thanks to \verb|gg.list{ }|. Moreover, we accept an
+optional ``\verb+|+'' before the first case, so that all cases line up
+nicely:
+
+\begin{verbatim}
+----------------------------------------------------------------------
+mlp.lexer:add{ "match", "with", "->" }
+
+mlp.stat:add{ "match", mlp.expr, "with", gg.optkeyword "|",
+              gg.list{ gg.sequence{ mlp.expr, "->", mlp.block },
+                       separators  = "|",
+                       terminators = "end" },
+              "end",
+              builder = |x| match_parser (x[1], x[3]) }
+----------------------------------------------------------------------
+\end{verbatim}
+
+\noindent Now, if you try this\ldots\ it won't work! Indeed, Metalua
+needs to know what keywords might terminate a block of statements. In
+this case, it doesn't know that ``\verb+|+'' can terminate a block. We
+need therefore to add the following statement:
+
+\begin{verbatim}
+mlp.block.terminators:add "|"
+\end{verbatim}
+
+\noindent Finally that's it, we have implemented a working pattern
+matching system in 75 lines of code!
+
+\subsubsection{Possible improvements}
+Here are a couple of suggestions to further improve the pattern
+matching system presented above. Some of these proposals can be
+implemented very quickly, some others more complex; all of them
+present some practical interest.
+
+The code of the basic version, as presented here, is available at
+\url{http://metalua.luaforge.net/FIXME}.
+
+\paragraph{Booleans} Boolean constants aren't handled in the system
+above, neither as table keys nor as patterns. They're easy to add, and
+doing it will help you get gently into the code.
+
+\paragraph{Gotos considered beneficial} Gotos might be harmful in
+hand-written programs, but they're a bliss for machine-generated
+code. They would slightly simplify the code of pattern matching as
+presented above; but for many extension proposals listed below, they
+will make reasonnably easy some things which would otherwise be
+awfully contrived. Exercice: simplify the implementation above as much
+as possible by using gotos.
+
+Labels and gotos in metalua ASTs are represented as {\tt`Label\{ id
+  \}} and {\tt`Goto\{ id \}} respectively, with {\tt id} an
+identifier, typically generated by {\tt mlp.gensym()}. It is always
+safe to jump out of a block; jumping into a block is not guaranteed
+against weird interactions with local variables and upvalues.
+
+\paragraph{{\tt collapse()} optimization} Instead of nesting if
+statements systematically, two nested {\tt if}s without {\tt else}
+branches can be simplified in a single branch with an {\tt and}
+operator. Not sure it would change the bytecode's efficiency, but
+that's a good exercice of AST manipulation.
+
+\paragraph{Superfluous assignments} When parsing a table entry, we
+assign it to a variable, then recursively call {\tt parse\_pattern()}
+on it; in the frequent case where the entry was simply a variable, it
+re-assigns it again. This could be optimized away.
+
+\paragraph{Checking table arity} In many cases, it is practical to
+check the number of elements in the array-part of the table. Here is a
+simple modification proposal: by default, a table pattern matches a
+table term only if they have the same number of array-part
+elements. However, if the last element of the pattern is {\tt`Dots}
+(a.k.a. {\tt+\{...\}}), then the term simply has to have 
+{\it at least} as many array-part elements as the pattern.
+
+\paragraph{Adding guards}
+It is sometimes desirable to add arbitrary conditions for a pattern to
+match, conditions which might no be expressed by a pattern. OCaml
+allows to add them with a ``\verb|when|'' keyword:
+\begin{verbatim}
+match n with
+| 0               -> print "zero"
+| n when n%2 == 0 -> print "even number"
+| _               -> print "odd number"
+end
+\end{verbatim}
+I'd advise you to prefer {\tt if} as a dedicated keyword, rather than
+{\tt when}: it's unambiguous in this context, and saves a keyword
+reservation. 
+
+\paragraph{More bindings}
+The way pattern matching is currently implemented, one can either bind
+a subterm to a variable, or check its structure against a sub-pattern,
+not both simultaneously. OCaml provides an ``\verb|as|'' operator,
+which allows to do both (Haskell calls it ``\verb|@|''). For instance,
+in the following example, any ADT whose tag is \verb|"RepeatMe"| will
+be replaced by two occurrences of itself, while others will remain
+unchanged:
+\begin{verbatim}
+match something with
+| `RepeatMe{ ... } as r -> { r, r }
+| x -> x
+end
+\end{verbatim}
+``\verb|as|'' will have to be declared as an infix operator, whose
+meaning will remain undefined in expressions which are not patterns.
+
+As an alternative, you can reuse an existing infix operator, thus
+avoiding to mess the expression parser. For instance, use {\tt *}
+instead of {\tt as}. You can go further, and implement {\tt +} as an
+``or'' operator ({\tt pattern1 + pattern2} would match if either
+of the patterns matches), although this would significantly complicate
+the implementation of {\tt parse\_pattern()}. 
+
+The {\tt+} operator might prove tricky to implement, if you don't
+convert your code generator to gotos and labels first.
+
+\paragraph{Linear bindings}
+We should check, when compiling a pattern, that it is left-linear,
+i.e. that variables don't appear more than once in the pattern. People
+might be tempted to write things like this to check whether a tree is
+symmetric:
+\begin{verbatim}
+match t with
+| `Tree{ x, x } -> print "Symmetric!"
+| `Tree{ x, y } -> print "Not symmetric"
+| `Leaf{ _ }    -> print "Symmetric!"
+end
+\end{verbatim}
+However, this would work in Prolog but not with our pattern matching,
+as two occurences of the same variable in the pattern don't cause an
+equality test to be added. We should detect such non-linear variables,
+and implement a suitable reaction:
+\begin{itemize}
+\item throw an error, or at least a warning;
+\item or add an equality test between the terms matched by the
+  non-linear variable;
+\item or offer a syntax extension that lets the user provide his own
+  equality predicate.
+\end{itemize}
+
+Notice that the latter choice would drive us towards a Prolog
+unification algorithm, which opens interesting opportunities.
+
+You might offer an exception for variable ``{\tt\_}'', which is often
+intended as a dummy, unused variable. Non-linear occurences of it
+should probably be silently accepted, without even performing the
+corresponding binding. 
+
+\paragraph{Generalized assignments}
+Yet another OCaml-inspired feature: assignments such as
+``\verb|foo = bar|'', is almost a special
+case of pattern matching with only one case: the left-hand side is
+the pattern, and the right-hand side is the ``raw'' ``\verb|foo=bar|''
+assignment. Seen this way, it allows to write things such as
+``\verb|`If{ cond, block } = some_ast }|'' to assign \verb|cond| and
+\verb|block| to the subparts of \verb|some_ast| (if we know that
+\verb|some_ast| is the AST of an \verb|if| statement). 
+
+If you go this way, however, make sure that the code generated for
+simple {\tt let}s is as efficient as before! Moreover, there is an (easy) 
+scoping issue: the variables assigned belong to the scope of the
+surrounding block.
+
+\paragraph{Pattern matchings as expressions}
+Pattern matching are currently statements, and take statements as
+right-hand sides of cases. We could allow pattern matchings where
+expressions are expected: these would take expressions instead of
+statements as right-hand sides. Two ways to implement this: the dirty
+one (hack with functions to change match statements into expressions),
+and the clean one (refactoring existing code, so that it is agnostic
+about its right-hand side type, and provide two specialized
+versions of it for statements and expressions).
+
+\paragraph{Bootstrap it}
+That's something language designers love to do, for largely mystic
+reasons: writing a language's compiler in the language itself. Here,
+the idea is to re-implement the pattern matching extension by using
+pattern matching, and compile it with the older version. Comparing the
+firsrt and second versions of the code will give you an idea of how
+much code clarification is brought to you by the pattern matching
+extension.
+
+\paragraph{Pattern conjunction} Another feature to take from OCaml is
+multiple patterns for a single block. Instead of associating one
+block with one pattern, cases associate a block with a (non-empty)
+list of patterns. All of these patterns have to bond the same
+variables, except for {\tt\_}. The first pattern in the list to match
+the tested term does the binding. Patterns are separated by
+``\verb+|+''. Example:
+\begin{verbatim}
+match x with
+| 1 | 2 | 3 -> print(x)
+| n -> print "more than 3"
+end
+\end{verbatim}
+(Hint: put the block in a local function. $2^{\mathrm{nd}}$ hint: sort
+bound variables, e.g. by lexicographic order. Or much simpler and
+more effective: convert your code generator to gotos+labels first).
+
+\paragraph{XML munching} Ever tried to transform some XML document through
+XSLT? Did you feel that this was even more kludgy than XML itself? Here
+is a challenging proposal:
+\begin{itemize}
+\item Realize, if you didn't already, that Metalua's ADT are
+  isomorphic to XML, if you identify string-keys in tables with
+  attributes, and limit there content to strings and number. For
+  instance, ``{\tt <foo bar=3><baz/>eek</foo>}'' easily maps to ``{\tt
+    `foo\{ bar=3, `baz, "eek" \}}'';
+\item compare what ML-style pattern matching does with what XSLT
+  does (and with what you'd like it to do);
+\item design, implement, publish. You might want to google
+  ``CDuce''\footnote{\url{http://www.cduce.org}} for neat ideas.
+\end{itemize}
+
+If you do this, I'd be really interested to put back your contribution
+in the next version of Metalua!
+
+\subsubsection{Correction}
+Most of the improvements proposed here are actually implemented in the
+{\tt match} library provided with metalua. Check its (commented)
+sources!

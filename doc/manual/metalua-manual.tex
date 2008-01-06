@@ -1,0 +1,48 @@
+\documentclass{article}
+\usepackage{palatino}
+\title{Man metalua}
+%\author{Fabien \sc Fleutot}
+
+\usepackage{fancyhdr}
+\usepackage{fullpage}
+\usepackage{alltt}
+\usepackage{url}
+
+\def\summary#1{{\em#1}}
+\def\caveat#1{
+  \begin{center}
+    \begin{tabular}{|p{10cm}|}
+        \hline
+        \noindent \bf Caveat: \em#1 \\
+        \hline
+    \end{tabular}
+  \end{center}}
+\def\apitype#1#2{{~\\\noindent\bf Type \tt{#1}}\\{#2}}
+\def\apifunction#1#2{{~\\\noindent\bf Function \tt{#1}}\\{#2}}
+
+\setlength\headsep{0.4cm}
+\setlength\parindent{0cm}
+
+\begin{document}
+
+\pagestyle{fancy}
+\setlength\parskip{0.2cm}
+
+\maketitle
+\tableofcontents
+\include{intro}
+\include{syntax-ext}
+\include{data}
+\include{meta}
+\include{gg-ref}
+\include{mlp-ref}
+\include{stdlib}
+\include{stdext}
+\include{samples}
+\include{sample-exception}
+\include{sample-match}
+%\include{}
+\appendix
+\include{src-hints}
+\include{ast}
+\end{document}

@@ -1,0 +1,295 @@
+\section{Splicing and quoting}
+As the previous section shows, AST are not extremely readable, and as
+promized, Metalua offer a way to avoid dealing with them
+directly. Well, rarely dealing with them anyway.
+
+In this section, we will deal a lot with \verb|+{...}| and
+\verb|-{...}|; the only (but real) difficulty is not to get lost
+between meta-levels, i.e. not getting confused between a piece of
+code, the AST representing that piece of code, some code returning an
+AST that shall be executed during compilation, etc.
+
+\subsection{Quasi-quoting}
+Quoting an expression is extremely easy: just put it between
+quasi-quotes. For instance, to get the AST representing \verb|2+2|,
+just type \verb|+{expr: 2+2}|. Actually, since most of quotes are
+actually expression quotes, you are even allowed to skip the ``expr:''
+part: \verb|+{2+2}| works just as well.
+
+If you want to quote a statement, just substitute ``expr:'' with
+``stat:'': {\tt+\{stat: if x>3 then foo(bar) end\}}.
+
+Finally, you might wish to quote a block of code. As you can guess,
+just type:
+
+\verb|+{block: y = 7; x = y+1; if x>3 then foo(bar) end}|.
+
+A block is just a list of statements. That means that 
+\verb|+{block: x=1}| is the same as \verb|{ +{stat: x=1} }| (a
+single-element list of statements).
+
+However, quoting alone is not really useful: if it's just about
+pasting pieces of code verbatim, there is little point in
+meta-programming. We want to be able to poke ``holes'' in quasi-quotes
+(hence the ``quasi''), and fill them with bits of AST comming from
+outside. Such holes are marked with a \verb|-{...}| construct, called
+a splice, inside the quote. For instance, the following piece of
+Metalua will put the AST of \verb|2+2| in variable X, then insert it
+in the AST an assignement in Y:
+
+\begin{verbatim}
+X = +{ 2 + 2 }
+Y = +{ four = -{ X } }
+\end{verbatim}
+
+After this, Y will contain the AST representing \verb|four = 2+2|.
+Because of this, a splice inside a quasi-quote is often called an
+anti-quote (as we shall see, splices also make sense, although a
+different one, outside quotes).
+
+Of course, quotes and antiquotes can be mixed with explicit AST. The
+following lines all put the same value in Y, although often in a
+contrived way:
+
+\begin{verbatim}
+-- As a single quote:
+Y = +{stat: four = 2+2 }
+-- Without any quote, directly as an AST:
+Y = `Let{ { `Id "four" }, { `Op{ `Add, `Number 2, `Number 2 } } }
+-- Various mixes of direct AST and quotes:
+X = +{ 2+2 };                          Y = +{stat: four = -{ X } }
+X = `Op{ `Add, +{2}, +{2} };           Y = +{stat: four = -{ X } }
+X = `Op{ `Add, `Number 2, `Number 2 }; Y = +{stat: four = -{ X } }
+Y = +{stat: four = -{ `Op{ `Add, `Number 2, `Number 2 } } }
+Y = +{stat: four = -{ +{ 2+2 } } }
+Y = `Let{ { `Id "four" }, { +{ 2+2 } } }
+-- Nested quotes and splices cancel each other:
+Y = +{stat: four = -{ +{ -{ +{ -{ +{ -{ +{ 2+2 } } } } } } } } }
+\end{verbatim}
+
+The content of an anti-quote is expected to be an expression by
+default. However, it is legal to put a statement or a block of
+statements in it, provided that it returns an AST through a
+\verb+return+ statement. To do this, just add a ``block:''
+(or ``stat:'') markup at the beginning of the antiquote. The
+following line is (also) equivalent to the previous ones:
+
+\begin{verbatim}
+Y = +{stat: four = -{block: local two=`Number 2; return `Op{ `Add, two, two } } }
+\end{verbatim}
+
+Notice that in a block, where a statement is expected, a sub-block is
+also be accepted, and is simply compined with the upper-level one. For
+instance, you can write \verb|-{block: f(); g()}| instead of
+\verb|-{stat:f()}; -{stat:g()}|.
+
+\subsection{Splicing}
+Splicing is used in two, rather different contexts. First, as seen
+above, it's used to poke holes into quotations. But it is also used to
+execute code at compile time.
+
+As can be expected from their syntaxes, \verb|-{...}| undoes what
+\verb|+{...}| does: quotes change a piece of code into the AST
+representing it, and splices cancel the quotation of a piece of code,
+including it directly in the AST (that piece of code therefore has to
+either be an AST, or evaluate to an AST. If not, the result of the
+surrounding quote won't be an AST).
+
+But what happens when a splice is put outside of any quote? There is
+no explicit quotation to cancel, but actually, there is an hidden AST
+generation. The process of compiling a Metalua source file consists in
+the following steps:
+
+\begin{verbatim}
+                  ______               ________
++-----------+    /      \    +---+    /        \    +--------+
+|SOURCE FILE|-->< Parser >-->|AST|-->< Compiler >-->|BYTECODE|  
++-----------+    \______/    +---+    \________/    +--------+
+
+\end{verbatim}
+
+So in reality, the source file is translated into an AST; when a
+splice is found, instead of just turning that AST into bytecode, we
+will execute the corresponding program, and put the AST it must return
+in the source code. This computed AST is the one which will be turned
+into bytecode in the resulting program. Of course, that means locally
+compiling the piece of code in the splice, in order to execute it:
+
+\begin{verbatim}
+                                                     +--------+
+                  ______               ________   +->|BYTECODE|  
++-----------+    /      \    +---+    /        \  |  +--------+
+|SOURCE FILE|-->< Parser >-->|AST|-->< Compiler >-+
++-----------+    \______/    +-^-+    \________/  |  +--------+
+                              /|\      ________   +->|BYTECODE|  
+                               |      /        \     +---+----+
+                               +-----<   Eval   ><-------+
+                                      \________/
+\end{verbatim}
+
+As an example, consider the following source code, its compilation and
+its execution:
+
+\def\braces#1{\{#1\}}
+~\\\hrule
+\begin{alltt}
+{\bf{}fabien@macfabien\$} cat sample.lua
+-\braces{block: print "META HELLO"; return +\braces{ print "GENERATED HELLO" } }
+print "NORMAL HELLO"
+
+{\bf{}fabien@macfabien\$} mlc sample.lua
+Compiling x.lua...
+META HELLO
+...Wrote x.luac
+{\bf{}fabien@macfabien\$} lua x.luac
+GENERATED HELLO
+NORMAL HELLO
+{\bf{}fabien@macfabien\$} _
+\end{alltt}
+\hrule~\\
+
+Thanks to the print statement in the splice, we see that the code
+it contains is actually executed during evaluation. More in details,
+what happens is that:
+\begin{itemize}
+\item The code inside the splice is parsed and compiled separately;
+\item it is executed: the call to \verb|print "META HELLO"| is
+  performed, and the AST representing \\ \verb|print "GENERATED HELLO"| is
+  generated and returned;
+\item in the AST generated from the source code, the splice is
+  replaced by the AST representing \\ \verb|print "GENERATED HELLO"|.
+  Therefore, what is passed to the compiler is the AST representing 
+  \verb|print "GENERATED HELLO";| \verb|print "NORMAL HELLO"|.
+\end{itemize}
+
+Take time to read, re-read, play and re-play with the manipulation
+described above: understanding the transitions between meta-levels is
+the essence of meta-programming, and you must be comfortable with such
+transitions in order to make the best use of Metalua.
+
+Notice that it is admissible, for a splice outside a quote, not to
+return anything. This allows to execute code at compile time without
+adding anything in the AST, typically to load syntax extensions. For
+instance, this source will just print "META HELLO" at compile time,
+and "NORMAL HELLO" at runtime:
+\verb|-{print "META HELLO"}; print "NORMAL HELLO"|
+
+\subsection{A couple of simple concrete examples}
+
+\paragraph{ternary choice operator}
+Let's build something more useful. As an example, we will build here a
+ternary choice operator, equivalent to the \verb|_ ? _ : _| from
+C. Here, we will not deal yet with syntax sugar: our operator will
+have to be put inside splices. Extending the syntax will be dealt with
+in the next section, and then, we will coat it with a sweet syntax.
+
+Here is the problem: in Lua, choices are made by using
+\verb|if _ then _ else _ end| statements. It is a statement, not an
+expression, which means that we can't use it in, for instance:
+
+\begin{verbatim}
+local hi = if lang=="fr" then "Bonjour" 
+           else "hello" end -- illegal!
+\end{verbatim}
+
+This won't compile. So, how to turn the ``if'' statement into an
+expression? The simplest solution is to put it inside a function
+definition. Then, to actually execute it, we need to evaluate that
+function. Which means that our pseudo-code
+\verb|local hi = (lang == "fr" ? "Bonjour" : "Hello")| will 
+actually be compiled into:
+
+\begin{verbatim}
+local hi = 
+  (function ()
+     if lang == "fr" then return "Bonjour"
+                     else return "Hello" end end) ()
+\end{verbatim}
+
+We are going to define a function building the AST above, filling
+holes with parameters. Then we are going to use it in the actual code,
+through splices.
+
+~\\\hrule
+\begin{alltt}
+{\bf{}fabien@macfabien\$} cat sample.lua
+-\{stat:
+  -- Declaring the [ternary] metafunction. As a metafunction,
+  -- it only exists within -\{...\}, i.e. not in the program itself.
+  function ternary (cond, b1, b2)
+     return +\{ (function() if -\{cond\} then return -\{b1\} 
+                           else return -\{b2\} end end)() \}
+  end \}
+
+lang = "en"
+hi = -\braces{ ternary ( +\braces{lang=="fr"}, +\braces{"Bonjour"}, +\braces{"Hello"}) }
+print (hi)
+
+lang = "fr"
+hi = -\braces{ ternary ( +\braces{lang=="fr"}, +\braces{"Bonjour"}, +\braces{"Hello"}) }
+print (hi)
+
+{\bf{}fabien@macfabien\$} mlc sample.lua
+Compiling sample.lua...
+...Wrote sample.luac
+{\bf{}fabien@macfabien\$} lua sample.luac
+Hello
+Bonjour
+{\bf{}fabien@macfabien\$} _
+\end{alltt}
+\hrule~\\
+
+\paragraph{Incrementation operator}
+Now, we will write another simple example, which doesn't use
+quasi-quotes, just to show that we can. Another operator that C
+developpers might be missing with Lua is the \verb|++| operator. As
+with the ternary operator, we won't show yet how to put the syntax
+sugar coating around it, just how to build the backend functionnality.
+
+Here, the transformation is really trivial: we want to encode
+\verb|x++| as \verb|x=x+1|. We will only deal with \verb|++| as
+statement, not as an expression. However, \verb|++| as an expression is not
+much more complicated to do. Hint: use the turn-statement-into-expr
+trick shown in the previous example. The AST corresponding to
+\verb|x=x+1| is 
+\verb|`Let{ { `Id x }, { `Op{ `Add, `Id x, `Number 1 } } }|. From
+here, the code is straightforward:
+
+~\\\hrule
+\begin{alltt}
+{\bf{}fabien@macfabien\$} cat sample.lua
+-\braces{stat:
+   function plusplus (var) 
+      assert (var.tag == "Id")
+      return `Let\braces{ \braces{ var }, \braces{ `Op\braces{ `Add, var, `Number 1 } } }
+   end }
+
+x = 1;                  
+print ("x = " .. tostring (x))
+-\braces{ plusplus ( +\braces{x} ) }; 
+print ("Incremented x: x = " .. tostring (x))
+
+{\bf{}fabien@macfabien\$} mlc sample.lua
+Compiling sample.lua...
+...Wrote sample.luac
+{\bf{}fabien@macfabien\$} lua sample.luac
+x = 1
+Incremented x: x = 2
+{\bf{}fabien@macfabien\$} _
+\end{alltt}
+\hrule~\\
+
+Now, we just miss a decent syntax around this, and we are set! This is
+the subject of the next sections: \verb|gg| is the generic grammar
+generator, which allows to build and grow parsers. It's used to
+implement \verb|mlp|, the Metalua parser, which turns Metalua sources
+into AST.
+
+Therefore, the informations useful to extend Metalua syntax are:
+
+\begin{itemize}
+\item What are the relevant entry points in mlp, the methods which
+  allow syntax extension.
+\item How to use these methods: this consists into knowing the classes
+  defined into gg, which offer dynamic extension possibilities.
+\end{itemize}

@@ -1,0 +1,112 @@
+\def\tableHeader{\begin{tabular}{|c|c|p{7cm}|}\hline
+\bf name & \bf type & \multicolumn{1}{c|}{\bf description} \\\hline}
+\def\entry#1#2#3{{#1} & {\tt#2} & {#3} \\\hline}
+\def\tableFooter{\hline\end{tabular}}
+
+\section{{\tt mlp} reference}
+
+Metalua parser is built on top of \verb|gg|, and cannot be understood
+without some knowledge of it. Basically, \verb|gg| allows not only to
+build parsers, but to build {\em extensible} parsers. Depending on a
+parser's type (sequence, sequence set, list, expression\ldots),
+different extension methods are available, which are documented in
+\verb|gg| reference. The current section will give the information
+needed to extend Metalua syntax:
+\begin{itemize}
+\item what \verb|mlp| entries are accessible for extension;
+\item what do they parse;
+\item what is the underlying parser type (and therefore, what
+  extension methods are supported)
+\end{itemize}
+
+\subsection{Parsing expressions}
+\tableHeader
+
+\entry{mlp.expr}{gg.expr}{Top-level expression parser, and the main
+  extension point for Metalua expression. Supports all of the methods
+  defined by {\tt gg.expr}.}
+
+\entry{mlp.func\_val}{gg.sequence}{Read a function definition,
+  from the arguments' openning parenthesis to the final {\tt end}, but
+  excluding the initial {\tt function} keyword, so that it can be used
+  both for anonymous functions, for {\tt function some\_name(...) end}
+  and for {\tt local function some\_name(...) end}.}
+
+% \entry{mlp.func\_params\_content}{gg.list}{Read a potentially empty
+%   (``{\tt)}''- or ``{\tt|}''-terminated) list of function definition
+%   parameters, i.e. identifiers or ``{\tt ...}'' varargs. Surrounding
+%   parentheses are excluded. Don't get confused between parameters and
+%   arguments: parameters are the variable names used in a function
+%   definition; arguments are the values passed in a function call.}
+
+% \entry{mlp.func\_args\_content}{gg.list}{Read a potentially emtpy list
+%   of function call arguments. Surrounding parentheses are excluded.}
+
+% \entry{mlp.func\_args}{gg.sequence\_set}{Read function arguments: a
+%   list of expressions between parenthses, or a litteral table, or a
+%   litteral string.}
+
+%\entry{mlp.func\_params}{}{}
+\entry{mlp.expr\_list}{}{}
+
+%\entry{mlp.adt}{\rm custom function}{Read an algebraic datatype
+%  without its leading backquote.}
+
+\entry{mlp.table\_content}{gg.list}{Read the content of a table,
+  excluding the surrounding braces}
+
+\entry{mlp.table}{gg.sequence}{Read  a litteral table,
+  including the surrounding braces}
+
+\entry{mlp.table\_field}{\rm custom function}{Read a table entry: {\tt
+    [foo]=bar}, {\tt foo=bar} or {\tt bar}.}
+
+\entry{mlp.opt\_id}{\rm custom function}{Try to read an identifier, or
+  an identifier splice. On failure, returns false.}
+
+\entry{mlp.id}{\rm custom function}{Read an identifier, or
+  an identifier splice. Cause an error if there is no identifier.}
+
+\tableFooter
+
+
+\subsection{Parsing statements}
+\tableHeader
+\entry{mlp.block}{gg.list}{Read a sequence of statements, optionally
+  separated by semicolons. When introducing syntax extensions, it's
+  often necessary to add block terminators with {\tt
+  mlp.block.terminators:add().}}
+\entry{mlp.for\_header}{\rm custom function}{Read a {\tt for} header,
+from just after the ``{\tt for}'' to just before the ``{\tt do}''.}
+\entry{mlp.stat}{gg.multisequence}{Read a single statement.}
+\tableFooter
+
+Actually, {\tt mlp.stat} is an extended version of a multisequence: it
+supports easy addition of new assignment operator. It has a field {\tt
+assignments}, whose keys are assignment keywords, and values are
+assignment builders taking left-hand-side and right-hand-side as
+parameters. for instance, C's ``+='' operator could be added as:
+\begin{verbatim}
+mlp.lexer:add "+="
+mlp.stat.assignments["+="] = function (lhs, rhs)
+  assert(#lhs==1 and #rhs==1)
+  local a, b = lhs[1], rhs[1]
+  return +{stat: (-{a}) = -{a} + -{b} }
+end 
+\end{verbatim}
+
+\subsection{Other useful functions and variables}
+
+\begin{itemize}
+\item{\tt mlp.gensym()} generates a unique identifier. The uniqueness
+  is guaranteed, therefore this identifier cannot capture another
+  variable; it is useful to write hygienic\footnote{Hygienic macros
+    are macros which take care not to use names that might interfere
+    with user-provided names. The typical non-hygienic macro in C
+    is {\tt \#define SWAP( a, b) \{ int c=a; a=b; b=c; \}}: this macro
+    will misearbly fail if you ever call it with a parameter named
+    {\tt c}. There are well-known techniques to automatically make a
+    macro hygienic. Without them, you'd have to generate a unique name
+    for the temporary variable, if you had a {\tt gensym()} operator
+    in C's preprocessor} macros. 
+\end{itemize}

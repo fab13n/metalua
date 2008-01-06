@@ -1,0 +1,53 @@
+\section{Metalua syntax extensions over Lua}
+Metalua is essentially Lua + code generation at compile time +
+extensible syntax. However, there are a couple of additional
+constructs, considered of general interest, which have been added to
+Lua's original syntax. These are presented in this section
+
+\subsection{Anonymous functions}
+Lua lets you use anonymous functions. However, when programming in a
+functional style, where there are a lot of short anonymous functions
+simply returning an expression, the default syntax becomes
+cumbersome. Metalua being functional-styel friendly, it
+offers a terser idiom: ``{\tt function(arg1, arg2, argn) return
+  someexpr end}'' can be written ``{\tt|arg1,arg2,argn| someexp}''. 
+
+Notice that this notation is currying-friendly, i.e. one can easily
+write functions that return functions: ``{\tt function(x) return
+function(y) return x+y end end}'' is simply written ``{\tt|x||y|
+x+y}''.
+
+Lua functions can return several values, and metalua's lambda notation
+supports them as well, e.g. in {\tt |x,y| x+y, x*y}. This means that
+when a lambda is followed by a comma, you have to put parentheses
+around, as in ``{\tt map( (|x| x+1), some\_data)}''.
+
+Finally, it's perfectly legal to define a parameterless function, as
+in {\tt ||42}. This makes a convenient way to pass values around in a
+lazy way.
+
+\subsection{Functions as infix operators}
+
+In many cases, people would like to extend syntax simply to create
+infix binary operators. Haskell offers a nice compromize to satisfy
+this need without causing any mess, and metalua incorporated it: when
+a function is put between backquotes, it becomes infix. for instance,
+let's consider the {\tt plus} function ``{\tt plus=|x,y|x+y}''; this
+function can be called the classic way, as in ``{\tt plus (20, 22)}''; but
+if you want to use it in an infix context, you can also write ``{\tt
+20 `plus` 22}''.
+
+\subsection{Algebraic datataypes}
+
+This syntax for datatypes is of special importance to metalua, as it's
+used to represent source code being manipulated. Therefore, it has its
+dedicated section later in this manual.
+
+\subsection{Metalevel shifters}
+
+These to dual notations are the core of metaprogramming: one
+transforms code into a manipulaeble representation, and the other
+transforms the representation back into code. They are noted
+{\tt+\{...\}} and {\tt-\{...\}}, and due to their central role in
+metalua, their use can't be summed up adequately here: they are fully
+described in the subsequent sections about metaprogramming.

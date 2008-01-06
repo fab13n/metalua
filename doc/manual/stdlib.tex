@@ -1,0 +1,260 @@
+\def\function#1{\paragraph{#1}~\\}
+
+\section{Standard library}
+Metalua comes with a standard library which extends Lua's one. These
+extended features are enabled by adding a ``{\tt require "std"}''
+statement in your source files (it is already required at the
+compile-time level, so there's no need for a 
+``{\tt -\{ require "std" \}}''). 
+
+\subsection{Base library extensions}
+
+\function{min(...)}
+
+Return the min of its arguments, according to {\tt<}. There must be at
+least one argument.
+
+\function{max(...)}
+
+Return the max of its arguments, according to {\tt<}. There must be at
+least one argument.
+
+\function{o(...)}  
+
+Return the composition of all functions passed as arguments. For
+instance, {\tt printf} could be defined as {\tt print `o`
+  string.format}\footnote{Or in regular Lua syntax {\tt o(print,
+    string.format)}.}
+
+\function{id(...)}
+
+Return all its arguments unchanged.
+
+
+\function{const (...)}
+
+Return a function which always returns {\tt ...}, whatever its arguments.
+For instance, {\tt const(1, 2, 3)(4, 5, 6)} returns {\tt1, 2, 3}.
+
+\function{printf(fmt,...)}
+
+Equivalent to {\tt print(string.format(fmt,...))}.
+
+\function{values(table)}
+
+Iterator, to be used in a {\tt for} loop, which returns all the values
+of {\tt table}. 
+
+{\tt for x in values(t) do [...] end} is equivalent to {\tt for \_, x in
+  pairs(t) do [...] end}.
+
+\function{keys(table)}
+
+
+Iterators, to be used in a {\tt for} loop, which return all the keys
+of {\tt table}. 
+
+{\tt for k in keys(t) do [...] end} is equivalent to {\tt for k, \_ in
+  pairs(t) do [...] end}.
+
+
+\function{require(name)}
+
+Work as Lua's original {\tt require}, except that it also accepts
+metalua sources, in addition to regular Lua ones and bytecode files.
+
+\function{lua\_require(name)}
+
+Alias to the original Lua {\tt require()} function.
+
+\function{extension(name)}
+
+
+\subsection{{\tt table} extensions}
+
+Many of the extensions of {\tt table} are dedicated to a more
+functional style programming. When compared to the functions in
+Haskell or ML's standard libs, these one are slightly more general,
+taking advantage from Lua's dynamic typing.
+
+\function{table.iforeach(f, ...)}
+
+{\tt table.iforeach(f, t)} will evaluate f with every array-part
+elements of t in order.
+
+If more than one table are passed as parameters, f will receive an
+element of each table at each iteration. For instance, {\tt
+  table.iforeach (print, \{1, 2, 3\}, \{4, 5, 6\}, \{7, 8, 9\})} will
+print:
+\begin{verbatim}
+1 4 7
+2 5 8
+3 6 9
+\end{verbatim}
+
+If the second and/or third parameters are numbers, they indicate the
+first and last indexes to use in the tables. First index defaults to
+1, last index default to the length of the longest table. If only one
+number is passed, it's considered to be the first index. For instance,
+{\tt table.iforeach (print, 2, \{1, 2, 3\}, \{4, 5, 6\}, \{7, 8, 9\})}
+will only print:
+\begin{verbatim}
+2 5 8
+3 6 9
+\end{verbatim}
+
+\function{table.imap(f, ...)}
+
+Similar to {\tt table.iforeach()}, except that the results of {\tt
+  f()} calls are collected into a list and returned.
+
+For instance, {\tt table.imap((|x,y|x+y), 2, \{"foo", 1, 2, 3\},
+  \{"bar", 10, 20, 30\})} will return {\tt\{11, 22, 33\}}.
+
+\function{table.ifold(f, acc, ...)}  
+
+Fold list elements thanks to a combining function {\tt f()}, which
+takes two list elements and returns one result. For the first
+iteration, {\tt f()} takes {\tt acc} as its first param. For instance,
+the sum of {\tt list}'s elements can be computed by {\tt table.ifold(
+  (|x,y| x+y), 0, list)}.
+
+This function also accepts first and last indexes after {\tt acc}, and
+more than one table argument: if there are more than one table, then
+more than two parameters are passed to {\tt f()}. For instance, this
+function returns $\sum_{i\le2} \max(x[i], y[i])$: {\tt
+  table.ifold( (|acc, xi, yi| acc + max (xi, yi)), 0, 2, x, y)}.
+
+\function{table.izip(...)}  
+
+Take a sequence of lists, and return the
+list of their first elements, then their second elements, etc. For
+instance, {\tt table.izip (\{1,2,3\}, \{4,5,6\})} will return
+{\tt\{\{1,4\}, \{2,5\} , \{3,6\}\}}.
+
+\function{table.ifilter(f, t)}
+
+Return the list of all elements of {\tt t} for which {\tt f} returns
+neither {\tt nil} nor {\tt false}.
+
+\function{table.icat(...)}
+
+Concatenate all the lists passed as arguments into a single one, then
+return it.
+
+\function{table.iflatten(x)}
+
+Flatten a list of lists into a list. for instance, {\tt
+  table.iflatten\{\{1,2\}, \{3,4\}\}} returns {\tt\{1,2,3,4\}}.
+
+\function{table.irev(t)}
+Reverse the order of elements in {\tt t}'s array-part. This is done
+in-place: if you don't want to alter the original list, first copy
+it.
+
+\function{table.iall(f, ...)}
+
+Return true if and only if {\tt table.iforeach(f, ...)} would return only
+non-false values.
+
+\function{table.iany(f, ...)}
+
+Return true if and only if {\tt table.iforeach(f, ...)} would return
+at least one non-false value.
+
+\function{table.shallow\_copy(t)}
+
+Does a shallow copy of the table {\tt t}. This differs from {\tt
+  table.icat(t)}, because the latter would only copy tha array-part,
+whereas the former also copies the hash-part.
+
+\function{table.deep\_copy(t)}
+
+Does a deep copy of {\tt t}, i.e. all keys and values are recursively
+copied. Handles tables with shared and circular references correctly;
+also set the copy's metatable to the original's one.
+
+\function{table.range(a, b, c)}
+
+Return a list of all integers between {\tt a} and {\tt b} inclusive,
+with an increment {\tt c} (which defaults to 1).
+
+\function{table.tostring(t, ...)}
+
+Return a string which represents {\tt t}. This string is correctly
+indented, and handles Metalua's special syntax for ADT/AST
+gracefully. If {\tt"nohash"} is passed as an additional argument, then
+only the tag and array-part of the table are displayed. If a number
+{\tt n} is passed as extra argument, the function tries to keep the
+number of characters per line under {\tt n}.
+
+\function{table.print(t, ...)}
+
+Equivalent to {\tt print(table.tostring(t, ...))}.
+
+\subsection{{\tt string} extensions}
+
+\function{string.split(string, pattern)}
+Cut {\tt string} into a list of substrings separated by pattern {\tt
+  pattern}, and return that list.
+
+
+\function{string.strmatch(...)}
+
+Alias for {\tt string.match}: since it's quite common in metalua to
+use the pattern matching extension, which turns {\tt match} into a
+keyword, it's practical to have another name for this function.
+
+\subsection{Library {\tt mlc}}
+This library offer conversion between the different possible
+representations of metalua programs:
+\begin{itemize}
+\item as source files
+\item as compiled files
+\item as source strings
+\item as compiled chunk dumps (which are actually strings)
+\item as lexeme streams
+\item as AST
+\item FIXME
+\end{itemize}
+
+Hopefully, the function names are self-explanatory. Some of them are
+simply aliases to other standard functions such as {\tt loadstring()}
+or {\tt string.dump()}; many others are compositions of other
+functions. The point is that every sensible transformation from
+representation {\tt xxx} to representation {\tt yyy} should appear in
+this library under the name {\tt yyy\_of\_xxx()}. This way, users
+don't have to wonder how to chain the appropriate functions to get the
+expected result.
+
+The functions available in this module are:
+
+\begin{tabular}{|l|l|l|l|}
+  \hline
+  FIXME \\\hline
+\end{tabular}
+
+FIXME: implementation sucks beyond maintainability, it should be
+rewritten.
+
+\subsection{Library {\tt walker}}
+This library allows code-walking, i.e. applying advanced, non-local 
+transformations on ASTs. It's powerful, but definitely not user
+friendly; eventuallty, it might be replaced by a Term Rewriting
+System, supported by its own Domain-Specific Language.
+
+\function{walk\_stat (cfg)}
+FIXME
+%don't get confused between the AST it applies on, the the AST being
+%currently inspected.
+
+%function calls and method invocations in a statement context are not
+%considered as expressions.
+
+\function{walk\_expr (cfg)}
+Same as {\tt walk\_stat}, except that it takes an expression AST
+instead of a statement AST. 
+
+\function{walk\_block (cfg)}
+Same as {\tt walk\_stat}, except that it takes a statements block AST
+instead of a single statement AST.
