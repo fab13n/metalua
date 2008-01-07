@@ -83,11 +83,13 @@ local traverse = walk.traverse
 -- is treated as an expression, but the whole AST is *not* treated
 -- as en expr. This allows to target calls-as-statements without
 -- targetting calls-as-real-expr.
-function traverse.stat (cfg, x)
-   local B  = walk.block(cfg)
-   local S  = walk.stat(cfg)
-   local E  = walk.expr(cfg)
-   local EL = walk.expr_list(cfg)
+
+function traverse.stat (cfg, x, ...)
+   local log = {...}
+   local B  = |y| walk.block (cfg, y, x, unpack(log))
+   local S  = |y| walk.stat  (cfg, y, x, unpack(log))
+   local E  = |y| walk.expr  (cfg, y, x, unpack(log))
+   local EL = |y| walk.expr_list (cfg, y, x, unpack(log))
    match x with
    | `Do{...}              -> B(x)
    | {...} if x.tag == nil -> B(x)
@@ -107,11 +109,12 @@ function traverse.stat (cfg, x)
    end
 end
 
-function traverse.expr (cfg, x)
-   local B  = walk.block(cfg)
-   local S  = walk.stat(cfg)
-   local E  = walk.expr(cfg)
-   local EL = walk.expr_list(cfg)
+function traverse.expr (cfg, x, ...)
+   local log = {...}
+   local B  = |y| walk.block (cfg, y, x, unpack(log))
+   local S  = |y| walk.stat  (cfg, y, x, unpack(log))
+   local E  = |y| walk.expr  (cfg, y, x, unpack(log))
+   local EL = |y| walk.expr_list (cfg, y, x, unpack(log)) 
    match x with
    | `Paren{ e }               -> E(e)
    | `Call{...} | `Invoke{...} -> EL(x)
@@ -130,59 +133,29 @@ function traverse.expr (cfg, x)
    end
 end
 
-function traverse.block (cfg, x)
-   table.iforeach(walk.stat(cfg), x)
+function traverse.block (cfg, x, ...)
+   for y in values(x) do walk.stat(cfg, y, x, ...) end
 end
 
-function traverse.expr_list (cfg, x)
-   table.iforeach(walk.expr(cfg), x)
+function traverse.expr_list (cfg, x, ...)
+   -- x doesn't appear in the log
+   for y in values(x) do walk.expr(cfg, y, ...) end
 end
 
 ----------------------------------------------------------------------
 -- Generic walker generator
 ----------------------------------------------------------------------
-local walker_builder = |cfg_field, traverse| |cfg| function (x)
-   local function pred_builder (pred)
-      match type(pred) with
-      | "boolean"  -> return (|| pred)
-      | "nil"      -> return nil
-      | "function" -> return pred
-      | "string"   -> return (|x| x.tag==pred)
-      | "table"    -> 
-         local preds = table.imap (pred_builder, pred)
-         return function(x)
-                   for p in values(preds) do
-                      if p(x) then return true end
-                   end
-                   return false
-                end                      
-         --return (|x| table.iany((|p| p(x)), preds))
-      | _ -> error "Invalid predicate"
-      end
-   end
-   local subcfg   = cfg[cfg_field] or { }
-   local map_pred = pred_builder (subcfg.pred)
+local walker_builder = |cfg_field, traverse| function (cfg, x, ...)
+   local sub_cfg  = cfg[cfg_field] or { }
    local broken   = false
-   local function map(f)
-      if f and (not map_pred or map_pred(x)) then 
-         if type(f) == "table" then 
-            local maptable = f
-            f = |x| maptable[x.tag](x) 
-         end
-         local r=f(x)
-         if r=="break" then broken=true 
-         else assert(not r, "Map functions must return 'break' or nil") end
-      end
+   if sub_cfg.down then
+      if sub_cfg.down=='break' then broken='break'
+      else broken = sub_cfg.down (x, ...) end
+      assert(not broken or broken=='break', 
+             "Map functions must return 'break' or nil")
    end
-   --printf("\n--> walk.%s (cfg) (\n%s)", cfg_field, table.tostring(x,"nohash",60))
-   map (subcfg.down)
-   --printf("\n--- walk.%s (cfg) (\n%s)", cfg_field, table.tostring(x,"nohash",60))
-   local cut_pred = pred_builder(subcfg.cut)
-   if not broken and (not cut_pred or not cut_pred(x)) then 
-      traverse(cfg, x) 
-   end
-   map (subcfg.up)
-   --printf("\n<-- walk.%s (cfg) (\n%s)", cfg_field, table.tostring(x,"nohash",60))
+   if not broken then traverse (cfg, x, ...) end
+   if sub_cfg.up then sub_cfg.up (x, ...) end
 end
 
 -- Declare [walk.stat], [walk.expr], [walk.block] and [walk.expr_list]
@@ -198,17 +171,17 @@ end
 -- [f] is not applied to the homonymous id occurences.
 --------------------------------------------------------------------------------
 function walk.alpha_id (f, id_name)
-   local cfg = { expr  = { pred = { "Function", "Id" } },
-                 block = { cut  = true } }
+   local cfg = { expr  = {  }, block = {  } }
       
    -----------------------------------------------------------------------------
    -- Apply [f] on id, make sure that function parameters don't capture id.
    -----------------------------------------------------------------------------
-   function cfg.expr.down(x)
+   function cfg.expr.down(x, ...)
       match x with
       | `Id{ name } if name==id_name -> f(x)
       | `Function{ params, _ } if table.iforeach (|p| p[1]==id_name, params) -> 
          return "break"
+      | _ -> -- pass
       end
    end
 
@@ -216,21 +189,18 @@ function walk.alpha_id (f, id_name)
    -- Blocks must be traversed in a custom way, in order to stop as soon as
    -- a local declaration captures the id.
    -----------------------------------------------------------------------------
-   function cfg.block.down(b)
+   function cfg.block.down(b, ...)
       assert(b, "Null block in alpha conversion")
       for s in values(b) do
-         if (s.tag=="Local" or s.tag=="Localrec") and
-            table.iforeach (|p| p[1]==id_name, s[1]) then
-            --------------------------------------------------------------------
-            -- Local declaration captures Id: stop traversing this block.  
-            -- However, for `Local{lhs, rhs} stats, the rhs is out of scope
-            -- and must be traversed.
-            --------------------------------------------------------------------
-            if s.tag=="Local" then walk.expr_list(cfg)(s[2]) end
+         match s with
+         | `Local{ id_list, _ } | `Localrec{ id_list, _ }
+            if table.iforeach (|p| p[1]==id_name, id_list) ->
+            if s.tag=="Local" then walk.expr_list(cfg, s[2], b, ...) end
             return "break" 
+         | _ -> -- pass
          end
          -- No capture occured --> traverse and go on.
-         walk.stat(cfg)(s)
+         walk.stat(cfg)(s, b, ...)
       end
    end
 
