@@ -1,0 +1,10 @@
+$Id$
+
+This changelog is maintained as of version 2.0alpha1. 
+Earlier versions are changelogged on the LuaForge site.
+
+-- 2.0alpha1 --
+* Fixed all outstanding 5.0->5.1 conversion issues
+* Made heavier use of size_t in preference to int
+* Fixed GC/Upval issue (thanks to Eric Jacobs)
+

@@ -1,0 +1,66 @@
+This is metalua-0.3.9, an alpha version of the Metalua compiler. 
+
+This software and its documentation are released as open source
+material, under the MIT Public License, as described in the file
+LICENSE. It uses source code and documentation from other open source
+projects, all released under the MIT License, namely:
+
+- Lua, for its virtual machine, developped by the Lua team at the
+  Pontifical Catholic University of Rio de Janeiro in Brazil,
+
+- Yueliang, a Lua compiler in written in Lua, developped by Kein-Hong
+  Man, constitutes the base of metalua's bytecode dumper.
+
+- Rings, a part of the Kelper project, lets handle multiple Lua states
+  from within Lua.
+
+- Pluto, developped by Ben Sunshine-Hill, allow serialization and
+  deserialization of arbitrary Lua data. It is used to improve
+  communication across the states created with Lua Rings.
+
+- Bitlib, developped by Thomas Reuben, implement bitwise operators in
+  Lua, and eases the bytecode dumping.
+
+Main changes since metalua-0.3:
+===============================
+
+- the compiler/interpreter executable has been completely
+  rewritten. It address several shortcomings, such as:
+
+  * integrated REPL loop;
+  * ability to properly run programs, among other by passing parameters
+    to them;
+  * isolation of compilation processes: when several files are
+    compiled, the alterations caused by one to the copmiler won't
+    affect the compilation of the next ones;
+  * richer API, through a standard commond line options handling library.
+  * automatic insertion of a require() statement making sure that the
+    metalua runtime is loaded before a program starts running, even if
+    it's precompiled and run later.
+
+- the ability to process Metalua source files is optional (added with
+  a "require 'metalua.compiler'" statement), and works correctly for
+  all functions that might cause compilation: require(), loadstring(),
+  loadfile(), dofile().
+
+- the mlc converter (the hub that handles translation between all
+  program representation formats such as files, source strings, token
+  streams, AST, executable functions etc.) has been completely
+  rewritten.
+
+- parts of the compiler are now written in Metalua, as opposed to
+  plain Lua. The compiler building process now includes a
+  bootstrapping stage, i.e. the generation of a minimalist Metalua
+  compiler in charge of building the final one.
+
+- isolation of compilation processes is achieved by Springs, a library
+  that fusions together Lua Rings and Pluto, allowing to create
+  independant Lua universe that communicate easily together.
+
+- the structural pattern matching library has been significantly improved:
+  * bug fixes;
+  * optimized support of multiple simultaneous values match;
+  * a match statement causes an error if no pattern succeeds to capture
+    the value(s)
+
+- 
