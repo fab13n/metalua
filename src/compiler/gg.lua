@@ -267,6 +267,17 @@ function multisequence (p)
    function p:get (kw) return self.sequences[kw] end
 
    -------------------------------------------------------------------
+   -- Remove the sequence starting with keyword [kw :: string]
+   -------------------------------------------------------------------
+   function p:del (kw) 
+      if not self.sequences[kw] then 
+         printf("*** Warning: trying to delete sequence starting "..
+                "with %q from a multisequence having no such "..
+                "entry ***", kw) end
+      self.sequences[kw] = nil 
+   end
+
+   -------------------------------------------------------------------
    -- Get the sequence starting with this keyword. [kw :: string]
    -------------------------------------------------------------------
    function p:remove (kw) 
