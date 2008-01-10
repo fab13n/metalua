@@ -5,5 +5,5 @@ function mt:__index(key)
    return v
 end
 
-auto = |t| setmetatable(t or { }, mt)
-   
+auto = function(t) return setmetatable(t or { }, mt) end
+

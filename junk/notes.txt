@@ -301,6 +301,9 @@ Le niveau 0 est au besoin relance plusieurs fois, une par compile.
 soucis avec clopts: l'ordre peut etre important. en l'occurence,
 l'ordre relatif entre libs
 
+REMARQUE WALKER: est-ce qu'il faut que la gauche de Set soit traitee
+comme des expr?
+
 
 When does it compile, when does it execute?
 -------------------------------------------
