@@ -111,7 +111,11 @@
 --
 --------------------------------------------------------------------------------
 
+-- TODO: unify scopes handling with free variables detector
+
 require "walk" 
+
+-{ extension 'match' }
 
 module("types", package.seeall)
 
@@ -120,83 +124,55 @@ enabled = true
 local function chunk_transformer (block)
    if not enabled then return end
    local return_types, scopes = { }, { }
-   local cfg = {
-      block = { };
-      stat  = { pred = { "Local"; "Let"; "Return" }; down = { } };
-      expr  = { pred = "Function"; up = { }; down = { } } }
+   local cfg = { block = { }; stat = { }; expr = { } }
 
-   -------------------------------------------------------------
-   -- Declaration of a new local variable in the current block:
-   -- gather type constraints in local current scope.
-   -------------------------------------------------------------
-   function cfg.stat.down.Local (s)
-      if s.types then
-
-         -- Add new types in current scope
-         local myscope = scopes[#scopes]
-         for var, type in pairs (s.types) do 
-            myscope[var] = process_type (type)
+   function cfg.stat.down (x)
+      match x with
+      | `Local{ lhs, rhs, types = x_types } ->
+         -- Add new types declared by lhs in current scope.
+         local myscope = scopes [#scopes]
+         for var, type in pairs (x_types) do 
+            myscope [var] = process_type (type)
          end
-
-         -- Type-check the rhs values
-         local lhs, rhs = unpack(s)
-         for i=1, max(#lhs, #rhs) do
-            local type = myscope[lhs[i][1]]
-            if type and rhs[i] then 
-               rhs[i] = checktype_builder (type, rhs[i], 'expr') 
+         -- Type-check each rhs value with the type of the
+         -- corresponding lhs declaration, if any.  Check backward, in
+         -- case a local var name is used more than once.
+         for i = 1, max (#lhs, #rhs) do
+            local type, new_val = myscope[lhs[i][1]], rhs[i]
+            if type and new_val then 
+               rhs[i] = checktype_builder (type, new_val, 'expr') 
             end
          end
-      end
-   end
-      
-   -------------------------------------------------------------
-   -- Variable assignment: add type checking to the right-hand
-   -- side value, before assigning it to the left-hand side,
-   -- if it is typed.
-   -------------------------------------------------------------
-   function cfg.stat.down.Let (s)
-      local lhs, rhs = unpack (s)
-      for i=1, #lhs do -- foreach lhs variable:
-         
-         -- Retrieve the variable type, if any:
-         local type
-         for j=#scopes, 1, -1 do 
-            type = scopes[j][lhs[i][1]]
-            if type then break end
+      | `Set{ lhs, rhs } ->
+         for i=1, #lhs do
+            match lhs[i] with
+            | `Id{ v } ->
+               -- Retrieve the type associated with the variable, if any:
+               local  j, type = #scopes, nil
+               repeat j, type = j-1, scopes[j][v] until type or j==0         
+               -- If a type constraint is found, apply it:
+               if type then rhs[i] = checktype_builder(type, rhs[i] or `Nil, 'expr') end
+            | _ -> -- assignment to a non-variable, pass
+            end
          end
-         
-         -- Type constraint found, apply it:
-         if type then 
-            rhs[i] = checktype_builder(type, rhs[i] or `Nil, 'expr') 
-         end         
+      | `Return{ r_val } ->
+         local r_type = return_types[#return_types]
+         if r_type then 
+            x <- `Return{ checktype_builder (r_type, r_val, 'expr') }
+         end
+      | _ -> -- pass
       end
    end
 
-   -------------------------------------------------------------
-   -- Return statements: if there is a returned type constraint,
-   -- enforce it.
-   -------------------------------------------------------------
-   function cfg.stat.down.Return (s)
-      local rtype = return_types[#return_types]
-      if rtype then s[1] = checktype_builder (rtype, s[1], 'expr') end
-   end
-
-   -------------------------------------------------------------------
-   -- On expressions: the only expressions watched are functions.
-   -- function parameters are to be treated like
-   -- local variables. Also, if a return type constraint is given,
-   -- register it.
-   -------------------------------------------------------------------
-   function cfg.expr.down.Function (e)
-      local myscope = { }
-      table.insert (scopes, myscope)
-      if e.param_types then
-         for var, type in pairs (e.param_types) do
-            myscope[var] = process_type (type)
-         end
+   function cfg.expr.down (x)
+      if x.tag ~= 'Function' then return end
+      local new_scope = { }
+      table.insert (scopes, new_scope)
+      for var, type in pairs (x.param_types or { }) do
+         new_scope[var] = process_type (type)
       end
-      local r = e.ret_type and process_type (e.ret_type) or false
-      table.insert (return_types, r)
+      local r_type = x.ret_type and process_type (x.ret_type) or false
+      table.insert (return_types, r_type)
    end
 
    -------------------------------------------------------------------
@@ -205,34 +181,22 @@ local function chunk_transformer (block)
    -- then, adds the parameters type checking instructions at the
    -- beginning of the function, if applicable.
    -------------------------------------------------------------------
-   function cfg.expr.up.Function (e) 
+   function cfg.expr.up (x)
+      if x.tag ~= 'Function' then return end
       -- Unregister stuff going out of scope:
       table.remove (return_types)
       table.remove (scopes)
       -- Add initial type checking:
-      if e.param_types then
-         for v, t in pairs(e.param_types) do
-            table.insert(e[2], 1, checktype_builder(t, `Id{v}, 'stat'))
-         end
+      for v, t in pairs(x.param_types or { }) do
+         table.insert(x[2], 1, checktype_builder(t, `Id{v}, 'stat'))
       end
    end
       
-   -------------------------------------------------------------------
-   -- Create/delete scopes as we enter/leave blocks.
-   -------------------------------------------------------------------
-   function cfg.block.down (_) table.insert (scopes, { }) end
-   function cfg.block.up (_)   table.remove (scopes)      end
-   walk.block(cfg)(block)
-end
+   cfg.block.down = || table.insert (scopes, { })
+   cfg.block.up   = || table.remove (scopes)
 
---------------------------------------------------------------------------
--- Translate operators into their metatable entry:
--- used by [process_type] to translate operation expressions into
--- calls to the corresponding [types] entry.
---------------------------------------------------------------------------
-ast2mt = { 
-   Mul="__mul"; Add="__add"; Sub="__sub"; Div="__div";
-   Mod="__mod"; Pow="__pow"; Len="__len"; Not="__not" }
+   walk.block(cfg, block)
+end
 
 --------------------------------------------------------------------------
 -- Perform required transformations to change a raw type expression into
@@ -248,50 +212,50 @@ ast2mt = {
 -- only performed when they're put in the stacks (scopes and return_types)
 -- of the main walker.
 --------------------------------------------------------------------------
-function process_type (type)
+function process_type (type_term)
    -- Transform the type:
-   cfg = { 
-      expr = { 
-         pred = { "Id", "Table", "String", "Op" }; 
-         cut  = { "Index", "One" };
-         up   = { } } }
-   function cfg.expr.up.Id (x) 
-      x <- `Index{ `Id "types", `String{ x[1] } } 
+   cfg = { expr = { } }
+
+   function cfg.expr.down(x)
+      match x with
+      | `Index{...} | `Paren{...} -> return 'break'
+      | _ -> -- pass
+      end
    end
-   function cfg.expr.up.Table (x) 
-      local xcopy = table.shallow_copy(x)
-      x <- `Call{ `Index{ `Id "types", `String "__table" }, xcopy }
+   function cfg.expr.up (x)
+      match x with
+      | `Id{i} -> x <- `Index{ `Id "types", `String{ i } } 
+      | `Table{...} | `String{...} | `Op{...} ->
+         local xcopy, name = table.shallow_copy(x)
+         match x.tag with
+         | 'Table'  -> name = '__table'
+         | 'String' -> name = '__string'
+         | 'Op'     -> name = '__'..x[1]
+         end
+         x <- `Call{ `Index{ `Id "types", `String{ name } }, xcopy }
+      | _ -> -- pass
+      end
    end
-   function cfg.expr.up.String (x) 
-      local xcopy = table.shallow_copy(x)
-      x <- `Call{ `Index{ `Id "types", `String "__string" }, xcopy }
-   end
-   function cfg.expr.up.Op (x) 
-      local f = "__"..x[1]
-      if not f then error ("Invalid operator __"..x[1]) end
-      x <- `Call{ `Index{ `Id "types", `String{ f } }, x[2], x[3] }
-   end
-   walk.expr(cfg)(type)
-   return type
+   walk.expr(cfg, type_term)
+   return type_term
 end
 
 --------------------------------------------------------------------------
 -- Insert a type-checking function call on [term] before returning
 -- [term]'s value. Only legal in an expression context.
 --------------------------------------------------------------------------
+local non_const_tags = table.transpose
+   { 'Dots', 'Op', 'Index', 'Call', 'Invoke', 'Table' }
 function checktype_builder(type, term, kind)
-
    -- Shove type-checking code into the term to check:
-   local v = mlp.gensym()
-   local non_const_tags = { Dots=1, Op=1, Index=1, Call=1, Invoke=1, Table=1 }
-   if kind=="expr" and non_const_tags[term.tag] then
+   match kind with
+   | 'expr' if non_const_tags [term.tag] ->
+      local  v = mlp.gensym()
       return `Stat{ { `Local{ {v}, {term} }; `Call{ type, v } }, v }
-   elseif kind=="expr" then
+   | 'expr' ->
       return `Stat{ { `Call{ type, term } }, term }
-   elseif kind=="stat" then
+   | 'stat' ->
       return `Call{ type, term } 
-   else
-      error "checktype_builder must take type 'expr' or 'stat'"
    end
 end
 

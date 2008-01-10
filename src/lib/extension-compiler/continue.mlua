@@ -6,7 +6,7 @@ require "walk"
 --   of these statements: they're indeed indexed by keyword in [mlp.stat].
 ----------------------------------------------------------------------
 
-local loop_tags     = { "Forin", "Fornum", "While", "Repeat" }
+local loop_tags = table.transpose{ "Forin", "Fornum", "While", "Repeat" }
 local loop_keywords = { "for", "while", "repeat" }
 
 ----------------------------------------------------------------------
@@ -22,27 +22,24 @@ local loop_keywords = { "for", "while", "repeat" }
 -- cuts the search for [`Continue].
 ----------------------------------------------------------------------
 local function loop_transformer (ast)
-   local label = nil
-   local cfg = { 
-      stat = { cut  = loop_tags; pred = "Continue" } ;
-      expr = { cut = "Function" } }
+   local label
+   local cfg = { stat = { }; expr = { } }
 
-   --------------------------------------------------------------
-   -- This function will be called on every "Continue" in the loop
-   -- body which isn't into a Forin/Fornum/While/Repeat/Function:
-   --------------------------------------------------------------
    function cfg.stat.down (x)
-      if not label then label = mlp.gensym() end
-      x <- `Goto{ label }
+      if loop_tags[x.tag] then return 'break'
+      elseif x.tag=='Continue' then 
+         if not label then label = mlp.gensym 'continue' end
+         x <- `Goto{ label } 
+      end
    end
 
-   --------------------------------------------------------------
-   -- walk [cfg.stat.map_down()] through the loop's body:
-   --------------------------------------------------------------
-   local body = ast.tag=="Repeat" and ast[1] or ast[#ast]
-   walk.block (cfg) (body)
-   if label then table.insert (body, `Label{ label }) end
-   return ast
+   function cfg.expr.down (x) 
+      return x.tag=='Function' and 'break' 
+   end
+
+   local loop_body = ast.tag=="Repeat" and ast[1] or ast[#ast]
+   walk.block (cfg, loop_body)
+   if label then table.insert (loop_body, `Label{ label }) end
 end
 
 ----------------------------------------------------------------------
@@ -54,5 +51,3 @@ end
 
 mlp.lexer:add "continue"
 mlp.stat:add{ "continue", builder = ||`Continue }
-
-
