@@ -19,8 +19,6 @@
 
 -{ extension "match" }
 
-require "std"
-
 local function dots_builder (x) return `Dots{ x } end
 
 local function for_builder (x, h)
@@ -115,7 +113,7 @@ mlp.stat:add{ "for", gg.expr {
          { "for", mlp.for_header, builder = for_builder  },
          { "if",  mlp.expr,       builder = if_builder   } } }, 
    "do", mlp.block, "end", builder = for_stat_builder }
-]]
+--]]
 
 local function index_builder(a, suffix)
    match suffix[1] with
@@ -133,6 +131,7 @@ local function index_builder(a, suffix)
    end
 end
 
+mlp.expr.suffix:del '['
 mlp.expr.suffix:add{ name="table index/range",
    "[", gg.list{
       gg.sequence { mlp.expr, gg.onkeyword{ "...", mlp.expr } } , 
