@@ -119,7 +119,8 @@ local function match_builder (tested_terms_list, cases)
    local var = |n| `Id{ "$v" .. n }
    local on_failure -- current target upon pattern mismatch
 
-   local literal_tags = { String=1, Number=1, Boolean=1 }
+   local literal_tags = table.transpose
+      { 'String', 'Number', 'True', 'False', 'Nil' }
 
    local current_code -- list where instructions are accumulated
    local pattern_vars -- list where local vars are accumulated
