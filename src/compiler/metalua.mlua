@@ -94,7 +94,8 @@ local function main (...)
 
    -------------------------------------------------------------------
    -- Run if asked to, or if no --output has been given
-   if not cfg.run and not cfg.output then
+   -- if cfg.run==false it's been *forced* to false, don't override.
+   if cfg.run==nil and not cfg.output then
       verb_print("No output file specified; I'll run the program")
       cfg.run = true
    end
@@ -143,8 +144,9 @@ local function main (...)
 
    -------------------------------------------------------------------
    -- Insert runtime loader
-   if not cfg['no-runtime'] then 
-      verb_print "Inserting command \"require 'metalua.runtime'\""
+   if cfg['no-runtime'] then 
+      verb_print "Prevent insertion of command \"require 'metalua.runtime'\""
+   else
       table.insert(code, 1, +{require'metalua.runtime'})
    end
 
