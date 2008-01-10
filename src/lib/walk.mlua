@@ -85,6 +85,7 @@ local traverse = walk.traverse
 -- targetting calls-as-real-expr.
 
 function traverse.stat (cfg, x, ...)
+   --printf("traverse stat %s", table.tostring(x))
    local log = {...}
    local B  = |y| walk.block (cfg, y, x, unpack(log))
    local S  = |y| walk.stat  (cfg, y, x, unpack(log))
@@ -104,12 +105,14 @@ function traverse.stat (cfg, x, ...)
    | `If{...}                    -> for i=1, #x-1, 2 do E(x[i]); B(x[i+1]) end
                                     if #x%2 == 1 then B(x[#x]) end
    | `Break | `Goto{ _ } | `Label{ _ } -> -- nothing
-   | {...} -> print("Warning: unknown stat node `"..x.tag)
-   | _     -> print("Warning: unexpected stat node of type "..type(x))
+   | {...} -> print("Warning: walk: unknown stat node: "..table.tostring(x,80))
+   | _     -> print("Warning: walk: unexpected stat node of type "..type(x)
+                    ..": "..table.tostring(x,80))
    end
 end
 
 function traverse.expr (cfg, x, ...)
+   --printf("traverse expr %s", table.tostring(x))
    local log = {...}
    local B  = |y| walk.block (cfg, y, x, unpack(log))
    local S  = |y| walk.stat  (cfg, y, x, unpack(log))
@@ -128,18 +131,19 @@ function traverse.expr (cfg, x, ...)
          | v            -> E(v)
       end end
    |`Nil|`Dots|`True|`False|`Number{_}|`String{_}|`Id{_} -> -- nothing 
-   | {...} -> printf("Warning: unknown expr node %s", table.tostring(x))
-   | _     -> print("Warning: unexpected expr node of type "..type(x))
+   | {...} -> print("Warning: walk: unknown expr node: "..table.tostring(x,80))
+   | _     -> print("Warning: walk: unexpected expr node of type "..type(x)
+                    ..": "..table.tostring(x,80))
    end
 end
 
 function traverse.block (cfg, x, ...)
-   for y in values(x) do walk.stat(cfg, y, x, ...) end
+   for y in ivalues(x) do walk.stat(cfg, y, x, ...) end
 end
 
 function traverse.expr_list (cfg, x, ...)
    -- x doesn't appear in the log
-   for y in values(x) do walk.expr(cfg, y, ...) end
+   for y in ivalues(x) do walk.expr(cfg, y, ...) end
 end
 
 ----------------------------------------------------------------------
