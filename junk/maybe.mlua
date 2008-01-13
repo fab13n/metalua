@@ -1,0 +1,33 @@
+mlp.lexer:add{ '?.', '?(', '?[' }
+
+function maybe_field_builder(e, f)
+   f = f[1]
+   local v = mlp.gensym()
+   local block = 
+      +{block: local -{v} = -{e}; if not -{v}[-{f}] then -{v}[-{f}] = { } end}
+   return `Stat{ block, v }
+end
+
+function maybe_dot_builder(e, f)
+   return maybe_field_builder(e, {mlp.id2string(f[1])})
+end
+
+-- NON, ca gere pas les multireturns. Le plus simple c'est d'avoir un support runtime.
+
+function maybe_call_builder(e, args)
+   args = args[1]
+   local v, w = mlp.gensym(), mlp.gensym()
+   local block = 
+      +{block: local -{v}, -{w} = -{e}; if -{v} then (-{w})-{`Call(v, unpack(args))} end}
+   return `Stat{ block, w }
+end
+
+function maybe_invoke_builder(e, s)
+   local name, args = unpack(s)
+   local v, w = mlp.gensym(), mlp.gensym()
+   local block = 
+      +{block: local -{v}, -{w} = -{e}; if -{v} then (-{w})-{`Invoke(v, unpack(args))} end}
+   return `Stat{ block, w }
+end
+
+mlp.expr.suffix:add{ '?.', mlp.id, builder = |e, f| 

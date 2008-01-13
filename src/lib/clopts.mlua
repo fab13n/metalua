@@ -58,8 +58,8 @@ function clopts(cfg)
          if type(x) == 'table' then
             local opts = { }
             if x.type=='boolean' then 
-               if x.short then opts = { '-'..x.short, '+'..x.short } end
-               if x.long  then table.insert (opts, '--'..x.long) end
+               if x.short then opts = { '-'..x.short..'/+'..x.short } end
+               if x.long  then table.insert (opts, '--'..x.long..'/++'..x.long) end
             else
                if x.short then opts = { '-'..x.short..' <'..x.type..'>' } end
                if x.long  then table.insert (opts,  '--'..x.long..' <'..x.type..'>' ) end
@@ -71,8 +71,9 @@ function clopts(cfg)
    end
 
    -- Unless overridden, -h and --help display the help msg
-   if not short.h   then short.h   = {action=print_usage;type='nil'} end
-   if not long.help then long.help = {action=print_usage;type='nil'} end
+   local default_help = {action=print_usage;long='help';short='h';type='nil'}
+   if not short.h   then short.h   = default_help end
+   if not long.help then long.help = default_help end
 
    -----------------------------------------------------------------------------
    -- Helper function for options parsing. Execute the attached action and/or
@@ -91,7 +92,7 @@ function clopts(cfg)
       local etype, name = entry.type, entry.name or entry.long or entry.short
       match etype with
       | 'string' | 'number' | 'string*' | 'number*' -> 
-         if flag=='+' then 
+         if flag=='+' or flag=='++' then 
             print_usage ("flag "..flag.." is reserved for boolean options, not for "..opt)
             return false
          end
@@ -113,7 +114,7 @@ function clopts(cfg)
          if entry.action then entry.action(arg) end
          return i+2
       | 'boolean' -> 
-         local arg = flag~='+'
+         local arg = flag=='-' or flag=='--'
          cfg[name] = arg
          if entry.action then entry.action(arg) end
          return i+1
@@ -150,6 +151,15 @@ function clopts(cfg)
          -- double dash option
          -----------------------------------------------------------------------
          flag, opt = arg:strmatch "^(%-%-)(.*)"
+         if opt then
+            i=actionate (cfg, long, flag, opt, i, args)
+            -{ `Goto 'continue' }
+         end
+
+         -----------------------------------------------------------------------
+         -- double plus option
+         -----------------------------------------------------------------------
+         flag, opt = arg:strmatch "^(%+%+)(.*)"
          if opt then
             i=actionate (cfg, long, flag, opt, i, args)
             -{ `Goto 'continue' }
