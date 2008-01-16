@@ -413,14 +413,15 @@ function expr (p)
          -- return.
          -----------------------------------------
          if (not p2.prec or p2.prec>prec) and p2.assoc=="flat" then
-            local pflat, list = p2, { }
+            local pflat, list = p2, { e }
             repeat
                local op = p2_func(lx)
                if not op then break end
                table.insert (list, self:parse (lx, p2.prec))
-               p2 = get_parser_info (self.infix)
+               local _
+               _, p2 = get_parser_info (self.infix)
             until p2 ~= pflat
-            return transform (transform (p2.builder (list), p2), self)
+            return transform (transform (pflat.builder (list), pflat), self)
  
          -----------------------------------------
          -- Handle regular infix operators: [e] the LHS is known,
