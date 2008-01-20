@@ -140,3 +140,8 @@ function Machine:add_transition(src_state_name, msg, dst_state_name)
 
    src_state.transitions[msg] = dst_state_name
 end
+
+function Machine:restart()
+   self.state = 'init'
+   self.msg_queue = nil
+end

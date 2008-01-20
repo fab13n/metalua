@@ -155,5 +155,5 @@ end
 --------------------------------------------------------------------------------
 function types.any() end
 function types.none() types.error "Empty type" end
-types.__add = types.union
-types.__mul = types.inter
+types.__or  = types.union
+types.__and = types.inter

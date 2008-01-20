@@ -75,7 +75,7 @@ function mlc.convert (x, src_fmt, dst_fmt, name)
 
    POINT 'luafile', 'string' -- x is the src file's name
 
-   if not name then name = x end
+   if not name then name = '@'..x end
    local f, msg = io.open(x, "rb")
    if not f then error(msg) end
    x = f:read'*a'

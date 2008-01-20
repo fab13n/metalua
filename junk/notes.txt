@@ -304,6 +304,16 @@ l'ordre relatif entre libs
 REMARQUE WALKER: est-ce qu'il faut que la gauche de Set soit traitee
 comme des expr?
 
+TODO: anaphoric macros should bind 'it' to a function when it appears
+directly in it. it would allow anonymous recursive functions.
+
+MERGE lie info EVE: files to merge:
+- compile.lua
+- gg.lua
+- lexer:next() (in lexer? mlp_lexer?)
+- lcode.lua
+- ldump: separer DumpDebug
+
 
 When does it compile, when does it execute?
 -------------------------------------------

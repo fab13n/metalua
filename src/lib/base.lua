@@ -72,6 +72,7 @@ function const (k) return function () return k end end
 function printf(...) return print(string.format(...)) end
 
 function ivalues (x)
+   assert(type(x)=='table', 'ivalues() expects a table')
    local i = 1
    local function iterator ()
       local r = x[i]; i=i+1; return r
@@ -81,6 +82,7 @@ end
 
 
 function values (x) 
+   assert(type(x)=='table', 'values() expects a table')
    local function iterator (state)
       local it
       state.content, it = next(state.list, state.content) 
@@ -90,6 +92,7 @@ function values (x)
 end
 
 function keys (x) 
+   assert(type(x)=='table', 'keys() expects a table')
    local function iterator (state)
       local it = next(state.list, state.content) 
       state.content = it
