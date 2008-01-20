@@ -1252,27 +1252,42 @@ end
 -- end
 
 function expr.Stat (fs, ast, v)
-   -- Protect temporary stack values as phony local vars:
-   -- this way, they won't be overwritten.
+   --printf(" * Stat: %i actvars, first freereg is %i", fs.nactvar, fs.freereg)
+   --printf("   actvars: %s", table.tostring(fs.actvar))
+
+   -- Protect temporary stack values by pretending they are local
+   -- variables. Local vars are in registers 0 ... fs.nactvar-1, 
+   -- and temporary unnamed variables in fs.nactvar ... fs.freereg-1
    local save_nactvar = fs.nactvar
-   -- Eventually, the result should go on top of stack, 
-   -- whose index is saved in dest_reg.
+
+   -- Eventually, the result should go on top of stack *after all
+   -- `Stat{ } related computation and string usage is over. The index
+   -- of this destination register is kept here:
    local dest_reg = fs.freereg
 
-   -- the part of actvar which is over nactvar might be filled with local var
-   -- indexes, although these variables don't have a register yet, typically in
-   -- `Local{ {...}, { `Stat{ ... } } }. Save them to restore them.
-   -- The computation of [last_unreg_var] is hackish because [fs.actvar] is
-   -- indexed form 0, and lua is much more comfortable with arrays starting
-   -- at 1.
-   local save_actvar = { }
-   local last_unreg_var = #fs.actvar
-   if last_unreg_var > 0 or fs.actvar[0] then 
-      for i = fs.nactvar, last_unreg_var do
-         save_actvar[i] = fs.actvar[i]
+   -- There might be variables in actvar whose register is > nactvar,
+   -- and therefore will not be protected by the "nactvar := freereg"
+   -- trick. Indeed, `Local only increases nactvar after the variable
+   -- content has been computed. Therefore, in 
+   -- "local foo = -{`Stat{...}}", variable foo will be messed up by
+   -- the compilation of `Stat.
+   -- FIX: save the active variables at indices >= nactvar in
+   -- save_actvar, and restore them after `Stat has been computer.
+   --
+   -- I use a while rather than for loops and length operators because
+   -- fs.actvar is a 0-based array...
+   local save_actvar = { } do
+      local i = fs.nactvar
+      while true do
+         local v = fs.actvar[i]
+         if not v then break end
+         --printf("save hald-baked actvar %s at index %i", table.tostring(v), i)
+         save_actvar[i] = v
+         i=i+1
       end
    end
-   fs.nactvar = fs.freereg
+
+   fs.nactvar = fs.freereg -- Now temp unnamed registers are protected
    enterblock (fs, { }, false)
    chunk (fs, ast[1])
    expr.expr (fs, ast[2], v)
@@ -1281,15 +1296,22 @@ function expr.Stat (fs, ast, v)
    luaK:exp2reg (fs, v, dest_reg)
 
    -- Reserve the newly allocated stack level
-   fs.freereg = fs.freereg+1
-   -- Push back nactvar, so that intermediate stacked value stop
+   -- Puzzled note: here was written "fs.freereg = fs.freereg+1".
+   -- I'm pretty sure it should rather be dest_reg+1, but maybe
+   -- both are equivalent?
+   fs.freereg = dest_reg+1
+
+   -- Restore nactvar, so that intermediate stacked value stop
    -- being protected.
+   --printf("   nactvar back from %i to %i", fs.nactvar, save_nactvar)
    fs.nactvar = save_nactvar
 
    -- restore messed-up unregistered local vars
    for i, j in pairs(save_actvar) do
+      --printf("   Restoring actvar %i", i)
       fs.actvar[i] = j
    end
+   --printf(" * End of Stat")
 end
 
 

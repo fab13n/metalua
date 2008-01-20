@@ -182,35 +182,47 @@ end
 ------------------------------------------------------------------------
 -- Bit shuffling stuffs
 ------------------------------------------------------------------------
-local p2 = {1,2,4,8,16,32,64,128,256, 512, 1024, 2048, 4096}
--- keeps [n] bits from [x]
-local function keep (x, n) return x % p2[n+1] end
--- shifts bits of [x] [n] places to the right
-local function srb (x,n) return math.floor (x / p2[n+1]) end
--- shifts bits of [x] [n] places to the left
-local function slb (x,n) return x * p2[n+1] end
 
-------------------------------------------------------------------------
--- returns a 4-char string little-endian encoded form of an instruction
-------------------------------------------------------------------------
-function luaP:Instruction(i)
-   --printf("Instruction->string: %s %s", self.opnames[i.OP], table.tostring(i))
-   local c0, c1, c2, c3
-   -- change to OP/A/B/C format if needed
-   if i.Bx then i.C = keep (i.Bx, 9); i.B = srb (i.Bx, 9) end
-   -- c0 = 6B from opcode + 2LSB from A (flushed to MSB)
-   c0 = i.OP + slb (keep (i.A, 2), 6) 
-   -- c1 = 6MSB from A + 2LSB from C (flushed to MSB)
-   c1 = srb (i.A, 2) + slb (keep (i.C, 2), 6)
-   -- c2 = 7MSB from C + 1LSB from B (flushed to MSB)
-   c2 = srb (i.C, 2) + slb (keep (i.B, 1), 7)
-   -- c3 = 8MSB from B
-   c3 = srb (i.B, 1)
-   --printf ("Instruction:   %s %s", self.opnames[i.OP], tostringv (i))
-   --printf ("Bin encoding:  %x %x %x %x", c0, c1, c2, c3)  
-   return string.char(c0, c1, c2, c3)
+if false and pcall (require, 'bit') then
+   ------------------------------------------------------------------------
+   -- Return a 4-char string little-endian encoded form of an instruction
+   ------------------------------------------------------------------------
+   function luaP:Instruction(i)
+      --FIXME
+   end
+else
+   ------------------------------------------------------------------------   
+   -- Version without bit manipulation library.
+   ------------------------------------------------------------------------
+   local p2 = {1,2,4,8,16,32,64,128,256, 512, 1024, 2048, 4096}
+   -- keeps [n] bits from [x]
+   local function keep (x, n) return x % p2[n+1] end
+   -- shifts bits of [x] [n] places to the right
+   local function srb (x,n) return math.floor (x / p2[n+1]) end
+   -- shifts bits of [x] [n] places to the left
+   local function slb (x,n) return x * p2[n+1] end
+
+   ------------------------------------------------------------------------
+   -- Return a 4-char string little-endian encoded form of an instruction
+   ------------------------------------------------------------------------
+   function luaP:Instruction(i)
+      -- printf("Instr->string: %s %s", self.opnames[i.OP], table.tostring(i))
+      local c0, c1, c2, c3
+      -- change to OP/A/B/C format if needed
+      if i.Bx then i.C = keep (i.Bx, 9); i.B = srb (i.Bx, 9) end
+      -- c0 = 6B from opcode + 2LSB from A (flushed to MSB)
+      c0 = i.OP + slb (keep (i.A, 2), 6) 
+      -- c1 = 6MSB from A + 2LSB from C (flushed to MSB)
+      c1 = srb (i.A, 2) + slb (keep (i.C, 2), 6)
+      -- c2 = 7MSB from C + 1LSB from B (flushed to MSB)
+      c2 = srb (i.C, 2) + slb (keep (i.B, 1), 7)
+      -- c3 = 8MSB from B
+      c3 = srb (i.B, 1)
+      --printf ("Instruction:   %s %s", self.opnames[i.OP], tostringv (i))
+      --printf ("Bin encoding:  %x %x %x %x", c0, c1, c2, c3)  
+      return string.char(c0, c1, c2, c3)
+   end
 end
-
 ------------------------------------------------------------------------
 -- decodes a 4-char little-endian string into an instruction struct
 ------------------------------------------------------------------------

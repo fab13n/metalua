@@ -278,10 +278,17 @@ function luaU:DumpLocals(f, D)
   local n = f.sizelocvars
   self:DumpInt(n, D)
   for i = 0, n - 1 do
-    --printf("[DUMPLOCALS] dumping local var #%i = %s", i, tostringv(f.locvars[i]))
-    self:DumpString(f.locvars[i].varname, D)
-    self:DumpInt(f.locvars[i].startpc, D)
-    self:DumpInt(f.locvars[i].endpc, D)
+    -- Dirty temporary fix: 
+    -- `Stat{ } keeps properly count of the number of local vars,
+    -- but fails to keep score of their debug info (names).
+    -- It therefore might happen that #f.localvars < f.sizelocvars, or
+    -- that a variable's startpc and endpc fields are left unset.    
+    local var = f.locvars[i]
+    if not var then break end 
+    -- printf("[DUMPLOCALS] dumping local var #%i = %s", i, table.tostring(var))
+    self:DumpString(var.varname, D)
+    self:DumpInt(var.startpc or 0, D)
+    self:DumpInt(var.endpc or 0, D)
   end
 end
 
@@ -348,6 +355,9 @@ end
 --FF completely reworked for 5.1 format
 ------------------------------------------------------------------------
 function luaU:DumpFunction(f, p, D)
+   -- print "Dumping function:"
+   -- table.print(f, 60)
+
   local source = f.source
   if source == p then source = nil end
   self:DumpString(source, D)
