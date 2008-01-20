@@ -7,6 +7,7 @@
 *.exe
 *.a
 .#*
+\#*
 .DS_Store
 semantic.cache
 src/compiler/metalua

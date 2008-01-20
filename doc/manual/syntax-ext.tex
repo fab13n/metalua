@@ -8,9 +8,9 @@ Lua's original syntax. These are presented in this section
 Lua lets you use anonymous functions. However, when programming in a
 functional style, where there are a lot of short anonymous functions
 simply returning an expression, the default syntax becomes
-cumbersome. Metalua being functional-styel friendly, it
-offers a terser idiom: ``{\tt function(arg1, arg2, argn) return
-  someexpr end}'' can be written ``{\tt|arg1,arg2,argn| someexp}''. 
+cumbersome. Metalua being functional-styel friendly, it offers a
+terser idiom: ``{\tt function(arg1, arg2, argn) return some\_expr
+  end}'' can be written ``{\tt|arg1,arg2,argn| some\_exp}''.
 
 Notice that this notation is currying-friendly, i.e. one can easily
 write functions that return functions: ``{\tt function(x) return
