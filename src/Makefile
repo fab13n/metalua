@@ -6,12 +6,12 @@ none:
 	@echo Please select one of supported platforms:
 	@echo $(PLATFORMS)
 
-all: setenv.sh lua install-lua-lib install-vm binlibs compiler
+all: setenv.sh lua libraries install-lua binlibs compiler
 
 $(PLATFORMS):
 	PLATFORM=$@ $(MAKE) all
 
-install-vm: lua
+install-lua: lua
 	cp $(LUA_VM_DIR)/$(RUN) $(LUA_VM_DIR)/$(COMPILE) $(TARGET_BIN_PATH)/
 
 setenv.sh: config
@@ -25,8 +25,14 @@ setenv.sh: config
 	echo 'export PATH=$(TARGET_BIN_PATH):$$PATH' >> $@
 	chmod a+x $@
 
-install-lua-lib: setenv.sh lib
+libraries: setenv.sh lib compiler
 	cp -r lib/* $(TARGET_LUA_PATH)/
+	@echo "Compiling libraries:"
+	@for src in $$(find $(TARGET_LUA_PATH) -name '*.mlua') ; do \
+		bc="$$(dirname $$src)/$$(basename $$src .mlua).luac";   \
+		echo "| -> $$bc" ;                                      \
+		metalua $$src -o $$bc ;                                 \
+	done
 
 lua binlibs compiler:
 	$(MAKE) -C $@ $(PLATFORM)
@@ -36,4 +42,4 @@ clean:
 	$(MAKE) -C compiler clean
 	$(MAKE) -C binlibs  clean
 
-.PHONY: all install-lua-lib binlibs lua compiler
+.PHONY: all libraries binlibs lua compiler
