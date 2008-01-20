@@ -27,18 +27,35 @@ function package.findfile(name, path_string)
    local config_regexp = ("([^\n])\n"):rep(5):sub(1, -2)
    local dir_sep, path_sep, path_mark, execdir, igmark = 
       package.config:strmatch (config_regexp)
-   name = name:gsub('%.', dir_sep)
+   name = name:gsub ('%.', dir_sep)
    local errors = { }
    local path_pattern = string.format('[^%s]+', resc(path_sep))
-   for path in path_string:gmatch(path_pattern) do
+   for path in path_string:gmatch (path_pattern) do
       --printf('path = %s, rpath_mark=%s, name=%s', path, resc(path_mark), name)
-      local filename = path:gsub (resc(path_mark), name)
+      local filename = path:gsub (resc (path_mark), name)
       --printf('filename = %s', filename)
-      local file = io.open(filename, 'r')
+      local file = io.open (filename, 'r')
       if file then return file, filename end
       table.insert(errors, string.format("\tno lua file %q", filename))
    end
    return false, table.concat(errors, "\n")..'\n'
+end
+
+
+----------------------------------------------------------------------
+-- Execute a metalua module sources compilation in a separate ring.
+----------------------------------------------------------------------
+local function spring_load(filename)   
+   if os.getenv "LUA_MFAST" == "yes" then 
+      print "Warning: loading metalua source file in the same compilation ring;"
+      print "metalevels 0 might interfere, condider unsetting environment variable LUA_MFAST"
+      return mlc.function_of_luafile(filename) 
+   end
+   require 'springs'
+   local r = springs.new()
+   r:dostring [[require 'metalua.compiler']]
+   local f = r:call('mlc.function_of_luafile', filename)
+   return f
 end
 
 ----------------------------------------------------------------------
@@ -49,19 +66,11 @@ function package.metalua_loader (name)
    local file, filename_or_msg = package.findfile (name, package.mpath)
    if not file then return filename_or_msg end
    --print ('Metalua loader: found file '..filename_or_msg)
-   local src = file:read '*a'
    file:close()
-   if src:strmatch '^\027LuaQ' or src:strmatch '^#![^\n]+\n\027LuaQ' then
-      return mlc.function_of_luacstring(src, filename)
-   else
-      local f, msg = mlc.function_of_luastring(src, filename_or_msg)
-      if not f then error ("Can't compile metalua source file "..
-                           filename_or_msg .. ": "..msg)
-      else return f end
-   end
+   return spring_load(filename_or_msg)
 end
 
-table.insert(package.loaders, 2, package.metalua_loader)
+table.insert(package.loaders, package.metalua_loader)
 
 ----------------------------------------------------------------------
 -- Loads a couple syntax extension + support library in a single
