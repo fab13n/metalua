@@ -56,8 +56,26 @@ parser = clopts {
       action= function (newargs) runargs=table.icat(runargs, newargs) end,
       usage = "pass all remaining arguments to the program"
    },
-   usage='Compile and/or execute a metalua source file\nmetaluac [option|file]+',
-}
+   usage=[[
+
+Compile and/or execute metalua programs. Parameters passed to the
+compiler should be prefixed with an option flag, hinting what must be
+done with them: take tham as file names to compile, as library names
+to load, as parameters passed to the running program... When option
+flags lack, metalua tries to adopt a "Do What I Mean" approach:
+
+- if no code (no library, no literal expression and no file) is
+  specified, the first flag-less parameter is taken as a file name to
+  load.
+
+- if no code and no parameter is passed, an interactive loop is
+  started.
+
+- if a target file is specified with --output, the program is not
+  executed by default, unless a --run flag forces it to. Conversely,
+  if no --output target is specified, the code is run unless ++run
+  forbids it.
+]]}
 
 
 INIT_COMPILATION_RING = [[require 'metalua.compiler']]
@@ -123,9 +141,8 @@ local function main (...)
       | `File{ f } -> 
          local ring = springs.new()
          ring:dostring (INIT_COMPILATION_RING)
-         ast = ring:call('mlc.ast_of_luafile', f) -- FIXME: handle '-'
+         ast = ring:call('mlc.ast_of_luafile', f, '@'..f) -- FIXME: handle '-'
          ast = +{ function (...) -{ast} end(...) }
-      | _ -> print'XXX mismatch'; table.print(x)
       end
       ast.origin = x
       table.insert(code, ast)
