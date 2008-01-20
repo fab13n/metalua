@@ -131,6 +131,10 @@
 -- understands the notions of scope, free variable, bound variable
 -- etc. 
 --
+-- Binder visitors are called just before the variable's scope starts,
+-- e.g. they're called after the right-hand-side has been visited in a
+-- `Local node, but before in a `Localrec node.
+--
 --------------------------------------------------------------------------------
 
 -{ extension "match" }
@@ -156,26 +160,27 @@ walk.tags.expr = table.transpose{
 function walk.traverse.stat (cfg, x, ...)
    if walk.debug then printf("traverse stat %s", table.tostring(x)) end
    local log = {...}
-   local B  = |y| walk.block (cfg, y, x, unpack(log))
-   local S  = |y| walk.stat  (cfg, y, x, unpack(log))
-   local E  = |y| walk.expr  (cfg, y, x, unpack(log))
-   local EL = |y| walk.expr_list (cfg, y, x, unpack(log))
-   local I  = |y| walk.binder_list (cfg, y, x, log)
+   local B  = |y| walk.block       (cfg, y, x, unpack(log))
+   local S  = |y| walk.stat        (cfg, y, x, unpack(log))
+   local E  = |y| walk.expr        (cfg, y, x, unpack(log))
+   local EL = |y| walk.expr_list   (cfg, y, x, unpack(log))
+   local I  = |y| walk.binder_list (cfg, y, x, unpack(log))
    match x with
    | {...} if x.tag == nil -> for y in ivalues(y) do walk.stat(cfg, y, ...) end
                               -- no tag --> node not inserted in the history log
-   | `Do{...}              -> B(x)
-   | `Set{ lhs, rhs }      -> EL(lhs); EL(rhs)
-   | `While{ cond, body }  -> E(cond); B(body)
-   | `Repeat{ body, cond } -> B(body); E(cond)
-   | `Local{ lhs, rhs } | `Localrec{ lhs, rhs } -> I(lhs); EL(rhs)
-   | `Call{...} | `Invoke{...} | `Return{...}   -> EL(x)
-   | `Fornum{ i, a, b, body } 
-   | `Fornum{ i, a, b, c, body } -> I{i}; E(a); E(b); if #x==5 then E(c) end; B(body)
-   | `Forin{ i, rhs, body }      -> I(i); EL(rhs); B(body)
+   | `Do{...}                    -> B(x)
+   | `Set{ lhs, rhs }            -> EL(lhs); EL(rhs)
+   | `While{ cond, body }        -> E(cond); B(body)
+   | `Repeat{ body, cond }       -> B(body); E(cond)
+   | `Local{ lhs, rhs }          -> EL(rhs); I(lhs)
+   | `Localrec{ lhs, rhs }       -> I(lhs); EL(rhs)
+   | `Fornum{ i, a, b, body }    -> E(a); E(b); I{i}; B(body)
+   | `Fornum{ i, a, b, c, body } -> E(a); E(b); E(c); I{i}; B(body)
+   | `Forin{ i, rhs, body }      -> EL(rhs); I(i); B(body)
    | `If{...}                    -> for i=1, #x-1, 2 do E(x[i]); B(x[i+1]) end
                                     if #x%2 == 1 then B(x[#x]) end
-   | `Break | `Goto{ _ } | `Label{ _ } -> -- nothing
+   | `Call{...}|`Invoke{...}|`Return{...} -> EL(x)
+   | `Break | `Goto{ _ } | `Label{ _ }    -> -- nothing
    | {...} -> print("Warning: walk: unknown stat node: "..table.tostring(x,80))
    | _     -> print("Warning: walk: unexpected stat node of type "..type(x)
                     ..": "..table.tostring(x,80))
@@ -185,11 +190,11 @@ end
 function walk.traverse.expr (cfg, x, ...)
    if walk.debug then printf("traverse expr %s", table.tostring(x)) end
    local log = {...}
-   local B  = |y| walk.block (cfg, y, x, unpack(log))
-   local S  = |y| walk.stat  (cfg, y, x, unpack(log))
-   local E  = |y| walk.expr  (cfg, y, x, unpack(log))
-   local EL = |y| walk.expr_list (cfg, y, x, unpack(log)) 
-   local I  = |y| walk.binder_list (cfg, y, x, log)
+   local B  = |y| walk.block       (cfg, y, x, unpack(log))
+   local S  = |y| walk.stat        (cfg, y, x, unpack(log))
+   local E  = |y| walk.expr        (cfg, y, x, unpack(log))
+   local EL = |y| walk.expr_list   (cfg, y, x, unpack(log)) 
+   local I  = |y| walk.binder_list (cfg, y, x, unpack(log))
    match x with
    | `Paren{ e }               -> E(e)
    | `Call{...} | `Invoke{...} -> EL(x)
