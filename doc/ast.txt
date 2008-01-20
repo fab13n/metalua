@@ -1,4 +1,4 @@
-block: { stat* (`Return{expr*} | `Break)? }
+block: { stat* }
 
 stat:
 | `Do{ stat* (`Return{expr*} | `Break)? }
@@ -12,6 +12,8 @@ stat:
 | `Localrec{ ident expr }                   -- no syntax expect in 'local function'
 | `Goto{ <string> }                         -- no syntax
 | `Label{ <string> }                        -- no syntax
+| `Return{ <expr*> }                        -- allowed anywhere, unlike in plain Lua
+| `Break                                    -- allowed anywhere, unlike in plain Lua
 | apply
 
 expr:
@@ -38,6 +40,15 @@ opid: 'add'   | 'sub'   | 'mul'   | 'div'
     | 'mod'   | 'pow'   | 'concat'| 'eq'
     | 'lt'    | 'le'    | 'and'   | 'or'
     | 'not'   | 'len'
+
+
+----------------------------------------------------------------------
+-- The following lists some tolerances on the syntax, i.e. some
+-- sloppy AST idioms that will not be produced as metalua output,
+-- but which metalua will accept as input.
+-- BEWARE: as of metalua 0.4, this is NOT implemented.
+-- Constructive criticism is welcome, though.
+----------------------------------------------------------------------
 
 Canonization
 ============
@@ -69,3 +80,5 @@ type/generate them in a somewhat sloppy form:
 - Parens around statements are tolerated:
   `Paren{ `Call { foo, bar } } -> `Call{ foo, bar }
 
+- `Boolean{ true } and `Boolean{ false } are accepted as aliases for
+  `True and `False, for the sake of uniform constant lifting.
