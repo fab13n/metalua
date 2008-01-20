@@ -265,7 +265,8 @@ end
 ----------------------------------------------------------------------
 -- Add a keyword to the list of keywords recognized by the lexer.
 ----------------------------------------------------------------------
-function lexer:add (w)
+function lexer:add (w, ...)
+   assert(not ..., "lexer:add() takes only one arg, although possibly a table")
    if type (w) == "table" then
       for _, x in ipairs (w) do self:add (x) end
    else
@@ -323,20 +324,46 @@ function lexer:save () return { self.i; _G.table.cat(self.peeked) } end
 function lexer:restore (s) self.i=s[1]; self.peeked=s[2] end
 
 ----------------------------------------------------------------------
+--
+----------------------------------------------------------------------
+function lexer:sync()
+   local p1 = self.peeked[1]
+   if p1 then 
+      self.i, self.line, self.peeked = p1.char, p1.line, { }
+   end
+end
+
+----------------------------------------------------------------------
+-- Take over an old lexer.
+----------------------------------------------------------------------
+function lexer:takeover(old)
+   self:sync()
+   self.i, self.line, self.src = old.i, old.line, old.src
+   return self
+end
+
+----------------------------------------------------------------------
 -- Create a new lexstream.
 ----------------------------------------------------------------------
-function lexer:newstream (src)
-   local stream = { 
-      src    = src; -- The source, as a single string
-      peeked = { }; -- Already peeked, but not discarded yet, tokens
-      i      = 1;   -- Character offset in src
-      line   = 1;   -- current line number
-   }
-   setmetatable (stream, self)
+function lexer:newstream (src_or_stream)
+   if type(src_or_stream)=='table' then -- it's a stream
+      return setmetatable({ }, self):takeover(src_or_stream)
+   elseif type(src_or_stream)=='string' then -- it's a source string
+      local stream = { 
+         src    = src_or_stream; -- The source, as a single string
+         peeked = { };           -- Already peeked, but not discarded yet, tokens
+         i      = 1;             -- Character offset in src
+         line   = 1;             -- Current line number
+      }
+      setmetatable (stream, self)
 
-   -- skip initial sharp-bang for unix scripts
-   if src:match "^#!" then stream.i = src:find "\n" + 1 end
-   return stream
+      -- skip initial sharp-bang for unix scripts
+      if src and src:match "^#!" then stream.i = src:find "\n" + 1 end
+      return stream
+   else
+      assert(false, ":newstream() takes a source string or a stream, not a "..
+                    type(src_or_stream))
+   end
 end
 
 ----------------------------------------------------------------------
@@ -386,11 +413,4 @@ function lexer:clone()
    setmetatable(clone, self)
    clone.__index = clone
    return clone
-end
-
-----------------------------------------------------------------------
--- 
-----------------------------------------------------------------------
-function is_stream (x)
-   return getmetable(x) == lexer
 end
