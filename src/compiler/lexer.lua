@@ -113,7 +113,13 @@ function lexer:extract ()
          if loc and i <= loc then ln = ln+1 end
          if i <= self.i then self.line = self.line+1 else break end
       end
-      local a = { tag = tag, char=loc, line=ln, content }
+      local a = { tag      = tag, 
+                  char     = loc,
+                  lineinfo = { first = ln, last = self.line },
+                  line     = self.line,
+                  content } 
+      -- FIXME [EVE] make lineinfo passing less memory consuming
+      -- FIXME [Fabien] suppress line/lineinfo.line redundancy.
       if #self.attached_comments > 0 then 
          a.comments = self.attached_comments 
          self.attached_comments = nil
@@ -308,7 +314,11 @@ function lexer:next (n)
    local a
    for i=1,n do 
       a = _G.table.remove (self.peeked, 1) 
-      if a then debugf ("[L:%i K:%i T:%s %q]", a.line or -1, a.char or -1, a.tag or '<none>', a[1]) end
+      if a then 
+        debugf ("[L:%i K:%i T:%s %q]", a.line or -1, a.char or -1, 
+                a.tag or '<none>', a[1]) end
+        self.lastline = a.lineinfo.last
+      end     
    end
    return a or eof_token
 end

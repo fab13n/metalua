@@ -17,7 +17,7 @@
 ----------------------------------------------------------------------
 
 ----------------------------------------------------------------------
--- Metalua:  $Id: compile.lua,v 1.7 2006/11/15 09:07:50 fab13n Exp $
+-- Metalua.
 --
 -- Summary: Compile ASTs to Lua 5.1 VM function prototype. 
 -- Largely based on:
@@ -29,51 +29,20 @@
 --
 ----------------------------------------------------------------------
 --
--- Copyright (c) 2006, Fabien Fleutot <metalua@gmail.com>.
+-- Copyright (c) 2006-2008, Fabien Fleutot <metalua@gmail.com>.
 --
 -- This software is released under the MIT Licence, see licence.txt
 -- for details.
 --
 ----------------------------------------------------------------------
--- History:
--- $Log: compile.lua,v $
--- Revision 1.7  2006/11/15 09:07:50  fab13n
--- debugged meta operators.
--- Added command line options handling.
---
--- Revision 1.6  2006/11/10 02:11:17  fab13n
--- compiler faithfulness to 5.1 improved
--- gg.expr extended
--- mlp.expr refactored
---
--- Revision 1.5  2006/11/09 09:39:57  fab13n
--- some cleanup
---
--- Revision 1.4  2006/11/07 21:29:02  fab13n
--- improved quasi-quoting
---
--- Revision 1.3  2006/11/07 04:37:59  fab13n
--- first bootstrapping version.
---
--- Revision 1.2  2006/11/05 15:08:34  fab13n
--- updated code generation, to be compliant with 5.1
---
-----------------------------------------------------------------------
 
 module ("bytecode", package.seeall)
---require "lopcodes"
---require "lcode"
 
 local debugf = function() end
 --local debugf=printf
 
 local stat = { }
 local expr = { }
-
--- GENERAL FIXME: je ne gere pas les parentheses pour empecher l'unpack
--- des fonctions dans return et dans table.
-
--- GENERAL FIXME: growvector --> checkvector
 
 MAX_INT            = 2147483645 -- INT_MAX-2 for 32-bit systems (llimits.h)
 MAXVARS            = 200        -- (llimits.h)
@@ -86,8 +55,9 @@ VARARG_HASARG   = 1
 VARARG_ISVARARG = 2
 VARARG_NEEDSARG = 4
 
-
-local function hasmultret (k) return k=="VCALL" or k=="VVARARG" end
+local function hasmultret (k) 
+   return k=="VCALL" or k=="VVARARG"
+end
 
 -----------------------------------------------------------------------
 -- Some ASTs take expression lists as children; it should be
@@ -422,7 +392,11 @@ local function funcargs (fs, ast, v, idx_from)
     nparams = fs.freereg - (base + 1)
   end
   init_exp(v, "VCALL", luaK:codeABC(fs, "OP_CALL", base, nparams + 1, 2))
-  luaK:fixline(fs, ast.line)
+  if ast.lineinfo then
+    luaK:fixline(fs, ast.lineinfo.first)
+  else 
+    luaK:fixline(fs, ast.line)
+  end
   fs.freereg = base + 1  -- call remove function and arguments and leaves
                          -- (unless changed) one result
 end
@@ -699,7 +673,7 @@ end
 ------------------------------------------------------------------------
 
 function stat.stat (fs, ast)
-   if ast.line then fs.lastline = ast.line end
+   if ast.lineinfo then fs.lastline = ast.line or ast.lineinfo.last end
    -- debugf (" - Statement %s", disp.ast (ast) )
 
    if not ast.tag then chunk (fs, ast) else
@@ -720,6 +694,8 @@ stat.Do = block
 ------------------------------------------------------------------------
 
 function stat.Break (fs, ast)
+--   if ast.lineinfo then fs.lastline = ast.line or ast.lineinfo.last end
+
    local bl, upval = fs.bl, false
    while bl and not bl.isbreakable do
       if bl.upval then upval = true end
@@ -960,7 +936,7 @@ end
 function stat.Invoke (fs, ast)
    local v = {  }
    expr.Invoke (fs, ast, v)
---FIXME: didn't check that, just copied from stat.Call
+   --FIXME: didn't check that, just copied from stat.Call
    luaP:SETARG_C (luaK:getcode(fs, v), 1)
 end
 
@@ -1069,7 +1045,9 @@ end
 function expr.expr (fs, ast, v)
    if type(ast) ~= "table" then 
       error ("Expr AST expected, got "..table.tostring(ast)) end
-   if ast.line then fs.lastline = ast.line end
+
+   if ast.lineinfo then fs.lastline = ast.line or ast.lineinfo.last end
+
    --debugf (" - Expression %s", tostringv (ast))
    local parser = expr[ast.tag]
    if parser then parser (fs, ast, v)
@@ -1130,8 +1108,12 @@ end
 ------------------------------------------------------------------------
 
 function expr.Function (fs, ast, v)
+  if ast.lineinfo then fs.lastline = ast.line or ast.lineinfo.last end
+
   local new_fs = open_func(fs)
-  if ast.line then new_fs.f.lineDefined = ast.line end
+  if ast.lineinfo then 
+    new_fs.f.lineDefined, new_fs.f.lastLineDefined = ast.lineinfo.first, ast.lineinfo.last
+  end
   parlist (new_fs, ast[1])
   chunk (new_fs, ast[2])
   close_func (new_fs)
@@ -1141,15 +1123,18 @@ end
 ------------------------------------------------------------------------
 
 function expr.Op (fs, ast, v)
+   if ast.lineinfo then fs.lastline = ast.line or ast.lineinfo.last end
+   local op = ast[1]
+
    if #ast == 2 then
       expr.expr (fs, ast[2], v)
-      luaK:prefix (fs, ast[1], v)
+      luaK:prefix (fs, op, v)
    elseif #ast == 3 then
       local v2 = { }
       expr.expr (fs, ast[2], v)
-      luaK:infix (fs, ast[1], v)
+      luaK:infix (fs, op, v)
       expr.expr (fs, ast[3], v2)
-      luaK:posfix (fs, ast[1], v, v2)
+      luaK:posfix (fs, op, v, v2)
    else
       error "Wrong arg number"
    end
@@ -1180,6 +1165,12 @@ end
 function expr.Index (fs, ast, v)
    if #ast ~= 2 then error "generalized indexes not implemented" end
 
+   if ast.lineinfo then     
+     fs.lastline = ast.line or ast.lineinfo.last           
+   end
+
+   --assert(fs.lastline ~= 0, ast.tag)
+
    expr.expr (fs, ast[1], v)
    luaK:exp2anyreg (fs, v)
 
@@ -1197,59 +1188,6 @@ function expr.Id (fs, ast, v)
 end
 
 ------------------------------------------------------------------------
-
--- function expr.Stat (fs, ast, v)
---    -- Protect temporary stack values as phony local vars:
---    -- this way, they won't be overwritten.
---    local save_nactvar = fs.nactvar
---    -- Eventually, the result should go on top of stack, 
---    -- whose index is saved in dest_reg.
---    local dest_reg = fs.freereg
-
---    -- the part of actvar which is over nactvar might be filled with local var
---    -- indexes, although these variables don't have a register yet, typically in
---    -- `Local{ {...}, { `Stat{ ... } } }. Save them to restore them.
---    -- The computation of [last_unreg_var] is hackish because [fs.actvar] is
---    -- indexed form 0, and lua is much more comfortable with arrays starting
---    -- at 1.
---    local save_actvar = { }
---    local last_unreg_var = #fs.actvar
---    if last_unreg_var > 0 or fs.actvar[0] then 
---       for i = fs.nactvar, last_unreg_var do
---          --printf("[STAT] save unregistered variable %i -> %i", i, fs.actvar[i])
---          save_actvar[i] = fs.actvar[i]
---       end
---    end
---    fs.nactvar = fs.freereg
---    --printf("[STAT] pretend that there are %i actvars. Entering block...", fs.nactvar)
---    enterblock (fs, { }, false)
---    chunk (fs, ast[1])
---    --printf("[STAT] result expr = %s", disp.ast (ast[2]))
---    expr.expr (fs, ast[2], v)
---    --printf("[STAT] v == %s must go to reg %i", tostringv(v), dest_reg)   
---    -- Push the result on top of stack:
-
--- -- FIXME: s'il y a des upvalues dans le bloc, il ne faut pas ecrire directement
--- -- dans dest_reg, mais [1] ecrire dans l'actuel freereg [2] fermer le bloc et
--- -- [3] transferer l'ancien freereg dans dest_reg.
--- -- Sinon, le CLOSE ne sera pas appele, et les upvalue ne seront pas fermees.
-
---    luaK:exp2reg (fs, v, dest_reg)
---    --printf("[STAT] leaving block...")
---    leaveblock (fs)
---    --printf("[STAT] ...block leaved, nactvar back to %i", save_nactvar)
---    assert (dest_reg == fs.freereg)
---    -- Reserve the newly allocated stack level
---    fs.freereg=fs.freereg+1
---    -- Push back nactvar, so that intermediate stacked value stop
---    -- being protected.
---    fs.nactvar = save_nactvar
-
---    -- restore messed-up unregistered local vars
---    for i, j in pairs(save_actvar) do
---       fs.actvar[i] = j
---    end
--- end
 
 function expr.Stat (fs, ast, v)
    --printf(" * Stat: %i actvars, first freereg is %i", fs.nactvar, fs.freereg)

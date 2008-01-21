@@ -18,7 +18,7 @@
 
 --[[--------------------------------------------------------------------
 
-  $Id: ldump.lua,v 1.3 2006/11/07 04:38:00 fab13n Exp $
+  $Id$
 
   ldump.lua
   Save bytecodes in Lua
@@ -31,14 +31,6 @@
 ------------------------------------------------------------------------
 
   [FF] Slightly modified, mainly to produce Lua 5.1 bytecode.
-
-  $Log: ldump.lua,v $
-  Revision 1.3  2006/11/07 04:38:00  fab13n
-  first bootstrapping version.
-
-  Revision 1.2  2006/11/05 15:08:34  fab13n
-  updated code generation, to be compliant with 5.1
-
 
 ----------------------------------------------------------------------]]
 
@@ -282,7 +274,9 @@ function luaU:DumpLocals(f, D)
     -- `Stat{ } keeps properly count of the number of local vars,
     -- but fails to keep score of their debug info (names).
     -- It therefore might happen that #f.localvars < f.sizelocvars, or
-    -- that a variable's startpc and endpc fields are left unset.    
+    -- that a variable's startpc and endpc fields are left unset.
+    -- FIXME: This might not be needed anymore, check the bug report
+    --        by J. Belmonte.
     local var = f.locvars[i]
     if not var then break end 
     -- printf("[DUMPLOCALS] dumping local var #%i = %s", i, table.tostring(var))
@@ -301,6 +295,7 @@ function luaU:DumpLines(f, D)
   --was DumpVector
   for i = 0, n - 1 do
     self:DumpInt(f.lineinfo[i], D)  -- was DumpBlock
+    print(i, f.lineinfo[i])
   end
 end
 
@@ -350,6 +345,13 @@ function luaU:DumpProtos (f, D)
   end
 end
 
+function luaU:DumpDebug(f, D)
+  self:DumpLines(f, D)
+  self:DumpLocals(f, D)
+  self:DumpUpvalues(f, D)
+end
+
+
 ------------------------------------------------------------------------
 -- dump child function prototypes from function prototype
 --FF completely reworked for 5.1 format
@@ -362,8 +364,7 @@ function luaU:DumpFunction(f, p, D)
   if source == p then source = nil end
   self:DumpString(source, D)
   self:DumpInt(f.lineDefined, D)
-  self:DumpInt(42, D) -- lastlinedefined, not implemented, FIXME
---  self:DumpInt(f.lastlineDefined, D)
+  self:DumpInt(f.lastLineDefined or 42, D)
   self:DumpByte(f.nups, D)
   self:DumpByte(f.numparams, D)
   self:DumpByte(f.is_vararg, D)
@@ -371,9 +372,7 @@ function luaU:DumpFunction(f, p, D)
   self:DumpCode(f, D)
   self:DumpConstants(f, D)
   self:DumpProtos( f, D)
-  self:DumpLines(f, D)
-  self:DumpLocals(f, D)
-  self:DumpUpvalues(f, D)
+  self:DumpDebug(f, D)
 end
 
 ------------------------------------------------------------------------
