@@ -301,6 +301,8 @@ function multisequence (p)
    -- [sequence]
    p.sequences = { }
    for i=1, #p do p:add (p[i]); p[i] = nil end
+
+   -- FIXME: why is this commented out?
    --if p.default and not is_parser(p.default) then sequence(p.default) end
    return p
 end --</multisequence>
@@ -661,5 +663,44 @@ function optkeyword (...)
       local x = lx:is_keyword (lx:peek(), unpack (args))
       if x then lx:next(); return x
       else return false end
+   end
+end
+
+
+-------------------------------------------------------------------------------
+--
+-- Run a parser with a special lexer
+--
+-------------------------------------------------------------------------------
+--
+-- This doesn't return a real parser, just a function.
+-- First argument is the lexer class to be used with the parser,
+-- 2nd is the parser itself.
+-- The resulting parser returns whatever the argument parser does.
+--
+-------------------------------------------------------------------------------
+function with_lexer(new_lexer, parser)
+
+   -------------------------------------------------------------------
+   -- Most gg functions take their parameters in a table, so it's 
+   -- better to silently accept when with_lexer{ } is called with
+   -- its arguments in a list:
+   -------------------------------------------------------------------
+   if not parser and #new_lexer==2 and type(new_lexer[1])=='table' then
+      return with_lexer(unpack(new_lexer))
+   end
+
+   -------------------------------------------------------------------
+   -- Save the current lexer, switch it for the new one, run the parser,
+   -- restore the previous lexer, even if the parser caused an error.
+   -------------------------------------------------------------------
+   return function (lx)
+      local old_lexer = getmetatable(lx)
+      lx:sync()
+      setmetatable(lx, new_lexer)
+      local status, result = pcall(parser, lx)
+      lx:sync()
+      setmetatable(lx, old_lexer)
+      if status then return result else error(result) end
    end
 end
