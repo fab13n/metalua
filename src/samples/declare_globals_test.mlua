@@ -6,8 +6,8 @@ global c = 3
 a, b = 1, 2
 
 local st1, msg1 = pcall(function()
-   a = 10
-   d = 20 -- failure, assignment to undeclared global
+   a = 4
+   d = 5 -- failure, assignment to undeclared global
 end)
 
 local st2, msg2 = pcall(function()
@@ -16,8 +16,10 @@ local st2, msg2 = pcall(function()
 end)
 
 assert(not st1)
+printf ("This error was expected: %s", msg1)
 assert(not st2)
-assert(a==10)
+printf ("This error was expected: %s", msg2)
+assert(a==4)
 assert(b==3)
 assert(c==3)
 

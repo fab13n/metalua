@@ -176,17 +176,78 @@ ast = r:call ('mlc.ast_of_luafile', foo, bar)
 
 Hygiene:
 ========
-Unifier freevars avec un walker plus generique. 
+les quotes peuvent etre hygieniques (HQQ) ou pas (QQ). les QQ sont
+normales, ne font rien; ca permet de capturer des variables entre
+morceaux. 
+
+Les HQQ sont attachees a un contexte, dans lequel seront reversees
+leurs variables libres. +{:hexpr(CTX): foo } va alpha renommer toutes
+les variables libres de +{foo} et les stocker dans CTX.
+
+Autre possibilite syntaxique: une +{hexpr: foo } retourne +{foo} et
+son contexte. Le contexte permet de decider comment fusionner deux
+AST. Il ne se resume pas a une substitution
+
+->Laurie:
+
+Your approach is to tell the user that an AST has a sense by itself:
+it's an autonomous piece of data that won't interfere with its
+environment. Then you re-introduce mechanisms to get some dangling
+bits back, so that you can wire the various bits (QQ and splices)
+together as you wish. 
+
+Now, the point from which I'll draw my PoV: an AST is only hygienic
+relative to a context. Through gensym() we're able to craft ASTs that
+are hygienic in all normal contexts, but the notion of contexts
+continues to exist. In particular, as soon as we want to connect bits
+of AST in interesting ways, we start to need a finer-grained control
+of contexts.
+
+You offer, with $c{ } ${ } and &, ways to poke holes into contexts,
+but since you try pretend to the user that there's no context, the
+user is screwed when he does want to mess with it. He has to guess how
+those hidden contexts work, and find ways to use the tools mentionned
+above so that they have the intended effect on the stealth context.
+
+That's a good approach when there's nothing clever to do with
+contexts, and it falls down when users get out of the main use
+cases. Depending on how rare it is to need such conttext hacking
+capabilities, your approach might or might not be practical.
+
+The metalua-consistent approach is the opposite one: if there's such a
+thing as contexts, and it sometimes makes sense for (advanced) users
+to fiddle with them, then there must be first class AST context
+objects. If it can be optionally hidden in most common cases, great,
+but users aren't supposed to ignore their existence.
+
+Therefore, whenever you combine two pieces of AST, you specify how
+their context must be merged. The 2 most common defaults would be
+"don't touch anything" (non-hygienic macros) and "make sure there's no
+interference" (full hygiene, no capture). 
+
+In the example we just discussed, the problem is that we have 3 AST
+(around, inside and usercode) and we want to splice them in a fancy
+way: there's only one capturing variable between around and inside,
+and it must not capture anything in usercode. You hack your way around
+to build a protective shell on usercode, then toss it with the other
+ASTs. I'd rather write that around and inside share the same context,
+and usercode has its own. Then when combining all those, the
+hygienizer will know what to do. if I wanted to combine around's and
+outside's contexts so that they'd only share "q_var", I should be able
+to express that as well.
+
+Bottom line is: I'd rather have 1st class context than implicit ones,
+which will be a hassle to interact with when I have to. KISS
+engineering at its best :)
+
 
 
 Restent a faire:
 ================
-- ajouter des METALUA_PATH et METALUA_CPATH qui overrident LUA_XXX
-  quand ils sont presents. [X]
 
-- choisir une structure definitive pour les librairies
+- choisir une structure definitive pour les librairies [X]
 
-- swap de lexers
+- swap de lexers[X]
 
 - reflechir a l'addition automatique des mots-clef par les parsers qui
   vont bien. Peut-etre qu'ils sont attaches optionnellement a un lexer,
@@ -199,13 +260,15 @@ Restent a faire:
 
 - ajouter std au libs autochargees [X]
 
-- splitter std/table2 [X]
+- splitter std/table2/string2/package2 [X]
 
-- le $ pour les macros en standard
+- le $ pour les macros en standard [X]
 
-- extension: determiner s'il y a un runtime a la compil
+- extension: determiner s'il y a un runtime a la compil [X]
 
-- etancheite
+- etancheite [X]
+
+- notation pour la generation auto de sous-tables
 
 - Voir le compilo d'EVE
 
@@ -314,13 +377,31 @@ MERGE lie info EVE: files to merge:
 - lcode.lua
 - ldump: separer DumpDebug
 
+Compile and/or execute metalua programs. Parameters passed to the
+compiler should be prefixed with an option flag, hinting what must be
+done with them: take tham as file names to compile, as library names
+to load, as parameters passed to the running program... When option
+flags lack, metalua tries to adopt a "Do What I Mean" approach:
+
+- if no code (no library, no literal expression and no file) is
+  specified, the first flag-less parameter is taken as a file name to
+  load.
+
+- if no code and no parameter is passed, an interactive loop is
+  started.
+
+- if a target file is specified with --output, the program is not
+  executed by default, unless a --run flag forces it to. Conversely,
+  if no --output target is specified, the code is run unless ++run
+  forbids it.
 
 When does it compile, when does it execute?
--------------------------------------------
-The result of the compilation is saved if --output is specified. If
-not, the result is run. if both --output and --run are specified, the
-result is both saved and run. If the compilation must be saved, it is
-mandatory to have at least one file or library.
+------------------------------------------- 
+The result of the compilation is saved if there is a --output
+specifying a destination file. If not, the result is run. If both
+--output and --run are specified, the result is both saved and run. If
+the compilation must be saved, it is mandatory to have at least one
+file or library. 
 
 How to load chunks to compile/run
 ---------------------------------

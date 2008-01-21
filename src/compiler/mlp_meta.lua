@@ -127,11 +127,17 @@ end
 -- Parse the inside of a "+{ ... }"
 --------------------------------------------------------------------------------
 function quote_content (lx)
-   local parser = mlp.expr
-   if lx:is_keyword (lx:peek(2), ":") then
+   local parser 
+   if lx:is_keyword (lx:peek(1), ":") then -- +{:parser: content }
+      lx:next()
+      error "NOT IMPLEMENTED"
+   elseif lx:is_keyword (lx:peek(2), ":") then -- +{parser: content }
       parser = mlp[id(lx)[1]]
       lx:next()
+   else -- +{ content }
+      parser = mlp.expr
    end
+
    --assert(not in_a_quote, "Nested quotes not handled yet")
    local prev_iq = in_a_quote
    in_a_quote = true
