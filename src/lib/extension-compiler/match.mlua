@@ -113,7 +113,9 @@
 -- Convert a tested term and a list of (pattern, statement) pairs
 -- into a pattern-matching AST.
 ----------------------------------------------------------------------
-local function match_builder (tested_terms_list, cases)
+function match_builder (x)
+
+   local tested_terms_list, cases = unpack(x)
 
    local local_vars = { }
    local var = |n| `Id{ "$v" .. n }
@@ -299,20 +301,28 @@ end
 mlp.lexer:add{ "match", "with", "->" }
 mlp.block.terminators:add "|"
 
+-- Output-format:
+-- match_cases_list    := list of patterns_with_block
+-- patterns_with_block := { list of patterns, guard?, block }
+-- pattern             := mlp.expr
+-- guard?              := mlp.expr | false
+match_cases_list_parser = gg.list{ name = "match cases list",
+   gg.sequence{ name = "match case",
+      gg.list{ name  = "match case patterns list",
+         primary     = mlp.expr_list,
+         separators  = "|",
+         terminators = { "->", "if" } },
+      gg.onkeyword{ "if", mlp.expr, consume = true },
+      "->",
+      mlp.block },
+   separators  = "|",
+   terminators = "end" }
+
 mlp.stat:add{ name = "match statement",
-   "match", mlp.expr_list, "with",
-   gg.optkeyword "|",
-   gg.list{ name = "match cases list",
-      primary     = gg.sequence{ name = "match case",
-         gg.list{ name = "patterns",
-            primary = mlp.expr_list,
-            separators = "|",
-            terminators = { "->", "if" } },
-         gg.onkeyword{ "if", mlp.expr, consume = true },
-         "->",
-         mlp.block },
-      separators  = "|",
-      terminators = "end" },
+   "match", 
+   mlp.expr_list, 
+   "with", gg.optkeyword "|",
+   match_cases_list_parser,
    "end",
-   builder = |x| match_builder (x[1], x[3]) }
+   builder = |x| match_builder{ x[1], x[3] } }
 
