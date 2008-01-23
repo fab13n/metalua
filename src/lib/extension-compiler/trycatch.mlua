@@ -59,8 +59,7 @@ function trycatch_builder(x)
    -- when not needed.
    ----------------------------------------------------------------
    local replace_returns do
-      local cfg = { stat = { } }
-      function cfg.stat.down(x)
+      local function f(x)
          match x with 
          | `Return{...} -> 
             insert_return_catcher = true
@@ -74,6 +73,7 @@ function trycatch_builder(x)
          | _ -> -- pass
          end
       end
+      local cfg = { stat = {down=f}, expr = {down=f} }
       replace_returns = |x| walk.block(cfg, x)
    end
 

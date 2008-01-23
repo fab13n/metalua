@@ -88,4 +88,18 @@ printf("   f returned %q", fr)
 
 
 ----------------------------------------------------------------------
+print "8) don't be fooled by nested functions"
+function f()
+   try
+      local function g() return "from g" end
+      printf("   g() returns %q", g())
+      return "from f"
+   catch _ ->
+      assert (false, "No exception should be thrown")
+   end
+end
+local fr = f()
+printf("   f returned %q", fr)
+
+----------------------------------------------------------------------
 print "*) done."
