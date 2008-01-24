@@ -1,24 +1,5 @@
 -{ extension 'match' }
 
--- This deserves to go to the library
--{ block:
-   require 'dollar'
-   function mlp.macros.log(...)
-      local acc = `Do{ }
-      for i in ivalues{...} do
-         local name
-         match i with 
-         | `Id{n} -> name = n 
-         | _      -> name = table.tostring(i, 'nohash')
-         end
-         table.insert(acc, +{printf("log: %s = %s",
-                                    -{`String{name}},
-                                    table.tostring(-{i}, 80, 'nohash'))})
-      end
-      return acc
-   end }
-
-
 -- Get match parsers and builder, for catch cases handling:
 require 'extension-compiler.match' 
 
