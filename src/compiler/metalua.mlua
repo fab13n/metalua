@@ -6,6 +6,10 @@ require 'metalua.compiler'
 require 'clopts'
 require 'springs'
 
+AST_COMPILE_ERROR_NUMBER        = -1
+RUNTIME_ERROR_NUMBER            = -3
+BYTECODE_SYNTHESE_ERROR_NUMBER  = -100
+
 -{ extension 'match' }
 
 local chunks  = { }
@@ -118,32 +122,26 @@ local function main (...)
       cfg.run = true
    end
 
-
-   -------------------------------------------------------------------
-   -- List all sources  to compile if verbose
-   if cfg.verbose then
-      verb_print "Sources to compile:"
-      for s in values(chunks) do verb_print(" * %s", table.tostring(s)) end 
-   end
-
    local code = { }
 
    -------------------------------------------------------------------
    -- Get ASTs from sources
    for x in values(chunks) do
-      local ast
+      verb_print("Compiling %s", table.tostring(x))
+      local st, ast
       match x with
-      | `Library{ l } -> ast = `Call{ `Id 'require', `String{ l } }
+      | `Library{ l } -> st, ast = true, `Call{ `Id 'require', `String{ l } }
       | `Literal{ e } -> 
          local ring = springs.new()
          ring:dostring (INIT_COMPILATION_RING)
-         ast = ring:call('mlc.ast_of_luastring', e, 'literal')
+         st, ast = ring:pcall('mlc.ast_of_luastring', e, 'literal')
       | `File{ f } -> 
          local ring = springs.new()
          ring:dostring (INIT_COMPILATION_RING)
-         ast = ring:call('mlc.ast_of_luafile', f, '@'..f) -- FIXME: handle '-'
+         st, ast = ring:pcall('mlc.ast_of_luafile', f, '@'..f) -- FIXME: handle '-'
          ast = +{ function (...) -{ast} end(...) }
       end
+      if not st then os.exit (AST_COMPILE_ERROR_NUMBER) end
       ast.origin = x
       table.insert(code, ast)
    end
@@ -195,11 +193,16 @@ local function main (...)
    -------------------------------------------------------------------
    -- Run compiled code
    if cfg.run then
-      verb_print "Running:"
+      verb_print "Running"
       local f = mlc.function_of_luacstring (bytecode)
       bytecode = nil
+      -- FIXME: isolate execution in a ring
       -- FIXME: check for failures
-      f(unpack (runargs))
+      local st, msg = pcall(f, unpack (runargs))
+      if not st then
+         io.stderr:write(msg)
+         os.exit(RUNTIME_ERROR_NUMBER)
+      end
    end
 
    -------------------------------------------------------------------
@@ -209,6 +212,9 @@ local function main (...)
       print "*** !!! Interactive loop not implemented !!!"
       print ("*":rep(70))
    end
+
+   verb_print "Done"
+
 end
 
 main(...)

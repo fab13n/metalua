@@ -1178,7 +1178,10 @@ end
 ------------------------------------------------------------------------
 
 function expr.Index (fs, ast, v)
-   if #ast ~= 2 then error "generalized indexes not implemented" end
+   if #ast ~= 2 then
+      print"\n\nBAD INDEX AST:"
+      table.print(ast)
+      error "generalized indexes not implemented" end
 
    expr.expr (fs, ast[1], v)
    luaK:exp2anyreg (fs, v)

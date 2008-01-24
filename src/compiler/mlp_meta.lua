@@ -68,9 +68,11 @@ function quote (t)
    local cases = { }
    function cases.table (t)
       local mt = { tag = "Table" }
+      _G.table.insert (mt, { tag = "Pair", quote "quote", { tag = "True" } })
       if t.tag == "Splice" then
          assert (#t==1, "Invalid splice")
-         return t[1]
+         local sp = t[1]
+         return sp
       elseif t.tag then
          _G.table.insert (mt, { tag = "Pair", quote "tag", quote (t.tag) })
       end
@@ -79,8 +81,8 @@ function quote (t)
       end
       return mt
    end
-   function cases.number (t) return { tag = "Number", t } end
-   function cases.string (t) return { tag = "String", t } end
+   function cases.number (t) return { tag = "Number", t, quote = true } end
+   function cases.string (t) return { tag = "String", t, quote = true } end
    return cases [ type (t) ] (t)
 end
 
@@ -130,7 +132,7 @@ function quote_content (lx)
    local parser 
    if lx:is_keyword (lx:peek(1), ":") then -- +{:parser: content }
       lx:next()
-      error "NOT IMPLEMENTED"
+      errory "NOT IMPLEMENTED"
    elseif lx:is_keyword (lx:peek(2), ":") then -- +{parser: content }
       parser = mlp[id(lx)[1]]
       lx:next()
@@ -144,9 +146,9 @@ function quote_content (lx)
    --print("IN_A_QUOTE")
    local content = parser (lx)
    local q_content = quote (content)
-   --printf("/IN_A_QUOTE:\n* content=\n%s\n* q_content=\n%s\n",
-   --       _G.table.tostring(content, "nohash", 60),
-   --       _G.table.tostring(q_content, "nohash", 60))
+--     printf("/IN_A_QUOTE:\n* content=\n%s\n* q_content=\n%s\n",
+--            _G.table.tostring(content, "nohash", 60),
+--            _G.table.tostring(q_content, "nohash", 60))
    in_a_quote = prev_iq
    return q_content
 end

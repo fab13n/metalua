@@ -1,0 +1,69 @@
+-{ extension 'log' }
+
+require 'metalua.compiler'
+require 'H'
+
+--assert (+{foo}.quote, "no q!?")
+
+-- Usage samples:
+
+TEST_CASES = { 
+
+   {  "everything should be renamed",
+      +{ block: 
+         local x = 3
+         print(x) },
+      { } }, 
+
+  {  "don't get confused between global and local x",
+     +{ block: 
+        print(x)
+        local x = 3
+        print(x) },
+     { alpha = { } } },
+
+  {  "don't rename keepme",
+     +{ block:
+        keepme()
+        dont_keep_me() },
+     { keep = 'keepme' , alpha = `Local{ { }, { } } } },
+ 
+  {  "print shouldn't be renamed the 2nd and 3rd time",
+     +{ block:
+        print(i)
+        -{`Call{`Id 'print', `String 'hi' } } 
+        -- Bugger. I don't detect any non-quoted element , so 
+        -- the -{+{ }} thingie won't protect from capture.
+        -{+{print 'hi'}} },
+     { } },
+ 
+  {  "print shouldn't be renamed at all",
+     +{ block: 
+        print(i)
+        -{`Call{`Id 'print', `String 'hi' } }
+        -{+{print 'hi'}} },
+     { keep = 'print' } },
+ 
+  {  "Rename print with a pre-specified name, rename x freely, not y",
+     +{ block: 
+        print (x, y) },
+     {  alpha = +{stat: local RENAMED_PRINT = print}, 
+        keep  = {y = true} } } }
+ 
+--   { +{ block: -- 
+--         },
+--     { } },
+
+for case in values(TEST_CASES) do
+   local comment, ast, cfg = unpack(case)
+   print ('\n'..'-':rep(70))
+   print (comment)
+   print ("BEFORE PARSING:")
+   $log (ast, 50, 'nohash')
+   local _, alpha = H (cfg, ast)
+   print ("AFTER PARSING:")
+   $log (ast, alpha, cfg.alpha, 50, 'nohash')
+end
+
+print ('\n'..'=':rep(70))
+$log(TEST_CASES,40)

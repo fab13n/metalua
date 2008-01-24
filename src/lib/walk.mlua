@@ -166,7 +166,7 @@ function walk.traverse.stat (cfg, x, ...)
    local EL = |y| walk.expr_list   (cfg, y, x, unpack(log))
    local I  = |y| walk.binder_list (cfg, y, x, unpack(log))
    match x with
-   | {...} if x.tag == nil -> for y in ivalues(y) do walk.stat(cfg, y, ...) end
+   | {...} if x.tag == nil -> for y in ivalues(x) do walk.stat(cfg, y, ...) end
                               -- no tag --> node not inserted in the history log
    | `Do{...}                    -> B(x)
    | `Set{ lhs, rhs }            -> EL(lhs); EL(rhs)

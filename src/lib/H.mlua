@@ -1,0 +1,121 @@
+require 'walk.id'
+
+-{ extension 'log' }
+
+-- Quasi-quote hygienization
+-- =========================
+--
+-- This function intends to address all variable issues that might 
+
+function H(...)
+
+   -- Get and parse args:
+   -- ast        :: ast to parse
+   -- ast_kind   :: string
+   -- free_vars  :: old_name -> new_name for free variables
+   -- bound_vars :: binder -> old_name -> new_name for bound variables
+   -- keep       :: var_name -> boolean
+   -- alpha      :: `Local statement carrying original free vars alpha convs
+   -- h_inside, h_outside :: booleans
+   local local_renames, ast, ast_kind, bound_vars, 
+         free_vars, keep, alpha, h_inside, h_outside do
+      local cfg
+      if select('#', ...) > 1 then cfg, ast = ... else cfg, ast = { }, ... end
+      ast_kind   = cfg.kind or 'guess'
+      local side = cfg.side
+      h_inside   = not side or side=='inside'  or side=='both'
+      h_outside  = not side or side=='outside' or side=='both'
+      if h_inside  then local_renames, bound_vars = { }, { } end
+      if h_outside then free_vars  = { } end
+
+      -- kept variables must be in keys, not in values:
+      keep = cfg.keep or { }
+      if type(keep)=='string' then keep = { [keep] = 1 }
+      elseif #keep>0 then keep = table.transpose(keep) end
+
+      if h_outside then
+         -- extend an existing alpha conversion scheme
+         alpha = cfg.alpha or `Local{ { }, { } }
+         if #alpha==0 then alpha <- `Local{ { }, { } } end
+         local new, old = unpack(alpha)
+         assert (#new==#old, "Invalid alpha list")
+         for i = 1, #new do
+            assert (old[i].tag=='Id' and #old[i]==1, "Invalid lhs in alpha list")
+            assert (new[i].tag=='Id' and #new[i]==1, "Invalid rhs in alpha list")
+            free_vars[old[i][1]] = new[i][1]
+         end
+      end
+   end
+   
+   -- Config for the id walker
+   local cfg = { expr = { }, stat = { }, id = { } }
+
+   if h_outside then
+      -- Rename free variables that are not supposed to be captured.
+      -- An old_name -> new_name dictionary is kept in free_vars.
+      function cfg.id.free (id)
+         local old_name = id[1]
+         if keep[old_name] then return end
+         local new_name = free_vars[old_name]
+         if not new_name then
+            new_name = mlp.gensym('_X_'..old_name)
+            free_vars[old_name] = new_name
+            table.insert(alpha[1], `Id{new_name})
+            table.insert(alpha[2], `Id{old_name})
+         end
+         id[1] = new_name
+      end
+   end
+   
+   if h_inside then
+      local_renames = { }
+      
+      -- Rename a binding `Id,
+      -- Keep a binder -> old_name -> new_name distionary in bound_vars.
+      function cfg.binder (id, binder)
+         if not id.quote then return end
+         local old_name = id[1]
+         local binder_table = bound_vars[binder]
+         if not binder_table then
+            binder_table = { }
+            bound_vars[binder] = binder_table
+         end
+         local new_name = mlp.gensym('_L_'..old_name)[1]
+         binder_table[old_name] = new_name
+         local_renames[id] = new_name
+      end
+      -- Rename a bound variable,
+      -- its new name should already be in bound_vars.
+      function cfg.id.bound (id, binder)
+         if not id.quote then return end
+         local old_name = id[1]
+         local new_name = bound_vars[binder][old_name]
+         --$log(bound_vars[binder])
+         assert(new_name, "no alpha conversion for a bound var?!")
+         local_renames[id] = new_name
+      end
+   end
+
+   -- Don't traverse trees spliced into the quote
+   local cut_splices = |x| not x.quote and 'break' or nil
+   cfg.stat.down, cfg.expr.down = cut_splices, cut_splices
+
+   -- The walker's config is ready, let's go.
+   -- After that, ids are renamed in ast, free_vars and bound_vars are set.
+   walk_id[ast_kind](cfg, ast)
+
+   -- Apply local name changes
+   for id, new_name in pairs(local_renames) do id[1] = new_name end
+      
+   return ast, alpha
+end
+
+
+-- Notes:
+-- * the order of id visitors is wrong: first expr, then id
+-- * if there's no splice in it, there's no need to rename vars
+--   ==> first pass to mark binders which contain splices,
+--       then 2nd pass only touched those which have a splice
+--       in them.
+-- * $log: put in stdlib, treat all strings before vars as
+--   msg, literals 'nohash' and numbers after as print params.
