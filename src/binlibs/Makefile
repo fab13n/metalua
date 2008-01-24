@@ -9,6 +9,7 @@ LIBS = $(SRC:.c=.$(LIBEXT))
 libraries: $(LIBS)
 
 install:   libraries
+	mkdir -p $(TARGET_LUA_CPATH)
 	cp $(LIBS) $(TARGET_LUA_CPATH)
 
 clean:
