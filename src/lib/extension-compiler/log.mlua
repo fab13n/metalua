@@ -1,0 +1,34 @@
+require 'dollar'
+   
+-{ extension 'match' }
+
+function mlp.macros.log(...)
+   local args = {...}
+   local ti   = table.insert
+   local code = { }
+
+   local i=1
+   if args[i].tag=='String' then 
+      ti(code, +{print(-{args[1]})}) 
+      i += 1
+   end
+
+   local xtra_args, names, vals = { }, { }, { }
+   for i=i, #args do
+      match args[i] with 
+      | `String{...} | `Number{...} -> ti (xtra_args, args[i])
+      | `Id{n} -> ti (names, n); ti (vals, args[i])
+      | x      -> ti (names, table.tostring(x, 'nohash')); ti (vals, x)
+      end
+   end
+
+   for i=1, #names do
+      ti (code, `Call{ +{printf}, 
+                       +{" ** %s: ** \n%s"}, 
+                       `String{ names[i] }, 
+                       `Call{ +{table.tostring},
+                              vals[i],
+                              unpack(xtra_args) } })
+   end
+   return code
+end
