@@ -44,6 +44,7 @@
 --------------------------------------------------------------------------------
 
 -{ extension 'match' }
+-{ extension 'log' }
 
 require 'walk'
 require 'walk.scope'
@@ -78,35 +79,47 @@ local function _walk_id (kind, supercfg, ast, ...)
    -- Check identifiers; add functions parameters to scope
    -----------------------------------------------------------------------------
    function cfg.expr.down(x, ...)
+      -- Execute the generic expression walker; if it breaks.
+      -- don't do the id walking.
+      if supercfg.expr and  supercfg.expr.down then  
+         local r = supercfg.expr.down(x, ...)
+         if r then return r end
+      end
       match x with
       | `Id{ name } ->
          local binder, r = scope.current[name] -- binder :: ast which bound var
          if binder then 
+            --$log( 'walk.id found a bound var:', x, binder)
             r = visit_bound_var(x, binder, ...)
          else 
+            --$log( 'walk.id found a free var:', x, scope.current)
             r = visit_free_var(x, ...) 
          end
          if r then return r end
       | `Function{ params, _ } -> scope:push (params, x)
       | _                      -> -- pass
       end
-      if supercfg.expr and  supercfg.expr.down then  
-         return supercfg.expr.down(x, ...)
-      end
+
    end
 
    -----------------------------------------------------------------------------
    -- Close the function scope opened by 'down()'
    -----------------------------------------------------------------------------
    function cfg.expr.up(x, ...)   
-      if supercfg.expr and supercfg.expr.up then supercfg.expr.up(x, ...) end
       match x with `Function{...} -> scope:pop() | _ -> end
+      if supercfg.expr and supercfg.expr.up then supercfg.expr.up(x, ...) end
    end
 
    -----------------------------------------------------------------------------
    -- Create a new scope and register loop variable[s] in it
    -----------------------------------------------------------------------------
    function cfg.stat.down(x, ...)
+      -- Execute the generic statement walker; if it breaks.
+      -- don't do the id walking.
+      if supercfg.stat and supercfg.stat.down then  
+         local r = supercfg.stat.down(x, ...)
+         if r then return r end
+      end
       match x with
       | `Forin{ vars, ... }    -> scope:push (vars,  x)
       | `Fornum{ var, ... }    -> scope:push ({var}, x)
@@ -124,36 +137,34 @@ local function _walk_id (kind, supercfg, ast, ...)
          return 'break'
       | _ -> -- pass
       end
-      if supercfg.stat and supercfg.stat.down then  
-         return supercfg.stat.down(x, ...)
-      end
    end
 
    -----------------------------------------------------------------------------
    -- Close the scopes opened by 'up()'
    -----------------------------------------------------------------------------
    function cfg.stat.up(x, ...)
-      if supercfg.stat and supercfg.stat.up then supercfg.stat.up(x, ...) end
       match x with
       | `Forin{ ... } | `Fornum{ ... } -> scope:pop() 
       | `Local{ vars, ... }            -> scope:add(vars, x)
       | _                              -> -- pass
       -- `Repeat has no up(), because it 'break's.
       end
+      if supercfg.stat and supercfg.stat.up then supercfg.stat.up(x, ...) end
    end
 
    -----------------------------------------------------------------------------
    -- Create a separate scope for each block
    -----------------------------------------------------------------------------
    function cfg.block.down(x, ...) 
-      scope:push() 
       if supercfg.block and supercfg.block.down then
-         return supercfg.block.down(x, ...) 
+         local r = supercfg.block.down(x, ...) 
+         if r then return r end
       end
+      scope:push() 
    end
    function cfg.block.up(x, ...) 
-      if supercfg.block and supercfg.block.up then supercfg.block.up(x, ...) end
       scope:pop() 
+      if supercfg.block and supercfg.block.up then supercfg.block.up(x, ...) end
    end
    cfg.binder = supercfg.binder
    walk[kind](cfg, ast, ...)

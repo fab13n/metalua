@@ -24,7 +24,6 @@
 --
 --------------------------------------------------------------------------------
 
-
 scope = { }
 scope.__index = scope
 
@@ -46,7 +45,8 @@ end
 
 function scope:add (vars, val)
    val = val or true
-   for id in values (vars) do
+   print"scope.add(vars):" table.print(vars, 70)
+   for id in ivalues (vars) do
       assert(id.tag=='Id')
       self.current[id[1]] = val
    end
