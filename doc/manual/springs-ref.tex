@@ -1,0 +1,42 @@
+\section{Library {\tt springs}: separate universes for Lua} 
+
+\subsection{Origins and purpose}
+Springs (Serialization through Pluto for RINGS) is an extension of Lua Rings and
+Pluto: Lua Rings allow to create new Lua states from within Lua, but offers
+limited communication between them: a master universe can only send instruction
+to a slave universe through a ``{\tt dostring}'', and the slave universe can
+only send back strings, integers and booleans as results. Since Pluto allows to
+serialize pretty much any Lua value as a string, it's used to create powerful
+bidirectional communications between universes.
+
+Springs is used internally by metalua to prevent different files' compile time
+actions to interfere with each other: each file is compiled on a fresh clean
+single-use slate.
+
+The underlying projects can be found on the web:
+\begin{itemize}
+\item \verb|<http://www.keplerproject.org/rings/>|
+\item \verb|<http://luaforge.net/projects/pluto/>|
+\end{itemize}
+Notice however that the Pluto version used in metalua has significantly patched
+and debugged by Ivko Stanilov.
+
+\subsection{API}
+Go to Lua Rings web site for a reference on its original API. This API is
+extended by spring with:
+\begin{itemize}
+\item function {\tt springs.new()} which creates a new universe ready for Pluto
+  communication;
+\item ({\tt:dostring()} works as usual)
+\item {\tt :pcall(f, arg1, ..., argn)} works as standard function pcall(),
+  except that execution occurs in the sub-state. Arguments are passed and
+  results are returned transparently acrosse universes. Moreover, 'f' can also
+  be a string, rather than a function. If it's a string, it must eval to a
+  function in the substate's context. This allows to pass standard functions
+  easily. For instance:\\
+  \verb|r:pcall('table.concat', {'a', 'b', 'c'}, ',')|
+\item {\tt :call()} is similar to :pcall(), except that in case of error, it
+  actually throws the error in the sender universe's context. Therefore, it
+  doesn't return a success status as does pcall(). For instance: \\
+  \verb|assert('xxx' == r:call('string.rep', 'x', 3))|
+\end{itemize}

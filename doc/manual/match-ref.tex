@@ -1,0 +1,173 @@
+\section{Extension {\tt match}: structural pattern matching}
+Pattern matching is an extremely pleasant and powerful way to handle tree-like
+structures, such as ASTs. Unsurprisingly, it's a feature found in most
+ML-inspired languages, which excel at compilation-related tasks. There is a
+pattern matching extension for metalua, which is extremely useful for most
+meta-programming purposes.
+
+\subsection{Purpose}
+
+First, to clear a common misconception: structural pattern matching has
+absolutely nothing to do with regular expresssions matching on strings: it works
+on arbitrary structured data.
+
+When manipulating trees, you want to check whether they have a certain structure
+(e.g. a `Local{ } node with as first child a list of variables whose tags are
+`Id{ }); when you've found a data that matches a certain pattern, you want to
+name the interesting sub-parts of it, so that you can manipulate them easily;
+finally, most of the time, you have a series of different possible patterns, and
+you want to apply the one that matches a given data. These are the needs
+addressed by pattern matching: it lets you give a list of ({\tt pattern ->
+  code\_to\_execute\_if\_match}) associations, selects the first matching
+pattern, and executes the corresponding code. Patterns both describe the
+expected structures and bind local variables to interesting parts of the data.
+Those variables' scope is obviously the code to execute upon matching success.
+
+\paragraph{Match statement} 
+A match statement has the form:
+
+\begin{verbatim}
+match <some_value> with
+| <pattern_1> -> <block_1>
+| <pattern_2> -> <block_2>
+...
+| <pattern_n> -> <block_n>
+end
+\end{verbatim}
+
+The first vertical bar after the "with" is optional; moreover, a pattern can
+actually be a list of patterns, separated by bars. In this case, it's enough for
+one of them to match, to get the block to be executed:
+
+\begin{verbatim}
+match <some_value> with
+| <pattern_1> | <pattern_1_bis > -> <block_1>
+...
+end
+\end{verbatim}
+
+When the match statement is executed, the first pattern which matches
+{\tt<some\_value>} is selected, the corresponding block is executed, and all
+other patterns and blocks are ignored. If no pattern matches, an error
+{\tt"mismatch"} is raised. However, we'll see it's easy to add a catch-all
+pattern at the end of the match, when we want it to be failproof.
+
+\subsection{Patterns definition}
+
+\paragraph{Atomic litterals}
+Syntactically, a pattern is mostly identical to the values it matches: numbers,
+booleans and strings, when used as patterns, match identical values.
+
+\begin{verbatim}
+match x with
+| 1 -> print 'x is one'
+| 2 -> print 'x is two'
+end
+\end{verbatim}
+
+\paragraph{Tables}
+Tables as patterns match tables with the same number of array-part elements, if
+each pattern field matches the corresponding value field. For instance, \{1, 2,
+3\} as a pattern matches \{1, 2, 3\} as a value. Pattern \{1, 2, 3\} matches
+value \{1, 2, 3, foo=4\}, but pattern \{1, 2, 3, foo=4\} doesn't match value
+\{1, 2, 3\}: there can be extra hash-part fields in the value, not in the
+pattern. Notice that field 'tag' is a regular hash-part field, therefore \{1, 2,
+3\} matches `Foo\{1, 2, 3\} (but not the other way around). Of course, table
+patterns can be nested. The table keys must currently be integers or strings.
+It's not difficult to add more, but the need hasn't yet emerged.
+
+If you want to match tables of arbitrary array-part size, you can add a "..." as
+the pattern's final element. For instance, pattern \{1, 2, ...\} will match all
+table with at least two array-part elements whose two first elements are 1 and
+2.
+
+\paragraph{Identifiers}
+The other fundamental kind of patterns are identifiers: they match everything,
+and bind whatever they match to themselves. For instance, pattern {1, 2, x} will
+match value {1, 2, 3}, and in the corresponding block, local variable x will be
+set to 3. By mixing tables and identifiers, we can already do interesting
+things, such as getting the identifiers list out of a local statement, as
+mentionned above:
+
+\begin{verbatim}
+match stat with
+| `Local{ identifiers, values } -> table.foreach(identifiers, |x| print(x[1])
+... -- other cases
+end
+\end{verbatim}
+
+When a variable appears several times in a single pattern, all the elements they
+match must be equal, in the sense of the "==" operator. Fore instance, pattern \{
+  x, x \} will match value \{ 1, 1 \}, but not \{ 1, 2 \}. Both values would be
+matched by pattern \{ x, y \}, though. A special identifier is "\_", which doesn't
+bind its content. Even if it appears more than once in the pattern, metched
+value parts aren't required to be equal. The pattern "\_" is therefore the
+simplest catch-all one, and a match statement with a "{\tt| \_ ->}" final
+statement will never throw a "mismatch" error.
+
+\paragraph{Guards}
+
+Some tests can't be performed by pattern matching. For these cases, the pattern
+can be followed by an "if" keyword, followed by a condition.
+
+\begin{verbatim}
+match x with
+| n if n%2 == 0 -> print 'odd'
+| _ -> print 'even'
+end
+\end{verbatim}
+
+Notice that the identifiers bound by the pattern are available in the guard
+condition. Moreover, the guard can apply to several patterns:
+
+\begin{verbatim}
+match x with
+| n | {n} if n%2 == 0 -> print 'odd'
+| _ -> print 'even'
+end
+\end{verbatim}
+
+\paragraph{Multi-match}
+
+If you want to match several values, let's say 'a' and 'b', there's an easy way:
+
+\begin{verbatim}
+match {a,b} with
+| {pattern_for_a, pattern_for_b} -> block
+...
+end
+\end{verbatim}
+
+However, it introduces quite a lot of useless tables and checks. Since this kind
+of multiple matches are fairly common, they are supported natively:
+
+\begin{verbatim}
+match a, b with
+| pattern_for_a, pattern_for_b -> block
+...
+end
+\end{verbatim}
+
+This will save some useless tests and computation, and the compiler will
+complain if the number of patterns doesn't match the number of values.
+
+\paragraph{String regular expressions}
+There is a way to use Lua's regular exressions with match, through the division
+operator ``/'': the left operand is expected to be a literal string, interpreted
+as a regular expression. The variables it captures are stored in a table, which
+is matched as a value against the right-hand-side operand. For instance, the
+following case succeeds when {\tt foo} is a string composed of 3 words separated
+by spaces. In case of success, these words are bound to variables {\tt w1}, {\tt
+  w2} and {\tt w3} in the executed block:
+
+\begin{verbatim}
+match foo with
+| "^(%w+) +(%w+) +(%w+)$"/{ w1, w2, w3 } -> do_stuff (w1, w2, w3)
+end
+\end{verbatim}
+
+\subsection{Examples}
+There are quite a lot of samples using match in the metalua distribution, and
+more will come in the next one. Dig in the samples for fairly simple usages, or
+in the standard libs for more advanced ones. Look for instance at examples
+provided with the {\tt walk} library.

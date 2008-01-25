@@ -1,0 +1,15 @@
+\section{Extension {\tt declare\_globals}: mandatory declaration of global
+  variables}
+There is a {\tt strict} library in Lua, also provided by metalua, which
+complains when one tries to access a global variable which hasn't been
+initialized, and when a global variable is initialized anywhere but at the
+program's top-level. This catches many errors, especially typos on variable
+names. 
+
+However, with a macro-enabled language, we can do slightly better: we add a {\tt
+  global} keyword, which works as {\tt local}, allows to declare global
+variables, which can subsequently be used freely. Undeclared global variables
+cause an error when one tries to read or write them.
+
+FIXME: need a ``global function ...'' syntax; interactions with sub-modules is
+not tested correctly.

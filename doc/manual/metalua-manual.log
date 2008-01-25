@@ -1,0 +1,889 @@
+This is pdfeTeX, Version 3.141592-1.21a-2.2 (Web2C 7.5.4) (format=pdflatex 2006.6.6)  24 JAN 2008 19:55
+entering extended mode
+**metalua-manual.tex
+(./metalua-manual.tex
+LaTeX2e <2003/12/01>
+Babel <v3.8d> and hyphenation patterns for american, french, german, ngerman, b
+ahasa, basque, bulgarian, catalan, croatian, czech, danish, dutch, esperanto, e
+stonian, finnish, greek, icelandic, irish, italian, latin, magyar, norsk, polis
+h, portuges, romanian, russian, serbian, slovak, slovene, spanish, swedish, tur
+kish, ukrainian, nohyphenation, loaded.
+(/sw/share/texmf-dist/tex/latex/base/book.cls
+Document Class: book 2004/02/16 v1.4f Standard LaTeX document class
+(/sw/share/texmf-dist/tex/latex/base/bk10.clo
+File: bk10.clo 2004/02/16 v1.4f Standard LaTeX file (size option)
+)
+\c@part=\count79
+\c@chapter=\count80
+\c@section=\count81
+\c@subsection=\count82
+\c@subsubsection=\count83
+\c@paragraph=\count84
+\c@subparagraph=\count85
+\c@figure=\count86
+\c@table=\count87
+\abovecaptionskip=\skip41
+\belowcaptionskip=\skip42
+\bibindent=\dimen102
+)
+(/sw/share/texmf-dist/tex/latex/psnfss/palatino.sty
+Package: palatino 2004/09/15 PSNFSS-v9.2 (SPQR) 
+)
+(/sw/share/texmf-dist/tex/latex/fancyhdr/fancyhdr.sty
+\fancy@headwidth=\skip43
+\f@ncyO@elh=\skip44
+\f@ncyO@erh=\skip45
+\f@ncyO@olh=\skip46
+\f@ncyO@orh=\skip47
+\f@ncyO@elf=\skip48
+\f@ncyO@erf=\skip49
+\f@ncyO@olf=\skip50
+\f@ncyO@orf=\skip51
+)
+(/sw/share/texmf-dist/tex/latex/preprint/fullpage.sty
+Package: fullpage 1999/02/23 1.1 (PWD)
+\FP@margin=\skip52
+)
+(/sw/share/texmf-dist/tex/latex/base/alltt.sty
+Package: alltt 1997/06/16 v2.0g defines alltt environment
+)
+(/sw/share/texmf-dist/tex/latex/url/url.sty
+\Urlmuskip=\muskip10
+Package: url 2004/03/15  ver 3.1  Verb mode for urls, etc.
+) (./metalua-manual.aux (./intro.aux) (./syntax-ext.aux) (./data.aux) (./meta.a
+ux) (./gg-ref.aux) (./mlp-ref.aux)
+(./stdlib.aux) (./clopts-ref.aux) (./springs-ref.aux) (./walk-ref.aux)
+(./match-ref.aux) (./dollar-ref.aux) (./clist-ref.aux) (./hygiene-ref.aux)
+(./samples.aux) (./sample-exception.aux) (./sample-match.aux) (./src-hints.aux)
+(./ast.aux))
+\openout1 = `metalua-manual.aux'.
+
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 26.
+LaTeX Font Info:    ... okay on input line 26.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 26.
+LaTeX Font Info:    ... okay on input line 26.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 26.
+LaTeX Font Info:    ... okay on input line 26.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 26.
+LaTeX Font Info:    ... okay on input line 26.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 26.
+LaTeX Font Info:    ... okay on input line 26.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 26.
+LaTeX Font Info:    ... okay on input line 26.
+LaTeX Font Info:    Try loading font information for OT1+ppl on input line 26.
+ (/sw/share/texmf-dist/tex/latex/psnfss/ot1ppl.fd
+File: ot1ppl.fd 2001/06/04 font definitions for OT1/ppl.
+)
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <12> on input line 31.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <8> on input line 31.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <6> on input line 31.
+
+
+LaTeX Warning: No \author given.
+
+[1
+
+
+{/sw/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}]
+
+Package Fancyhdr Warning: \headheight is too small (0.0pt): 
+ Make it at least 12.0pt.
+ We now make it that large for the rest of the document.
+ This may cause the page layout to be inconsistent, however.
+
+[2
+
+]
+LaTeX Font Info:    Font shape `OT1/ppl/bx/n' in size <24.88> not available
+(Font)              Font shape `OT1/ppl/b/n' tried instead on input line 32.
+ (./metalua-manual.toc
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <7> on input line 1.
+LaTeX Font Info:    External font `cmex10' loaded for size
+(Font)              <5> on input line 1.
+LaTeX Font Info:    Font shape `OT1/ppl/bx/n' in size <10> not available
+(Font)              Font shape `OT1/ppl/b/n' tried instead on input line 67.
+LaTeX Font Info:    Try loading font information for OT1+pcr on input line 68.
+ (/sw/share/texmf-dist/tex/latex/psnfss/ot1pcr.fd
+File: ot1pcr.fd 2001/06/04 font definitions for OT1/pcr.
+)
+[3])
+\tf@toc=\write3
+\openout3 = `metalua-manual.toc'.
+
+ [4]
+\openout2 = `intro.aux'.
+
+ (./intro.tex
+LaTeX Font Info:    Font shape `OT1/ppl/bx/n' in size <14.4> not available
+(Font)              Font shape `OT1/ppl/b/n' tried instead on input line 1.
+LaTeX Font Info:    Try loading font information for OMS+ppl on input line 22.
+ (/sw/share/texmf-dist/tex/latex/psnfss/omsppl.fd
+File: omsppl.fd 
+)
+LaTeX Font Info:    Font shape `OMS/ppl/m/n' in size <10> not available
+(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 22.
+
+[5
+
+]
+Overfull \hbox (17.36078pt too wide) in paragraph at lines 95--97
+[]\OT1/ppl/m/n/10 A com-pact ref-er-ence sheet (gram-mar and stan-dard li-brari
+es) by En-rico Colom-bini: $\OT1/pcr/m/n/10 http : / / lua-[]users .
+ []
+
+
+Overfull \hbox (15.47256pt too wide) in paragraph at lines 99--102
+[]\OT1/ppl/m/n/10 The mail-ing list ($\OT1/pcr/m/n/10 http : / / www . lua . or
+g / lua-[]l . html$\OT1/ppl/m/n/10 ) and the IRC chan-nel ($\OT1/pcr/m/n/10 irc
+ : / / irc . freenode .
+ []
+
+[6]) [7]
+\openout2 = `syntax-ext.aux'.
+
+ (./syntax-ext.tex
+LaTeX Font Info:    Font shape `OT1/ppl/bx/n' in size <12> not available
+(Font)              Font shape `OT1/ppl/b/n' tried instead on input line 7.
+LaTeX Font Info:    Try loading font information for OMS+pcr on input line 51.
+ (/sw/share/texmf-dist/tex/latex/psnfss/omspcr.fd
+File: omspcr.fd 
+)
+LaTeX Font Info:    Font shape `OMS/pcr/m/n' in size <10> not available
+(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 51.
+)
+[8
+
+
+]
+\openout2 = `data.aux'.
+
+ (./data.tex [9
+
+
+] [10]
+LaTeX Font Info:    Font shape `OMS/pcr/m/n' in size <8> not available
+(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 160.
+ [11]
+Overfull \hbox (24.72232pt too wide) in paragraph at lines 215--219
+ \OT1/ppl/b/n/10 Bi-nary Op-er-a-tors[] \OT1/ppl/m/n/10 Bi-nary op-er-a-tions a
+re rep-re-sented by []\OT1/pcr/m/n/10 `Op{ operator, left, right}\OT1/ppl/m/n/1
+0 , where []\OT1/pcr/m/n/10 operator
+ []
+
+
+Overfull \hbox (5.87431pt too wide) in paragraph at lines 259--261
+[][]\OT1/pcr/m/n/10 1+2*3 \OT1/ppl/m/n/10 is rep-re-sented as []\OT1/pcr/m/n/10
+ `Op{ `Add, `Number 1, `Op{ `Mul, `Number 2, `Number 3 } }\OT1/ppl/m/n/10 ; 
+ []
+
+
+Overfull \hbox (15.37431pt too wide) in paragraph at lines 261--263
+[][]\OT1/pcr/m/n/10 (1+2)*3 \OT1/ppl/m/n/10 is rep-re-sented as []\OT1/pcr/m/n/
+10 `Op{ `Mul, `Op{ `Add, `Number 1, `Number 2 }, `Number 3 } 
+ []
+
+[12]
+Overfull \hbox (12.21016pt too wide) in paragraph at lines 346--351
+[]\OT1/ppl/m/n/10 Notice that method in-vo-ca-tions can be used as ex-pres-sion
+s, but also as state-ments. No-tice also that ``\OT1/pcr/m/n/10 function
+ []
+
+
+Overfull \hbox (18.0821pt too wide) in paragraph at lines 346--351
+\OT1/pcr/m/n/10 o:m (x) return x end\OT1/ppl/m/n/10 '' is not a method in-vo-ca
+-tion, but syn-tax sugar for state-ment ``\OT1/pcr/m/n/10 o["f"] = function
+ []
+
+[13]
+Overfull \hbox (9.9041pt too wide) in paragraph at lines 407--414
+\OT1/ppl/m/n/10 ``\OT1/pcr/m/n/10 local function f() return 1, 2, 3 end; return
+ \OMS/cmsy/m/n/10 f \OT1/pcr/m/n/10 f() \OMS/cmsy/m/n/10 g\OT1/ppl/m/n/10 '' wi
+ll re-turn ``\OMS/cmsy/m/n/10 f\OT1/pcr/m/n/10 1, 2, 3\OMS/cmsy/m/n/10 g\OT1/pp
+l/m/n/10 '', whereas
+ []
+
+
+Overfull \hbox (4.31364pt too wide) in paragraph at lines 407--414
+\OT1/ppl/m/n/10 ``\OT1/pcr/m/n/10 local function f() return 1, 2, 3 end; return
+ \OMS/cmsy/m/n/10 f \OT1/pcr/m/n/10 (f()) \OMS/cmsy/m/n/10 g\OT1/ppl/m/n/10 '' 
+will re-turn ``\OMS/cmsy/m/n/10 f \OT1/pcr/m/n/10 1 \OMS/cmsy/m/n/10 g\OT1/ppl/
+m/n/10 '' (no-tice the
+ []
+
+[14]
+LaTeX Font Info:    Font shape `OT1/ppl/bx/it' in size <10> not available
+(Font)              Font shape `OT1/ppl/b/it' tried instead on input line 505.
+ [15] [16]
+Overfull \hbox (10.52077pt too wide) in paragraph at lines 625--629
+[]\OT1/ppl/m/n/10 Identifiers, string AST or plain strings are equiv-a-lent: ``
+\OT1/pcr/m/n/10 `Label\OMS/cmsy/m/n/10 f \OT1/pcr/m/n/10 `Id "foo"\OMS/cmsy/m/n
+/10 g\OT1/ppl/m/n/10 '' is syn-ony-mous for ``\OT1/pcr/m/n/10 `Label\OMS/cmsy/m
+/n/10 f
+ []
+
+[17]) [18]
+\openout2 = `meta.aux'.
+
+ (./meta.tex
+Overfull \hbox (1.66148pt too wide) in paragraph at lines 19--21
+[]\OT1/ppl/m/n/10 If you want to quote a state-ment, just sub-sti-tute ``expr:'
+' with ``stat:'': \OT1/pcr/m/n/10 +\OMS/cmsy/m/n/10 f\OT1/pcr/m/n/10 stat: if x
+>3 then foo(bar)
+ []
+
+[19
+
+
+]
+Overfull \hbox (16.24498pt too wide) in paragraph at lines 79--79
+[]\OT1/pcr/m/n/10 Y = +{stat: four = -{block: local two=`Number 2; return `Op{ 
+`Add, two, two } } }[] 
+ []
+
+
+Overfull \hbox (108.92116pt too wide) in paragraph at lines 81--85
+\OT1/ppl/m/n/10 compined with the upper-level one. For in-stance, you can write
+ []\OT1/pcr/m/n/10 -{block: f(); g()} \OT1/ppl/m/n/10 in-stead of []\OT1/pcr/m/
+n/10 -{stat:f()}; -{stat:g()}\OT1/ppl/m/n/10 . 
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 134--134
+
+ []
+
+[20]
+Underfull \hbox (badness 10000) in paragraph at lines 149--150
+
+ []
+
+[21]
+Underfull \hbox (badness 10000) in paragraph at lines 213--213
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 240--241
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 258--258
+
+ []
+
+[22]
+Underfull \hbox (badness 10000) in paragraph at lines 280--281
+
+ []
+
+) [23] [24
+
+
+]
+Chapter 1.
+LaTeX Font Info:    Font shape `OT1/ppl/bx/n' in size <20.74> not available
+(Font)              Font shape `OT1/ppl/b/n' tried instead on input line 37.
+[25]
+\openout2 = `gg-ref.aux'.
+
+ (./gg-ref.tex [26
+
+]
+Overfull \hbox (28.69221pt too wide) in paragraph at lines 76--80
+[][]\OT1/pcr/m/n/10 builder = <string>\OT1/ppl/m/n/10 : the string is added as 
+a tag to the list of sub-parser re-sults. []\OT1/pcr/m/n/10 builder = "foobar"
+ []
+
+[27]
+Overfull \hbox (12.38098pt too wide) in paragraph at lines 153--159
+\OT1/ppl/m/n/10 se-lected parser's re-sult is sim-ply re-turned. It can be up-d
+ated at any-time with []\OT1/pcr/m/n/10 x.builder = <newval>\OT1/ppl/m/n/10 . 
+ []
+
+
+Overfull \hbox (28.69221pt too wide) in paragraph at lines 159--163
+[][]\OT1/pcr/m/n/10 builder = <string>\OT1/ppl/m/n/10 : the string is added as 
+a tag to the list of sub-parser re-sults. []\OT1/pcr/m/n/10 builder = "foobar"
+ []
+
+[28] [29]
+Overfull \hbox (32.44073pt too wide) in paragraph at lines 277--283
+\OT1/ppl/m/n/10 the list of sub-parser re-sults is sim-ply re-turned. It can be
+ up-dated at any-time with []\OT1/pcr/m/n/10 x.builder = <newval>\OT1/ppl/m/n/1
+0 . 
+ []
+
+
+Overfull \hbox (28.69221pt too wide) in paragraph at lines 284--288
+[][]\OT1/pcr/m/n/10 builder = <string>\OT1/ppl/m/n/10 : the string is added as 
+a tag to the list of sub-parser re-sults. []\OT1/pcr/m/n/10 builder = "foobar"
+ []
+
+[30] [31] [32]) [33]
+\openout2 = `mlp-ref.aux'.
+
+ (./mlp-ref.tex
+Underfull \hbox (badness 2426) in paragraph at lines 33--33
+\OT1/ppl/m/n/10 ments' open-ning paren-the-sis to the fi-nal
+ []
+
+
+Underfull \hbox (badness 1642) in paragraph at lines 33--33
+\OT1/pcr/m/n/10 end\OT1/ppl/m/n/10 , but ex-clud-ing the ini-tial \OT1/pcr/m/n/
+10 function
+ []
+
+
+Underfull \hbox (badness 4805) in paragraph at lines 33--33
+\OT1/ppl/m/n/10 key-word, so that it can be used both
+ []
+
+
+Underfull \hbox (badness 2922) in paragraph at lines 33--33
+\OT1/ppl/m/n/10 for anony-mous func-tions, for \OT1/pcr/m/n/10 function
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 33--33
+\OT1/pcr/m/n/10 some[]name(...) end \OT1/ppl/m/n/10 and for \OT1/pcr/m/n/10 loc
+al
+ []
+
+
+Underfull \hbox (badness 1147) in paragraph at lines 65--65
+[]\OT1/ppl/m/n/10 Try to read an iden-ti-fier, or an iden-ti-fier
+ []
+
+
+Underfull \hbox (badness 4279) in paragraph at lines 78--78
+[]\OT1/ppl/m/n/10 Read a se-quence of state-ments, op-tion-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 78--78
+\OT1/ppl/m/n/10 ally sep-a-rated by semi-colons. When
+ []
+
+
+Underfull \hbox (badness 4805) in paragraph at lines 78--78
+\OT1/ppl/m/n/10 in-tro-duc-ing syn-tax ex-ten-sions, it's of-ten
+ []
+
+
+Underfull \hbox (badness 2591) in paragraph at lines 78--78
+\OT1/ppl/m/n/10 nec-es-sary to add block ter-mi-na-tors with
+ []
+
+[34
+
+
+]) [35]
+\openout2 = `stdlib.aux'.
+
+ (./stdlib.tex
+Underfull \hbox (badness 10000) in paragraph at lines 12--13
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 17--18
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 22--23
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 29--30
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 34--35
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 39--40
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 43--44
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 51--52
+
+ []
+
+[36
+
+
+]
+Underfull \hbox (badness 10000) in paragraph at lines 61--62
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 66--67
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 70--71
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 80--81
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 106--107
+
+ []
+
+
+Overfull \hbox (0.674pt too wide) in paragraph at lines 111--113
+[]\OT1/ppl/m/n/10 For in-stance, \OT1/pcr/m/n/10 table.imap((|x,y|x+y), 2, \OMS
+/cmsy/m/n/10 f\OT1/pcr/m/n/10 "foo", 1, 2, 3\OMS/cmsy/m/n/10 g\OT1/pcr/m/n/10 ,
+ \OMS/cmsy/m/n/10 f\OT1/pcr/m/n/10 "bar", 10, 20, 30\OMS/cmsy/m/n/10 g\OT1/pcr/
+m/n/10 ) \OT1/ppl/m/n/10 will re-
+ []
+
+[37]
+Underfull \hbox (badness 10000) in paragraph at lines 114--115
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 128--129
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 135--136
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 140--141
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 145--146
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 155--156
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 160--161
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 165--166
+
+ []
+
+[38]
+Underfull \hbox (badness 10000) in paragraph at lines 171--172
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 177--178
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 182--183
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 191--192
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 202--203
+
+ []
+
+[39]) [40]
+\openout2 = `clopts-ref.aux'.
+
+ (./clopts-ref.tex) [41
+
+
+]
+\openout2 = `springs-ref.aux'.
+
+ (./springs-ref.tex) [42
+
+
+]
+\openout2 = `walk-ref.aux'.
+
+ (./walk-ref.tex
+[43
+
+
+] [44]
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 217--217
+[]\OT1/pcr/m/n/10 -------------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 217--217
+[]\OT1/pcr/m/n/10 -------------------------------------------------------------
+-------------------[] 
+ []
+
+[45]
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 243--243
+[]      \OT1/pcr/m/n/10 | `Id{ name } -> if not scope.current[name] then freeva
+rs[name] = true end[] 
+ []
+
+[46]
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 278--278
+[]   \OT1/pcr/m/n/10 ----------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 278--278
+[]   \OT1/pcr/m/n/10 ----------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 355--355
+[]   \OT1/pcr/m/n/10 ----------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 355--355
+[]   \OT1/pcr/m/n/10 ----------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 355--355
+[]      \OT1/pcr/m/n/10 | `Id{ name } -> if not scope.current[name] then freeva
+rs[name] = true end[] 
+ []
+
+[47]
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 355--355
+[]   \OT1/pcr/m/n/10 ----------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 355--355
+[]   \OT1/pcr/m/n/10 ----------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 355--355
+[]   \OT1/pcr/m/n/10 ----------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 355--355
+[]   \OT1/pcr/m/n/10 ----------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 355--355
+[]   \OT1/pcr/m/n/10 ----------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 355--355
+[]   \OT1/pcr/m/n/10 ----------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 355--355
+[]   \OT1/pcr/m/n/10 ----------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 355--355
+[]   \OT1/pcr/m/n/10 ----------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 385--385
+[]   \OT1/pcr/m/n/10 ----------------------------------------------------------
+-------------------[] 
+ []
+
+[48]
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 385--385
+[]   \OT1/pcr/m/n/10 ----------------------------------------------------------
+-------------------[] 
+ []
+
+[49]
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 490--490
+[]\OT1/pcr/m/n/10 -------------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 490--490
+[]\OT1/pcr/m/n/10 -------------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 490--490
+[]\OT1/pcr/m/n/10 -------------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 490--490
+[]\OT1/pcr/m/n/10 -------------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 490--490
+[]\OT1/pcr/m/n/10 -------------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 490--490
+[]\OT1/pcr/m/n/10 -------------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 490--490
+[]\OT1/pcr/m/n/10 -------------------------------------------------------------
+-------------------[] 
+ []
+
+
+Overfull \hbox (10.24498pt too wide) in paragraph at lines 490--490
+[]\OT1/pcr/m/n/10 -------------------------------------------------------------
+-------------------[] 
+ []
+
+[50]) [51] [52
+
+
+]
+Chapter 2.
+[53]
+\openout2 = `match-ref.aux'.
+
+ (./match-ref.tex
+Overfull \hbox (16.25949pt too wide) in paragraph at lines 2--7
+\OT1/ppl/m/n/10 tasks. There is a pat-tern match-ing ex-ten-sion for met-alua, 
+which is ex-tremely use-ful for most meta-programming
+ []
+
+[54
+
+] [55]) [56]
+\openout2 = `dollar-ref.aux'.
+
+ (./dollar-ref.tex) [57
+
+
+]
+\openout2 = `clist-ref.aux'.
+
+ (./clist-ref.tex [58
+
+
+]) [59]
+\openout2 = `hygiene-ref.aux'.
+
+
+(./hygiene-ref.tex) [60
+
+
+]
+\openout2 = `samples.aux'.
+
+ (./samples.tex) [61
+
+
+]
+\openout2 = `sample-exception.aux'.
+
+ (./sample-exception.tex
+Overfull \hbox (7.86198pt too wide) in paragraph at lines 51--58
+[]\OT1/ppl/m/n/10 We use \OT1/pcr/m/n/10 gg.sequence \OT1/ppl/m/n/10 to chain t
+he var-i-ous parsers; \OT1/pcr/m/n/10 gg.optkeyword \OT1/ppl/m/n/10 lets us al-
+low the op-tional ``\OT1/pcr/m/n/10 |\OT1/ppl/m/n/10 ''; \OT1/pcr/m/n/10 gg.lis
+t
+ []
+
+[62
+
+
+] [63]
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [64]
+[65] [66]) [67]
+\openout2 = `sample-match.aux'.
+
+ (./sample-match.tex [68
+
+
+]
+Overfull \hbox (9.28348pt too wide) in paragraph at lines 166--166
+[]  \OT1/pcr/m/n/10 if type(v2) == "string" then[] 
+ []
+
+
+Overfull \hbox (27.28348pt too wide) in paragraph at lines 166--166
+[]     \OT1/pcr/m/n/10 if type(v2) == "number" then[] 
+ []
+
+
+Overfull \hbox (39.28348pt too wide) in paragraph at lines 166--166
+[]        \OT1/pcr/m/n/10 if type(v2) == "table" then[] 
+ []
+
+
+Overfull \hbox (57.28348pt too wide) in paragraph at lines 166--166
+[]          \OT1/pcr/m/n/10 if type(v3) == "number" then[] 
+ []
+
+
+Overfull \hbox (3.28348pt too wide) in paragraph at lines 166--166
+[]            \OT1/pcr/m/n/10 if v2 ~= nil then[] 
+ []
+
+
+Overfull \hbox (69.28348pt too wide) in paragraph at lines 166--166
+[]             \OT1/pcr/m/n/10 if type(v2) == "table" then[] 
+ []
+
+
+Overfull \hbox (15.28348pt too wide) in paragraph at lines 166--166
+[]              \OT1/pcr/m/n/10 if v3 ~= nil then[] 
+ []
+
+
+Overfull \hbox (3.28348pt too wide) in paragraph at lines 166--166
+[]               \OT1/pcr/m/n/10 let v2 = v1[4][] 
+ []
+
+
+Overfull \hbox (21.28348pt too wide) in paragraph at lines 166--166
+[]               \OT1/pcr/m/n/10 if v2 ~= nil then[] 
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 104--169
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 104--169
+
+ []
+
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [69]
+[70] [71]
+Overfull \hbox (17.15016pt too wide) in paragraph at lines 279--284
+[]\OT1/ppl/m/n/10 To fully un-der-stand this func-tion, one must re-mem-ber tha
+t test op-er-a-tions are trans-lated into \OT1/pcr/m/n/10 `Op\OMS/cmsy/m/n/10 f
+ \OT1/pcr/m/n/10 <opname>,
+ []
+
+[72] [73]
+Overfull \hbox (1.022pt too wide) in paragraph at lines 426--428
+[]\OT1/ppl/m/n/10 The code of the ba-sic ver-sion, as pre-sented here, is avail
+-able at $\OT1/pcr/m/n/10 http : / / metalua . luaforge . net / FIXME$\OT1/ppl/
+m/n/10 . 
+ []
+
+[74] [75] [76]) [77]
+\openout2 = `src-hints.aux'.
+
+ (./src-hints.tex [78
+
+
+]
+Overfull \hbox (2.09998pt too wide) in paragraph at lines 80--85
+[]\OT1/ppl/b/n/10 mlp[]expr.lua \OT1/ppl/m/n/10 parses ex-pres-sions, ex-cept l
+it-eral ta-bles and quotes. It in-cludes other con-stants (booleans,
+ []
+
+) [79] [80]
+\openout2 = `ast.aux'.
+
+ (./ast.tex) [81
+
+
+] (./metalua-manual.aux (./intro.aux)
+(./syntax-ext.aux) (./data.aux) (./meta.aux) (./gg-ref.aux) (./mlp-ref.aux)
+(./stdlib.aux) (./clopts-ref.aux) (./springs-ref.aux) (./walk-ref.aux)
+(./match-ref.aux) (./dollar-ref.aux) (./clist-ref.aux) (./hygiene-ref.aux)
+(./samples.aux) (./sample-exception.aux) (./sample-match.aux) (./src-hints.aux)
+(./ast.aux)) ) 
+Here is how much of TeX's memory you used:
+ 802 strings out of 94500
+ 9581 string characters out of 1176115
+ 60737 words of memory out of 1000000
+ 3857 multiletter control sequences out of 10000+50000
+ 24604 words of font info for 62 fonts, out of 500000 for 2000
+ 580 hyphenation exceptions out of 1000
+ 34i,11n,43p,209b,372s stack positions out of 1500i,500n,5000p,200000b,5000s
+PDF statistics:
+ 299 PDF objects out of 300000
+ 0 named destinations out of 131072
+ 1 words of extra memory for PDF output out of 65536
+</sw/share/texmf-dist/fonts/type1/bluesky/cm/cmr7.pfb></sw/share/
+texmf-dist/fonts/type1/bluesky/cm/cmsy7.pfb></sw/share/texmf-dist/fonts/type1/b
+luesky/cm/cmex10.pfb>{/sw/share/texmf-dist/fonts/enc/dvips/psnfss/8r.enc}</sw/s
+hare/texmf-dist/fonts/type1/urw/palatino/uplbi8a.pfb></sw/share/texmf-dist/font
+s/type1/bluesky/cm/cmsy8.pfb></sw/share/texmf-dist/fonts/type1/bluesky/cm/cmr10
+.pfb></sw/share/texmf-dist/fonts/type1/bluesky/cm/cmmi7.pfb></sw/share/texmf-di
+st/fonts/type1/bluesky/cm/cmmi10.pfb></sw/share/texmf-dist/fonts/type1/urw/pala
+tino/uplri8a.pfb></sw/share/texmf-dist/fonts/type1/urw/palatino/uplr8a.pfb></sw
+/share/texmf-dist/fonts/type1/urw/courier/ucrr8a.pfb></sw/share/texmf-dist/font
+s/type1/bluesky/cm/cmsy10.pfb></sw/share/texmf-dist/fonts/type1/urw/palatino/up
+lb8a.pfb></sw/share/texmf-dist/fonts/type1/urw/palatino/uplr8a.pfb>
+Output written on metalua-manual.pdf (81 pages, 321896 bytes).

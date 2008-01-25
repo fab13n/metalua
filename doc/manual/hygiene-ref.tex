@@ -1,0 +1,50 @@
+\section{Library {\tt H}: hygienic macros}
+
+A common problem with meta-programming tools is variable capture, and the art of
+automatically avoiding capture is called hygiene. the {\tt H} library
+automates as much as possible the handling of hygiene.
+
+\paragraph{Two kinds of captures}
+There are two kind of captures, inside a macro and outside a macro. People often
+think about inside captures, in parts because the C preprocessor is subject to
+it. It happens when a macro inserts user code in a quote, and the quote declares
+a local variable that shadows a user one:
+
+\begin{verbatim}
+-{ block:
+   require 'dollar'
+   function mlp.macros.TRICOND(cond, iftrue, iffalse)
+      local code = +{ block:
+         local tmp, result
+         tmp = -{cond}
+         if tmp then result = -{iftrue} 
+         else result = -{iffalse} end }
+      return `Stat{ code, +{result} }
+   end }
+
+local tmp = 5
+local foo = $TRICOND(tmp%2==0, "even", "odd")
+\end{verbatim}
+
+Here, the \verb|tmp| local variable used in the macro code captures the user's
+one, and cause a failure (an attempt to get the modulus of \verb|nil|). This is
+fixed by renaming automatically all macro variables into unique names; you only
+need to mark user code, so that the variables in it are left alone. 
+
+\begin{verbatim}
+-{ block:
+   require 'dollar'
+   function mlp.macros.TRICOND(cond, iftrue, iffalse)
+      local code = +{ block:
+         local tmp, result
+         tmp = -{!cond}
+         if tmp then result = -{!iftrue} 
+         else result = -{!iffalse} end }
+      return H{side='inside'}`Stat{ code, +{result} }
+   end }
+
+local tmp = 5
+local foo = $TRICOND(tmp%2==0, "even", "odd")
+\end{verbatim}
+
+Boundaries
