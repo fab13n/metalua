@@ -260,6 +260,7 @@ end
 -- Tries to guess the type of the AST then choose the right walkker.
 ----------------------------------------------------------------------
 function walk.guess (cfg, x, ...)
+   assert(type(x)=='table', "arg #2 in a walker must be an AST")
    if walk.tags.expr[x.tag] then return walk.expr(cfg, x, ...)  end
    if walk.tags.stat[x.tag] then return walk.stat(cfg, x, ...)  end
    if not x.tag             then return walk.block(cfg, x, ...) end

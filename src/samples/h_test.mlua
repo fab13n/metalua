@@ -1,7 +1,7 @@
 -{ extension 'log' }
+-{ extension  'H'  }
 
 require 'metalua.compiler'
-require 'H'
 
 --assert (+{foo}.quote, "no q!?")
 
@@ -31,10 +31,10 @@ TEST_CASES = {
   {  "print shouldn't be renamed the 2nd and 3rd time",
      +{ block:
         print(i)
-        -{`Call{`Id 'print', `String 'hi' } } 
+        -{!`Call{`Id 'print', `String 'hi' } } 
         -- Bugger. I don't detect any non-quoted element , so 
         -- the -{+{ }} thingie won't protect from capture.
-        -{+{print 'hi'}} },
+        -{!+{print 'hi'}} },
      { } },
  
   {  "print shouldn't be renamed at all",
@@ -60,7 +60,7 @@ for case in values(TEST_CASES) do
    print (comment)
    print ("BEFORE PARSING:")
    $log (ast, 50, 'nohash')
-   local _, alpha = H (cfg, ast)
+   local _, alpha = H(cfg)(ast)
    print ("AFTER PARSING:")
    $log (ast, alpha, cfg.alpha, 50, 'nohash')
 end

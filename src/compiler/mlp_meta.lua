@@ -68,7 +68,7 @@ function quote (t)
    local cases = { }
    function cases.table (t)
       local mt = { tag = "Table" }
-      _G.table.insert (mt, { tag = "Pair", quote "quote", { tag = "True" } })
+      --_G.table.insert (mt, { tag = "Pair", quote "quote", { tag = "True" } })
       if t.tag == "Splice" then
          assert (#t==1, "Invalid splice")
          local sp = t[1]
