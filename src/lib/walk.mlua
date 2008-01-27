@@ -181,6 +181,8 @@ function walk.traverse.stat (cfg, x, ...)
                                     if #x%2 == 1 then B(x[#x]) end
    | `Call{...}|`Invoke{...}|`Return{...} -> EL(x)
    | `Break | `Goto{ _ } | `Label{ _ }    -> -- nothing
+   | {...} if walk.tags.stat[x.tag]-> 
+      printf("Warning: walk: malformed %s stat node: %s", x.tag, table.tostring(x,80))
    | {...} -> print("Warning: walk: unknown stat node: "..table.tostring(x,80))
    | _     -> print("Warning: walk: unexpected stat node of type "..type(x)
                     ..": "..table.tostring(x,80))
@@ -208,6 +210,8 @@ function walk.traverse.expr (cfg, x, ...)
          | v            -> E(v)
       end end
    |`Nil|`Dots|`True|`False|`Number{_}|`String{_}|`Id{_} -> -- nothing 
+   | {...} if walk.tags.expr[x.tag]-> 
+      printf("Warning: walk: malformed %s expr node: %s", x.tag, table.tostring(x,80))
    | {...} -> print("Warning: walk: unknown expr node: "..table.tostring(x,80))
    | _     -> print("Warning: walk: unexpected expr node of type "..type(x)
                     ..": "..table.tostring(x,80))
