@@ -1,11 +1,13 @@
 require 'walk.id'
-
--{ extension 'log' }
+-{extension 'log'}
 
 mlp.expr.prefix:add{ '!', prec = 5,
    builder = function(_,x)
                 local v = mlp.gensym()
-                return `Stat{ +{block: local -{v} = -{x}; (-{v}).h_boundary=true }, v }
+                return `Stat{ +{ block: 
+                                 local -{v} = -{x};
+                                 (-{v}).h_boundary=true }, 
+                              v }
              end }
 
 mlp.stat:add{ '!', mlp.expr, builder = |x| +{stat: (-{x}).h_boundary=true } }

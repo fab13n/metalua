@@ -48,21 +48,22 @@ TEST_CASES = {
      +{ block: 
         print (x, y) },
      {  alpha = +{stat: local RENAMED_PRINT = print}, 
-        keep  = {y = true} } } }
+        keep  = {y = true} } } } 
  
 --   { +{ block: -- 
 --         },
 --     { } },
 
-for case in values(TEST_CASES) do
+for case in ivalues(TEST_CASES) do
    local comment, ast, cfg = unpack(case)
    print ('\n'..'-':rep(70))
    print (comment)
-   print ("BEFORE PARSING:")
-   $log (ast, 50, 'nohash')
-   local _, alpha = H(cfg)(ast)
-   print ("AFTER PARSING:")
-   $log (ast, alpha, cfg.alpha, 50, 'nohash')
+   if cfg then H:set(cfg) end
+   print ("\nBEFORE PARSING:")
+   $log (ast, H, 50)
+   H(ast)
+   print ("\nAFTER PARSING:")
+   $log (ast, H, 50)
 end
 
 print ('\n'..'=':rep(70))
