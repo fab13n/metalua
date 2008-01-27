@@ -175,12 +175,17 @@ function table.range(a,b,c)
 end
 
 function table.tostring(t, ...)
-   local LINE_MAX, PRINT_HASH = math.huge, true
+   local PRINT_HASH, LINE_MAX, INITIAL_INDENT = true
    for _, x in ipairs {...} do
-      if type(x) == "number" then LINE_MAX = x
+      if type(x) == "number" then
+         if not LINE_MAX then LINE_MAX = x
+         else INITIAL_INDENT = x end
       elseif x=="nohash" then PRINT_HASH = false
       end
    end
+   LINE_MAX       = LINE_MAX or math.huge
+   INITIAL_INDENT = INITIAL_INDENT or 1
+
    
    local current_offset =  0  -- indentation level
    local xlen_cache     = { } -- cached results for xlen()
@@ -354,7 +359,8 @@ function table.tostring(t, ...)
       local y = x[type(adt)]
       if y then y() else acc(tostring(adt)) end
    end
-   rec(t, 0, { }, { })
+   --printf("INITIAL_INDENT = %i", INITIAL_INDENT)
+   rec(t, INITIAL_INDENT, { }, { })
    return table.concat (acc_list)
 end
 

@@ -274,13 +274,14 @@ function multisequence (p)
          printf("*** Warning: trying to delete sequence starting "..
                 "with %q from a multisequence having no such "..
                 "entry ***", kw) end
+      local removed = self.sequences[kw]
       self.sequences[kw] = nil 
+      return removed
    end
 
-   -------------------------------------------------------------------
-   -- Get the sequence starting with this keyword. [kw :: string]
-   -------------------------------------------------------------------
+   -- DEPRECATED
    function p:remove (kw) 
+      print "WARNING, YOU'RE USING THE DEPRECATED METHOD MULTISEQUENCE:REMOVE"
       local x = self.sequences[kw]
       self.sequences[kw] = nil 
       return x

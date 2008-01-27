@@ -115,7 +115,7 @@ local gensymidx = 0
 
 function gensym (arg)
    gensymidx = gensymidx + 1
-   return { tag="Id", _G.string.format("$%i$%s", gensymidx, arg or "")}
+   return { tag="Id", _G.string.format(".%i.%s", gensymidx, arg or "")}
 end
 
 --------------------------------------------------------------------------------
