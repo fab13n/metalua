@@ -3,13 +3,13 @@
 
 -{ extension 'match' }
 
-mlp.macros = rawget(mlp, 'macros') or { }
+dollar = rawget(getfenv(), 'dollar') or { }
 
 local function dollar_builder(call)
    match call with
-   | `Call{ `Id{name}, ... } -> return mlp.macros[name](select(2, unpack(call)))
+   | `Call{ `Id{name}, ... } -> return dollar[name](select(2, unpack(call)))
    | `Id{name} -> 
-      local m = mlp.macros[name]
+      local m = dollar[name]
       match type(m) with
       | 'function' -> return m()
       | 'table'    -> return m
