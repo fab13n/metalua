@@ -1,5 +1,27 @@
 -{ extension 'match' }
 
+--------------------------------------------------------------------------------
+--
+-- TODO:
+--
+-- * give a more lua-like syntax:
+--   > try ... (catch expr then block)* (finally block)? end
+--
+-- * create an RAII-like feature, possibly in a separate extension:
+--   > with v1, v2, ... = rsc1, rsc2, ... do block end ==>
+--   > try local v1 = rsc1
+--   >    try v2 = rsc2
+--   >       ...
+--   >    finally v2:close()
+--   > finally v1:close() end
+--
+-- * match.mlua refactoring: there are many other places where it
+--   should be usable (fancy assignments...), if it were cut in
+--   smaller, more usable functions. They should probably go in a
+--   separate module.
+--
+--------------------------------------------------------------------------------
+
 -- Get match parsers and builder, for catch cases handling:
 require 'extension-compiler.match' 
 
