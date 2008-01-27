@@ -1,4 +1,8 @@
 \subsection{Structural pattern matching}
+
+FIXME: refer to the official match extension instead of re-explaining
+what pattern matching is about.
+
 \subsubsection{Basic principles}
 In many languages, including Lua, ``pattern matching'' generally
 refers to the ability to:
@@ -69,7 +73,8 @@ variables and numbers; we will also consider that we have a
 \verb|binopfuncs| which associate an operator name with the corresponding
 function. The evaluator would be written:
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 function eval(t)
    match t with
    | `Op{ op, a, b } -> return binopfuncs[op](eval(a), eval(b))
@@ -77,7 +82,7 @@ function eval(t)
    | `Variable{ v }  -> return values[v]
    end
 end
-\end{verbatim}
+\end{Verbatim}
 
 \subsubsection{Pattern compilation}
 
@@ -95,14 +100,16 @@ A pattern in a case will translate into:
 
 For instance, consider the following pattern:
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 { tag = "Foo", 10, { 20 }, { x = a }, b }
-\end{verbatim}
+\end{Verbatim}
 
 It corresponds to the series of tests and assignments on the left:
 
 \begin{minipage}{6cm}
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 let v1 = <tested_term>
 type(v1) == "table"
 let v2 = v1.tag
@@ -131,10 +138,11 @@ v2 ~= nil
 local b = v2
 
 
-\end{verbatim}
+\end{Verbatim}
 \end{minipage}
 \begin{minipage}{6cm}
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 let v1 = tested_term
 if type(v1) == "table" then
  let v2 = v1.tag
@@ -163,7 +171,7 @@ if type(v1) == "table" then
                 local b = v2
                 <inner_term>
 end ... end -- (16 times)
-\end{verbatim}
+\end{Verbatim}
 \end{minipage}
 ~\\~\\
 
@@ -182,7 +190,8 @@ collapsed into the single compound statement above on the right.
 This is done by a \verb|parse_pattern()| function, which does just what
 is described in the bullet list above:
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
       -------------------------------------------------------------------
       -- Turn a pattern into a list of conditions and assignations,
       -- stored into [acc]. [n] is the depth of the subpattern into the
@@ -212,7 +221,7 @@ is described in the bullet list above:
          else error "Invalid pattern type" end
       end
       -------------------------------------------------------------------
-\end{verbatim}
+\end{Verbatim}
 
 This function relies on the following helper functions:
 \begin{itemize}
@@ -246,7 +255,8 @@ speaking, working with trees, including AST, involves a lot of
 recursive functions). \verb|acc| is the list filled by the
 \verb|accumulate()| function:
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
       -------------------------------------------------------------------
       -- Turn a list of tests and assignations into [acc] into a
       -- single term of nested conditionals and assignments.
@@ -274,7 +284,7 @@ recursive functions). \verb|acc| is the list filled by the
             return { it, unpack (inside) }
          end
       end
-\end{verbatim}
+\end{Verbatim}
 
 To fully understand this function, one must remember that test
 operations are translated into {\tt`Op\{ <opname>, <arg1>, <arg2>\}}
@@ -299,18 +309,20 @@ will jump just after the last case. Then, we will add a
 finish with a ``\verb|return|'', so that other cases are skipped upon
 successful matching. To sum up, we will translate this:
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 match <foo> with
 | <pattern_1> -> <x1>
 | <pattern_2> -> <x2>
   ...
 | <pattern_n> -> <xn>
 end
-\end{verbatim}
+\end{Verbatim}
 
 \noindent into this:
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 repeat
   local v1, v2, ... vx -- variables used to store subpatterns
   let v1 = <tested_term>
@@ -319,12 +331,13 @@ repeat
   ...
   if <compilation of pattern_n> ... then xn; break end
 until true
-\end{verbatim}
+\end{Verbatim}
 
 First, we add final \verb|break| statements where required, and we
 compile all (pattern, block) pairs:
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
       -------------------------------------------------------------------
       -- parse all [pattern ==> block] pairs. Result goes in [body].
       -------------------------------------------------------------------
@@ -340,11 +353,12 @@ compile all (pattern, block) pairs:
          local compiled_case = collapse (1, case[2])
          for _, x in ipairs (compiled_case) do table.insert (body, x) end
       end
-\end{verbatim}
+\end{Verbatim}
 
 \noindent Then, we can just splice it into the appropriate quote:
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
       -------------------------------------------------------------------
       local local_vars = { }
       for i = 1, max_n do table.insert (local_vars, var(i))  end
@@ -361,7 +375,7 @@ compile all (pattern, block) pairs:
          until true }
       return result
       -------------------------------------------------------------------
-\end{verbatim}
+\end{Verbatim}
 
 There is one point to notice in this quote: \verb|body| is used where
 a statement is expected, although it contains a {\em list} if
@@ -376,14 +390,15 @@ To use this, we provide a syntax inspired by OCaml\footnote{It is
   actually the same syntax as OCaml's, except that we introduced an
   explicit {\tt end} terminator, to stay homogeneous with Lua.}: 
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 match <foo> with
   <pattern> -> block
 | <pattern> -> block
   ...
 | <pattern> -> block
 end
-\end{verbatim}
+\end{Verbatim}
 
 For this, we need to declare new keywords \verb|match|,
 \verb|with| and \verb|->|. Then, we build the (pattern, block) parser
@@ -392,7 +407,8 @@ with \verb|gg.sequence{ }|, and read a list of them, separated with
 optional ``\verb+|+'' before the first case, so that all cases line up
 nicely:
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 ----------------------------------------------------------------------
 mlp.lexer:add{ "match", "with", "->" }
 
@@ -403,16 +419,17 @@ mlp.stat:add{ "match", mlp.expr, "with", gg.optkeyword "|",
               "end",
               builder = |x| match_parser (x[1], x[3]) }
 ----------------------------------------------------------------------
-\end{verbatim}
+\end{Verbatim}
 
 \noindent Now, if you try this\ldots\ it won't work! Indeed, Metalua
 needs to know what keywords might terminate a block of statements. In
 this case, it doesn't know that ``\verb+|+'' can terminate a block. We
 need therefore to add the following statement:
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 mlp.block.terminators:add "|"
-\end{verbatim}
+\end{Verbatim}
 
 \noindent Finally that's it, we have implemented a working pattern
 matching system in 75 lines of code!
@@ -467,13 +484,14 @@ elements. However, if the last element of the pattern is {\tt`Dots}
 It is sometimes desirable to add arbitrary conditions for a pattern to
 match, conditions which might no be expressed by a pattern. OCaml
 allows to add them with a ``\verb|when|'' keyword:
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 match n with
 | 0               -> print "zero"
 | n when n%2 == 0 -> print "even number"
 | _               -> print "odd number"
 end
-\end{verbatim}
+\end{Verbatim}
 I'd advise you to prefer {\tt if} as a dedicated keyword, rather than
 {\tt when}: it's unambiguous in this context, and saves a keyword
 reservation. 
@@ -486,12 +504,13 @@ which allows to do both (Haskell calls it ``\verb|@|''). For instance,
 in the following example, any ADT whose tag is \verb|"RepeatMe"| will
 be replaced by two occurrences of itself, while others will remain
 unchanged:
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 match something with
 | `RepeatMe{ ... } as r -> { r, r }
 | x -> x
 end
-\end{verbatim}
+\end{Verbatim}
 ``\verb|as|'' will have to be declared as an infix operator, whose
 meaning will remain undefined in expressions which are not patterns.
 
@@ -510,13 +529,14 @@ We should check, when compiling a pattern, that it is left-linear,
 i.e. that variables don't appear more than once in the pattern. People
 might be tempted to write things like this to check whether a tree is
 symmetric:
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 match t with
 | `Tree{ x, x } -> print "Symmetric!"
 | `Tree{ x, y } -> print "Not symmetric"
 | `Leaf{ _ }    -> print "Symmetric!"
 end
-\end{verbatim}
+\end{Verbatim}
 However, this would work in Prolog but not with our pattern matching,
 as two occurences of the same variable in the pattern don't cause an
 equality test to be added. We should detect such non-linear variables,
@@ -578,12 +598,13 @@ list of patterns. All of these patterns have to bond the same
 variables, except for {\tt\_}. The first pattern in the list to match
 the tested term does the binding. Patterns are separated by
 ``\verb+|+''. Example:
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 match x with
 | 1 | 2 | 3 -> print(x)
 | n -> print "more than 3"
 end
-\end{verbatim}
+\end{Verbatim}
 (Hint: put the block in a local function. $2^{\mathrm{nd}}$ hint: sort
 bound variables, e.g. by lexicographic order. Or much simpler and
 more effective: convert your code generator to gotos+labels first).

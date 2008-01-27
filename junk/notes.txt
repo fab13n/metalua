@@ -6,6 +6,8 @@ languages, unstructured, out of date, generally unexploitable. Don't
 expect anything here to make sense.
 ====================================================================
 
+Readme fraft
+============
 This distribution of metalua tries to favor ease of install over
 saving a couple of kilobytes; therefore it directly embeds pieces of
 useful other free software rather than letting users fetch and
@@ -32,69 +34,6 @@ of) these open source projects:
 - bitlib for bitwise manipulations (especially useful for bytecode
   dumping)
 
-How to make it:
-1 - make lua compiler and VM
-2 - make bitlib and rings
-3 - compile metalua .lua files
-4 - compile metalua .c files
-
-
-modifications to mlc/mlr: 
-
-- when several files are compiled with mlc, each chunk receives the
-  command line arguments in '...'
-
-- luaL_loadfile() and luaL_loadstring() try to call
-  debug.getregistry().loadfile() and debug.getregistry().loadstring().
-  It affects Lua functions loadstring(), loadfile(), dostring(),
-  dofile(), require().
-
-steps:
-- take back std libs into metalua
-- take back compiler
-- put metalua compilation in separate rings
-- rework lexer: allow lexer subclassing, changing lexer dynamically in mlp
-- change AST
-- rework code generator with bitlib
-
-
-Functions to patch
-- pairs/ipairs
-- type/rawtype
-
-Comment gerer le bootstrap:
-- si ca foire, j'emets un warning mais je ne crashe pas
-- a la compil initiale, ca va pas le faire evidemment
-- je compile tous les fichiers de metalua en un seul package
-  mlc.luac
-
-
-au debut, je tente un "require 'base'"
-
-mon probleme: je voudrais eviter de charger metalua si je cherche
-juste a executer du bytecode. donc le chargement de mlc.lua se fait
-s'il y a une source a compiler, dans loadstring. Ici une variable
-booleenne statique peut faire gagner du temps, sans etre indispensable
-
-Au et puis merde, on s'en fout, si le bloc est precompile c'est
-vraiment pas la mer a boire
-
-Changing luac into mlc
-----------------------
-The first step is to patch luaL_loadfile() and luaL_loadstring(), so
-that they attempt to run a custom compiler provided in Lua. That
-compiler is taken from the registry's "loadfile" (respectively
-"loadstring") entry, which should be a function. If absent, we just
-fallback to the original compiler that comes with Lua. This takes
-little extra resources, and dramatically simplifies the bootstrapping
-process: you don't need some bytecode nor some external Lua
-distribution to compile metalua (Fixes happen in "lauxlib.c")
-
-There also are some extra options handled, -a to show the AST, -b to
-cause parsing failure to appear as Lua parser crashes (instead of
-trying to produce a sensible syntax error message: useful when your
-compile-time parts are buggy).
-
 The mlc module
 --------------
 This module contains all of the compilation stuff. The version
@@ -104,75 +43,20 @@ extension, so it isn't used in the code required for bootstrapping
 
 Libraries
 ---------
-
 The mechanism of metalua libraries is exactly the same as Lua's,
 except that the environment variable names ahve been changed to allow
 peaceful cohabitation with Lua.
 
-FIXME: il faut pouvoir verifier la presence, chargeable, d'une
-librairie sans reellement la charger. findfile() dans loadlib.c semble
-etre charge de ca. Avec ca, je peux verifier, dans extension(), si la
-lib runtime existe ou pas, et decider de l'inclure ou pas dans le
-code resultant.
-
-
-bootstrap: 
-==========
-le but c'est de compiler les bouts en pur lua pour faire un compilo
-minimaliste. Puis, l'utiliser pour generer le bytecode de la version
-complete. 
-
-Par ailleurs, je me melange entre le compilo basique et la lib. Le
-compilo doit s'appeler mlc tout court, et la lib mlc.luac.
-
-Autre approche: je laisse tomber le mlc en C, il est facile a
-implementer avec mlr. Il faut juste garder/exporter le combine().
-
 Etancheite:
 ===========
-Il faut s'assurer qu'il n'y a pas de fuites entre differents niveaux
-et differentes sessions de compil. Il faut donc:
-- repartir de zero a chaque compilation (chaque
-  luaL_load[file/string]()).
 - shell interactif:
   * separer les niveaux
   * permettre de monter/descendre d'un niveau avec des commandes
     dediees: "+:" et "-:"
-- 
-
-Call across stages:
-- on cree et garde in ring the compil pour chaque operation ML0:
-  * mlp.lexer.newstream() l.84
-  * mlp.chunk() l.93-95
-  
-mlc a un champ mlc.meta_ring, le ring dans lequel la CTMP se
-passe. Dans ce ring, il y a metalua.compiler charge. quand on splice,
-le mlc.function_of_ast() a lieu dans le meta_ring, ///
-
-plus simplement:
-- la compilation se fait dans un ring a part (metalua.mlua)
-- si plusieurs fichiers sont compiles, on change de ring a chaque
-  fois.
-- il peut y avoir un probleme avec l'acces au niveau -1, mais il faut
-  d'abord voir comment ca peut arriver
-
--{ extension 'match'
-   function mlp.macros.log(x)
-      match x with
-      | `Id{i} -> return +{printf("%s: %s"-{`String{i}}, table.tostring(-{x}))}
-      | `String{s} -> return +{print(-{s})}
-      end
-   end }
 
 Il faut faire la part entre la synthese de l'AST et l'evaluation. La
 synthese de l'AST est faite en amont de mlc.splice(). Apparemment, le
 lexer est commun a tout le monde... et mlp aussi.
-
-
-r = rings.new()
-r:dostring [[require 'metalua.compile']]
-ast = r:call ('mlc.ast_of_luafile', foo, bar)
-
 
 Hygiene:
 ========
@@ -244,90 +128,29 @@ engineering at its best :)
 
 Restent a faire:
 ================
-
-- choisir une structure definitive pour les librairies [X]
-
-- swap de lexers[X]
-
 - reflechir a l'addition automatique des mots-clef par les parsers qui
   vont bien. Peut-etre qu'ils sont attaches optionnellement a un lexer,
   et que cet attachement est transmis par defaut qd on insere un
   parser ds un autre
-
-- renommer x_quote/x_splice quote/splice [X]
-
-- ipairs/pairs/type -> rawipairs/rawpairs/type [X]
-
-- ajouter std au libs autochargees [X]
-
-- splitter std/table2/string2/package2 [X]
-
-- le $ pour les macros en standard [X]
-
-- extension: determiner s'il y a un runtime a la compil [X]
-
-- etancheite [X]
-
 - notation pour la generation auto de sous-tables
+- verifier le runtime error handling patch d'EVE
+- anaphoric macros should bind 'it' to a function when it appears directly in
+  it. it would allow anonymous recursive functions. However, anaphoric
+  structures tend to capture each other very fast; maybe Arc has insightful
+  ideas about this? (e.g. different captured names for function and other
+  structs)
 
-- Voir le compilo d'EVE
 
-Bugs connus:
-- require qui merde -> regle
+Bugs a verifier:
+================
 - reentrance de in_a_quote dans mlp_meta.lua
 - refuser les flags autres qu'expr dans les splices in_a_quote
-
-Variante d'organisation:
-========================
-
-On considere le compilo comme une librairie classique, et on compte
-des les depart sur la presence d'un tas de libs standard.
-
-
-revenir a une lib plus simple
-=============================
-Suite a discussion avec EVE, il vaut mieux distribuer metalua comme
-une lib que comme une VM patchee. Ca demande:
-
-- de patcher require proprement. Triturer un peu la table
-  package.loaders permettrait de faire ca correctement, en remplacant
-  l'entree Lua_loader.
-
-- dostring() dofile(), loadstring(), loadfile(). Je les refais en C,
-  do*() utilisant load*(). 
-
-Reste le probleme qu'en fait il y a 2 produits ds metalua: le CTMP
-compiler, et une baselib etendue. J'ai besoin au moins du 2nd au
-runtime, la plupart du temps. ==> Probleme: est-ce que je laisse les
-require() correspondants a la charge du developpeur? p/r a 0.3, au
-moins, il se rendra compte que ca manque grace a la separation des
-etats.
 
 il faudra encore fournir une boucle interactive, celle de lua n'est
 pas patchable. Idem pour le compilo.
 
-distro: il faudrait reunir tous les fichiers C (bitlib, pluto, rings,
-load) dans un binaire unique. Peut-etre precompiler les libs Lua de
-compil, et inclure le bytecode correspondant dans ce binaire. la lib
-compilo require la lib runtime, mais ne l'inclue pas.
-
-Propal de nom: metalua.runtime et metalua.compile (verifier les
-finasseries sur les namespaces de modules).
-
-autre probleme, les arguments '...' pour les scripts. Comme c'est
-combine() qui pose probleme, en le fixant c'est resolu.
-
-Comment lua fait pour distinguer les arguments des sources ? lua.exe
-ne charge qu'un script, le reste est passe en options. On peut avoir
-l'algo suivant:
-- les fichiers sont passes avec -s <name>
-- les trucs sans rien sont des parametres du script
-- sauf le 1er truc sans rien, qui est un fichier s'il n'y a pas eu de
-  -s avant
-- apres le premier truc sans rien ou --, tout est considere comme des
-  parametres. 
-
-Metalua executable manual
+metalua compiler/interpreter short usage manual
+===============================================
 
 Allows to compile and/or run metalua programs, and to use interactive
 loop.
@@ -348,8 +171,6 @@ metalua --compile foo.mlua
 if there is an --output, all run and compiled files will be saved in
 it.
 
-Think about "require'metalua.runtime'"
-
 - compile all files.
 - displays ASTs depending on --print-ast
 - run all files if --run
@@ -357,25 +178,8 @@ Think about "require'metalua.runtime'"
 - if no -a and no -o, -x is implied
 - if -x and no file, first param is a file
 
-Le ML du resultat, qu'il soit execute ou sauve, est toujours 1.
-Le niveau 0 est au besoin relance plusieurs fois, une par compile.
-
-
-soucis avec clopts: l'ordre peut etre important. en l'occurence,
-l'ordre relatif entre libs
-
-REMARQUE WALKER: est-ce qu'il faut que la gauche de Set soit traitee
-comme des expr?
-
-TODO: anaphoric macros should bind 'it' to a function when it appears
-directly in it. it would allow anonymous recursive functions.
-
-MERGE lie info EVE: files to merge:
-- compile.lua
-- gg.lua
-- lexer:next() (in lexer? mlp_lexer?)
-- lcode.lua
-- ldump: separer DumpDebug
+2nd attempt
+===========
 
 Compile and/or execute metalua programs. Parameters passed to the
 compiler should be prefixed with an option flag, hinting what must be
@@ -413,5 +217,31 @@ When does it launch an interactive loop?
 ----------------------------------------
 When --interactive is specified, or when no chunk is loaded.
 
+
+
+
+Macro hygiene
+=============
+
+alpha should go at the top of the chunk *where the quote is used*,
+which is generally not the same as where it's defined. Ideally, it
+should go where the extension using the quote is called. So what I
+really need is an improved 'extension' statement, which handles quotes
+anhoring.
+
+A serious problem is that most quotes are inside functions and
+therefore not always evaluated in the extension() call.
+
+Let's consider two instants:
+- when the QQ is formally created for compilation (1)
+- when it's returned by a function, presumably to be spliced (2)
+
+
+ If alpha-conv
+happens at QQ creation, then I lose the
+
+
+So, alpha
+conversion must happen at CT
 
 

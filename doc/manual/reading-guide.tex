@@ -1,0 +1,90 @@
+\section*{Reading guide}
+This manual tries to be as comprehensive as possible; however, you don't
+necessarily have to read all of it before starting to do interesting stuff with
+metalua. Here's a brief summary of what the different parts of the manual
+address, and why you might want to read them immediately---or not.
+
+\begin{itemize}
+\item{\bf Before reading this manual:} metalua is based on Lua, so
+  you'll need a minimal level of Lua proficiency. You can probably get
+  away without knowing much about metatables, environments or
+  coroutines, but you need to be at ease with basic flow control,
+  scoping rules, first-class functions, and the whole
+  everything-is-a-table approach.
+\item{\bf Meta-programming in metalua:} this chapter exposes the generic principles
+  of static meta-programming: meta-levels in sources, AST representation of
+  code, meta-operators. You need to read this carefully if you plan to write any
+  non-trivial meta-programming code and you've never used languages like, Common
+  Lisp, camlp4 or Converge. If you're familiar with one of these, a cursory look
+  over this chapter might be enough for you.
+\item{\bf Standard meta-programming libraries:} these are the tools that will allow
+  you to manipulate code effectively; the more advanced an extension you want to
+  write the more of these you'll want to know.
+  \begin{itemize}
+  \item{\bf mlp} is the dynamically extensible metalua parser. You need to know it
+    if you want to change or extend the language's syntax
+  \item{\bf gg} is the grammar generator, the library which lets you manipulate
+    dynamic parsers. You need to know it in order to do anything useful with
+    mlp.
+  \item{\bf match} is an extension supporting structural pattern matching (which has
+    almost nothing to do with regular expressions on strings). It's a construct
+    taken from the ML language familly, which lets you manipulate advanced data
+    structures in vrey powerful ways. It's extremely helpful, among others, when
+    working with AST, i.e. for most interesting meta-programs.
+  \item{\bf walk} is a code walker generator: smomething akin to a visitor pattern,
+    which will help you to write code analysers or transformers. Whenever you
+    want to find and transform all return statements in an AST, rename some
+    conflicting local variables, check for the presence of nested for loops
+    etc., you'll have to write a code walker, and walk will get you there much
+    faster. 
+  \item{\bf hygiene} offers hygienic macros, i.e. protects you from accidental
+    variable captures. As opposed to e.g. Scheme, macro writing is not limited
+    to a term rewriting system in metalua, which lets more power to the
+    programmer, but prevents from completely automating macro hygienization. If
+    you wrote an extension and you want to raise it to production-quality,
+    you'll need among others to protect its users from variable captures, and
+    you'll need to hygienize it. If you don't feel like cluttering your code
+    with dozens of {\tt gensym} calls, you'll want to use the macro hygienizer.
+  \item{\bf dollar:} if you wrote a macro, but don't feel the need to give it a
+    dedicated syntax extension, this library will let you call this macro as a
+    regular function call, except that it will be prefixed with a ``{\tt\$}''.
+  \end{itemize}
+  \item{\bf General purpose libraries:} Lua strives at staying minimalist, and does
+    not come with batteries included; you're expected to grab them separately,
+    currently from luaforge, and eventually from a Lua Rocks repository. Metalua
+    needs quite some support to run, and relies on a number of imported and
+    custom-built libraries. Most of them can be reused for many other purposes
+    including yours.\\
+    A whole category of metalua users, who want to use third party libraries
+    rather than reinventing their own wheels, will be primarily interested by
+    these.
+    \begin{itemize}
+    \item{\bf metalua.runtime:} extensions to Lua core libraries: base, table,
+      string.
+    \item{\bf metalua.compiler:} mlc offers a consistent interface to metalua
+      compilation and code representation transformers. 'package', 'loadstring',
+      'dostring', 'loadfile' and 'dofile' are also updated to handle metalua
+      source files.
+    \item{\bf clopts} simplifies and unifies the handling of command line options
+      for metalua programs.
+    \item{\bf springs} brings together Lua Ring's handling of separate Lua universes
+      with Pluto's communication capabilities.
+    \item{\bf clist} offers an extended tables-as-list interface: lists by
+      comprehension {\em \`a la} Haskell or Python, list chunks etc.
+    \item{\bf xglobal} makes global variables declaration mandatory, for safer
+      programming, with almost no runtime overhead, and a syntax consistant qith
+      local variables declaration.
+    \item{\bf anaphoric} introduces anaphoric control structures, akin to Common
+      Lisp's {\tt aif}-familly macros.
+    \item{\bf trycatch} provides a proper exception system, with reliable finally
+      blocks and exception catching by structural pattern matching.
+    \item{\bf log} eases the terminal logging of variables, mainly for those from
+      the Printf-based School of Debugging.
+    \item{\bf types} offers dynamic type checking to metalua programs. It supports
+      variable typing as opposed to value typing, and advanced type system
+      features (polymorphism, dependant types etc.).
+    \end{itemize}
+  \item{\bf Examples and tutorials}: this chapter lists a series of tiny
+    meta-programs whose main purpose is didactic, and walks through the detailed
+    implementation of a couple of non-trivial extensions.
+\end{itemize}

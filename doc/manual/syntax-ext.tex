@@ -1,4 +1,4 @@
-\section{Metalua syntax extensions over Lua}
+\section[Metalua extensions]{Metalua syntax extensions over Lua}
 Metalua is essentially Lua + code generation at compile time +
 extensible syntax. However, there are a couple of additional
 constructs, considered of general interest, which have been added to
@@ -10,20 +10,21 @@ functional style, where there are a lot of short anonymous functions
 simply returning an expression, the default syntax becomes
 cumbersome. Metalua being functional-styel friendly, it offers a
 terser idiom: ``{\tt function(arg1, arg2, argn) return some\_expr
-  end}'' can be written ``{\tt|arg1,arg2,argn| some\_exp}''.
+  end}'' can be written:\\
+``{\tt|arg1,arg2,argn| some\_exp}''.
 
 Notice that this notation is currying-friendly, i.e. one can easily
 write functions that return functions: ``{\tt function(x) return
 function(y) return x+y end end}'' is simply written ``{\tt|x||y|
 x+y}''.
 
-Lua functions can return several values, and metalua's lambda notation
-supports them as well, e.g. in {\tt |x,y| x+y, x*y}. This means that
-when a lambda is followed by a comma, you have to put parentheses
-around, as in ``{\tt map( (|x| x+1), some\_data)}''.
+Lua functions can return several values, but it appeared that
+supporting multiple return values in metalua's short lambda notation
+caused more harm than good. If you need multiple returns, use the
+traditional long syntax.
 
 Finally, it's perfectly legal to define a parameterless function, as
-in {\tt ||42}. This makes a convenient way to pass values around in a
+in {\tt | | 42}. This makes a convenient way to pass values around in a
 lazy way.
 
 \subsection{Functions as infix operators}

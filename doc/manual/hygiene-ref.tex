@@ -1,19 +1,48 @@
 \section{Library {\tt H}: hygienic macros}
 
-A common problem with meta-programming tools is variable capture, and the art of
-automatically avoiding capture is called hygiene. the {\tt H} library
-automates as much as possible the handling of hygiene.
+\paragraph{Warning} This hygienic macro system is quite new and
+experimental. Its API is likely to evolve over the next versions of
+metalua. Feedbacks are especially welcome.
 
-\paragraph{Two kinds of captures}
-There are two kind of captures, inside a macro and outside a macro. People often
-think about inside captures, in parts because the C preprocessor is subject to
-it. It happens when a macro inserts user code in a quote, and the quote declares
-a local variable that shadows a user one:
+A common problem with meta-programming tools is variable capture, and
+the art of automatically avoiding capture is called hygiene. the {\tt
+  H} library automates as much as possible the handling of hygiene.
+
+The design of H tries to respect metalua's core principles:
+\begin{itemize}
+\item Nothing taboo under the hood: the underlying mechanisms of the
+  language must remain simple enough to be intelligible to their
+  intended users. Black magic should be banned from the desing. This
+  rules out hygienic macros as a primitive: these either rely on very
+  advanced and hard to predict mechanisms, or severely limit the
+  manipulation tools available to the macro authors.
+\item Simple by default: advanced users should know what happens under
+  the hood, but more casual users should be able to simply turn the
+  ignition and drive. It should be possible to use H, for regular
+  macros, without much understanding of its advanced principles and
+  implementation.
+\item Everything's a regular program: again, most macro systems
+  offering hygiene limit macro manipulations to a term rewriting
+  framework, which might be Turing complete, but makes many advanced
+  stuff cumbersome to write. AST are regular data, which must be
+  manipulable by regular programs.
+\item Extension: metalua tries to offer the most extensible possible
+  language to its users. If the author of the language couldn't
+  implement a feature as a regular extension, it would probably
+  outline a severe limitation of the system.
+\end{itemize}
+
+\paragraph{Inside captures}
+There are two kind of captures, inside a macro and outside a
+macro. People often think about inside captures, in parts because the
+C preprocessor is subject to it. It happens when a macro inserts user
+code in a quote, and the quote declares a local variable that shadows
+a user one:
 
 \begin{verbatim}
 -{ block:
    require 'dollar'
-   function mlp.macros.TRICOND(cond, iftrue, iffalse)
+   function dollar.TRICOND(cond, iftrue, iffalse)
       local code = +{ block:
          local tmp, result
          tmp = -{cond}
@@ -26,25 +55,114 @@ local tmp = 5
 local foo = $TRICOND(tmp%2==0, "even", "odd")
 \end{verbatim}
 
-Here, the \verb|tmp| local variable used in the macro code captures the user's
-one, and cause a failure (an attempt to get the modulus of \verb|nil|). This is
-fixed by renaming automatically all macro variables into unique names; you only
-need to mark user code, so that the variables in it are left alone. 
+Here, the \verb|tmp| local variable used in the macro code captures
+the user's one, and cause a failure (an attempt to get the modulus of
+\verb|nil|). The expanded code looks like:
+\begin{Verbatim}
+local tmp = 5
+local foo = -{ `Stat{ +{ block:
+   local tmp, result
+   tmp = tmp%2==0
+   if tmp then result = "even"
+   else result = "odd" end
+}, +{result} } }
+\end{Verbatim}
+
+This is fixed by renaming automatically all local variables in the
+macro with fresh names. H provides an AST walker which does
+that. However, it needs to rename only macro code, not user-provided
+code; therefore the macro writer has to somehow mark the user
+code. This is done with the ``!'' prefix operator: sub-trees marked
+with ``!'' won't experience any renaming. The following version is
+therefore safe w.r.t. inside variable capture:
 
 \begin{verbatim}
 -{ block:
    require 'dollar'
-   function mlp.macros.TRICOND(cond, iftrue, iffalse)
+   function dollar.TRICOND(cond, iftrue, iffalse)
       local code = +{ block:
          local tmp, result
          tmp = -{!cond}
          if tmp then result = -{!iftrue} 
          else result = -{!iffalse} end }
-      return H{side='inside'}`Stat{ code, +{result} }
+      return H(`Stat{ code, +{result} })
    end }
 
 local tmp = 5
 local foo = $TRICOND(tmp%2==0, "even", "odd")
 \end{verbatim}
 
-Boundaries
+It expands to:
+
+\begin{Verbatim}
+local tmp = 5
+local foo = -{ `Stat{ +{ block:
+   local -{`Id '.1.L.tmp'}, -{`Id '.2.L.result'} -- new fresh names
+   -{`Id '.1.L.tmp'} = tmp%2==0 -- no capture!
+   if -{`Id '.1.L.tmp'} then -{`Id '.2.L.result'} = "even"
+   else -{`Id '.2.L.result'} = "odd" end
+}, `Id '.2.L.result' } }
+\end{Verbatim}
+
+\paragraph{Outside captures}
+We've seen that macros can capture the user's variables; but the
+opposite can also happen: the user can capture the variables required
+by a macro:
+
+\begin{Verbatim}
+-{ block:
+   require 'dollar'
+   dollar.log = |x| +{ printf("%s = %s", 
+                              -{table.tostring(x)}, 
+                              table.tostring(-{x})) } }
+local x = { 1, 2, 3 }
+\$log(x) -- prints "`Id 'x' = { 1, 2, 3 }"
+\end{Verbatim}
+
+This expands to:
+\begin{Verbatim}
+printf("%s = %s", "`Id 'x'", table.tostring(x))
+\end{Verbatim}
+
+Now, replace "x" with "table", and you get an outside capture: "local
+table = { 1, 2, 3 } shadows the table module from which the macro
+tries to get table.tostring().
+
+The most widespread language which supports non-hygienic macros,
+Common Lisp, deals with that issue by being a Lisp-2: it has separate
+namespaces for functions and ``normal'' variables. This happens to
+remove many common capture cases. 
+
+H fixes this by renaming the free variables in hygienized
+macros. After this, a "local new\_names = old\_names" statement is
+generated, which re-establishes the correspondance between
+names. Let's make the examples above hygienic:
+
+\begin{Verbatim}
+-{ block:
+   require 'dollar'
+   dollar.log = |x| H+{ printf("%s = %s", 
+                               -{!table.tostring(x)}, 
+                               table.tostring(-{!x})) } }
+local table = { 1, 2, 3 }
+\$log(table) -- prints "`Id 'table' = { 1, 2, 3 }"
+\end{Verbatim}
+
+The code above expands into:
+
+\begin{Verbatim}
+local table = { 1, 2, 3 }
+(-{`Id '.1.X.printf'}) ("%s = %s",
+                        "`Id 'table'",
+                        (-{`Id '.2.X.table'}.tostring(table)))
+\end{Verbatim}
+
+To make this work, we need to introduce, somewhere where no variable
+is captured, the following local statement:
+\begin{Verbatim}
+local -{`Id '.1.X.printf'}, -{`Id '.2.X.table'} = printf, table
+\end{Verbatim}
+
+The correct way would be to let the user decide where this statement
+should go.
+

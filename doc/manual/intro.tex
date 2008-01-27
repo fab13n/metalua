@@ -133,21 +133,22 @@ CTMP-enabled languages:
   cats\ldots
 
 \item Macro-systems bolted on existing languages (Template
-  Haskell\footnote{\url{http://}}, CamlP4\footnote{\url{http://}},
-  MetaML\footnote{\url{http://}}\ldots) tend to be hard to use: the
-  syntax and semantics of these target languages are complex, and make
-  macro writing much harder than necessary. Moreover, for some reason,
-  most of these projects target statically typed languages: although
-  static inference type systems {\`a la} Hindley-Milner are extremely
-  powerful tools in many contexts, my intuition is that static types
-  are more of a burden than a help for many macro-friendly problems.
+  Haskell\footnote{\url{http://www.haskell.org/th/}},
+  CamlP5\footnote{\url{http://pauillac.inria.fr/~ddr/camlp5/}},
+  MetaML\footnote{\url{http://www.cse.ogi.edu/pacsoft/projects/metaml}}\ldots)
+  tend to be hard to use: the syntax and semantics of these target languages are
+  complex, and make macro writing much harder than necessary. Moreover, for some
+  reason, most of these projects target statically typed languages: although
+  static inference type systems {\`a la} Hindley-Milner are extremely powerful
+  tools in many contexts, my intuition is that static types are more of a burden
+  than a help for many macro-friendly problems.
 
 \item Languages built from scratch, such as
-  converge\footnote{\url{http://}} or Logix\footnote{\url{http://}},
-  have to bear with the very long (often decade) maturing time
-  required for a programming language. Moreover, they lack the
-  existing libraries and developpers that come with a succesful
-  language.
+  converge\footnote{\url{http://convergepl.org}} or
+  Logix\footnote{\url{http://http://www.livelogix.net/logix/index.html}}, have
+  to bear with the very long (often decade) maturing time required by a
+  programming language. Moreover, they lack the existing libraries and
+  developpers that come with an already succesful language.
 
 \end{itemize}
 
@@ -184,3 +185,18 @@ design goals:
   should ensure that users know what they're doing, but it must
   provide them with all the power they're willing to handle.
 \end{itemize}
+
+Finally, it's difficult to talk about a macro-enabled language without making
+Lisp comparisons. Metalua borrows a lot to Scheme's love for empowering
+minimalism, through Lua. However, in many other respects, it's closer to Common
+Lisp: where Scheme insists on doing The Right Thing, CL and metalua assume that
+the programmer knows better than the compiler. Therefore, when a powerful but
+potentially dangerous feature is considered, metalua generally tries to warn the
+user that he's entering the twilight zone, but will let him proceed. The most
+prominent example is probably macro hygiene. Scheme pretty much constraints
+macro writing into a term rewriting system: it allows the compiler to enforce
+macro hygiene automatically, but is sometimes crippling when writing complex
+macros (although it is, of cource, Turing-complete). Metalua opts to offer CL
+style, non-hygienic macros, so that AST are regular data manipulated by regular
+code. Hygienic safety is provided by an {\em optional} library, which makes it
+easy but not mandatory to do hygienic macros.

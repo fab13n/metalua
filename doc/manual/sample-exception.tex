@@ -20,7 +20,8 @@ There are many variants of syntaxes for exceptions. I'll pick one
 inspired from OCaml, which you're welcome to dislike. And in case you
 dislike it, writing one which suits your taste is an excellent
 exercice. So, the syntax for exceptions will be something like:
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 try
    <protected block of statements>
 with
@@ -29,14 +30,15 @@ with
   ...
 | <exception_n> -> <block of statements handling exception n>
 end
-\end{verbatim}
+\end{Verbatim}
 
 Notice that OCaml lets you put an optional ``{\tt|}'' in front of the
 first exception case, just to make the whole list look more regular,
 and we'll accept it as well. Let's write a {\tt gg} grammar parsing
 this:
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 trywith_parser = 
    gg.sequence{ "try",  mlp.block,  "with",  gg.optkeyword "|",
                 gg.list{ gg.sequence{ mlp.expr,  "->",  mlp.block },
@@ -46,7 +48,7 @@ trywith_parser =
 mlp.stat:add(trywith_parser)
 mlp.lexer:add{ "try", "with", "->" }
 mlp.block.terminator:add{ "|", "with" }
-\end{verbatim}
+\end{Verbatim}
 
 We use {\tt gg.sequence} to chain the various parsers; {\tt
   gg.optkeyword} lets us allow the optional ``{\tt|}''; {\tt gg.list}
@@ -102,7 +104,8 @@ exception. Three exceptions are derived as an example, so that
 {\tt exception > exn\_invalid > exn\_nullarg} and {\tt exception >
   exn\_nomorecoffee}:
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 exception = { } ; exn_mt = { } 
 setmetatable (exception, exn_mt)
 
@@ -120,7 +123,7 @@ end
 exn_invalid     = exception:new()
 exn_nullarg     = exn_invalid:new()
 exn_nomorecofee = exception:new()
-\end{verbatim}
+\end{Verbatim}
 
 To compile a {\tt try/with} block, after having put the guarded block
 into a {\tt pcall()} we need to check whether an exception was raised,
@@ -130,14 +133,16 @@ genuine error which is not an exception at all), it must be rethrown.
 
 Notice that throwing an exception simply consists into sending it as
 an error:
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 throw = error
-\end{verbatim}
+\end{Verbatim}
 
 To fix the picture, here is some simple code using {\tt try/catch},
 followed by its translation:
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 -- Original code:
 try
    print(1)
@@ -151,9 +156,10 @@ with
 | exception       -> print "execution should never reach that far"
 end 
 print("done")
-\end{verbatim}
+\end{Verbatim}
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 -- Translated version:
 local status, exn = pcall (function ()
    print(1)
@@ -174,7 +180,7 @@ if not status then
    else error(exn) end
 end 
 print("done")
-\end{verbatim}
+\end{Verbatim}
 
 In this, the only nontrivial part is the sequence of {\tt
   if/then/elseif} tests at the end. If you check the doc about AST
@@ -183,7 +189,8 @@ code which looks like:
 
 \pagebreak
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 function trywith_builder(x)
    ---------------------------------------------------------
    -- Get the parts of the sequence:
@@ -216,7 +223,7 @@ function trywith_builder(x)
          -{ catchers }
       end }
 end
-\end{verbatim}
+\end{Verbatim}
 
 \subsubsection{Not getting lost between metalevels}
 This is the first non-trivial example we see, and it might require a
@@ -233,7 +240,8 @@ compile time), other parts must be included as regular code:
 
 The whole result in a single file would therefore look like:
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 -{ block:
    local trywith_builder = ...
    local trywith_parser  = ...
@@ -255,7 +263,7 @@ try
 with
 | ... -> ...
 end
-\end{verbatim}
+\end{Verbatim}
 
 Better yet, it should be organized into two files:
 \begin{itemize}
@@ -267,14 +275,15 @@ Better yet, it should be organized into two files:
 extension} function:
 \end{itemize}
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
+
 -{ extension "exn" }
 try
   ...
 with
 | ... -> ...
 ene
-\end{verbatim}
+\end{Verbatim}
 
 \subsubsection{shortcomings}
 This first attempt is full of bugs, shortcomings and other
@@ -310,14 +319,14 @@ in the exception, e.g. in its array part. finally, the
 syntax has to be extended so that the caught exception can be given a
 name. Code such as the one which follows should be accepted:
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
 try
    ...
    throw (exn_invalid:new "I'm sorry Dave, I'm afraid I can't do that.")
 with
 | exn_invalid e -> printf ("The computer choked: %s", e[1])
 end
-\end{verbatim}
+\end{Verbatim}
 
 The simplest way to detect user-caused returns is to create a unique
 object (typically an empty table), and return it at the end of the

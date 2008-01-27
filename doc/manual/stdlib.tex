@@ -1,4 +1,4 @@
-\def\function#1{\paragraph{#1}~\\}
+\def\function#1{\paragraph{#1}}
 
 \section{Standard library}
 Metalua comes with a standard library which extends Lua's one. These
@@ -10,38 +10,30 @@ compile-time level, so there's no need for a
 \subsection{Base library extensions}
 
 \function{min(...)}
-
 Return the min of its arguments, according to {\tt<}. There must be at
 least one argument.
 
 \function{max(...)}
-
 Return the max of its arguments, according to {\tt<}. There must be at
 least one argument.
 
 \function{o(...)}  
-
 Return the composition of all functions passed as arguments. For
 instance, {\tt printf} could be defined as {\tt print `o`
   string.format}\footnote{Or in regular Lua syntax {\tt o(print,
     string.format)}.}
 
 \function{id(...)}
-
 Return all its arguments unchanged.
 
-
 \function{const (...)}
-
 Return a function which always returns {\tt ...}, whatever its arguments.
 For instance, {\tt const(1, 2, 3)(4, 5, 6)} returns {\tt1, 2, 3}.
 
 \function{printf(fmt,...)}
-
 Equivalent to {\tt print(string.format(fmt,...))}.
 
 \function{values(table)}
-
 Iterator, to be used in a {\tt for} loop, which returns all the values
 of {\tt table}. 
 
@@ -49,26 +41,14 @@ of {\tt table}.
   pairs(t) do [...] end}.
 
 \function{keys(table)}
-
-
 Iterators, to be used in a {\tt for} loop, which return all the keys
 of {\tt table}. 
 
 {\tt for k in keys(t) do [...] end} is equivalent to {\tt for k, \_ in
   pairs(t) do [...] end}.
 
-
-\function{require(name)}
-
-Work as Lua's original {\tt require}, except that it also accepts
-metalua sources, in addition to regular Lua ones and bytecode files.
-
-\function{lua\_require(name)}
-
-Alias to the original Lua {\tt require()} function.
-
 \function{extension(name)}
-
+FIXME: move this into metalua.compiler?
 
 \subsection{{\tt table} extensions}
 
@@ -206,6 +186,9 @@ use the pattern matching extension, which turns {\tt match} into a
 keyword, it's practical to have another name for this function.
 
 \subsection{Library {\tt mlc}}
+
+FIXME: move in metalua.compiler.
+
 This library offer conversion between the different possible
 representations of metalua programs:
 \begin{itemize}

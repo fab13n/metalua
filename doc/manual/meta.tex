@@ -51,7 +51,7 @@ Of course, quotes and antiquotes can be mixed with explicit AST. The
 following lines all put the same value in Y, although often in a
 contrived way:
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
 -- As a single quote:
 Y = +{stat: four = 2+2 }
 -- Without any quote, directly as an AST:
@@ -65,7 +65,7 @@ Y = +{stat: four = -{ +{ 2+2 } } }
 Y = `Let{ { `Id "four" }, { +{ 2+2 } } }
 -- Nested quotes and splices cancel each other:
 Y = +{stat: four = -{ +{ -{ +{ -{ +{ -{ +{ 2+2 } } } } } } } } }
-\end{verbatim}
+\end{Verbatim}
 
 The content of an anti-quote is expected to be an expression by
 default. However, it is legal to put a statement or a block of
@@ -75,12 +75,15 @@ statements in it, provided that it returns an AST through a
 following line is (also) equivalent to the previous ones:
 
 \begin{verbatim}
-Y = +{stat: four = -{block: local two=`Number 2; return `Op{ `Add, two, two } } }
+Y = +{stat: four = -{ block: 
+                      local two=`Number 2
+                      return `Op{ 'add', two, two } } }
 \end{verbatim}
 
 Notice that in a block, where a statement is expected, a sub-block is
-also be accepted, and is simply compined with the upper-level one. For
-instance, you can write \verb|-{block: f(); g()}| instead of
+also be accepted, and is simply combined with the upper-level
+one. Unlike {\tt`Do\{ \}} statements, it doesn't create its own scope.
+For instance, you can write \verb|-{block: f(); g()}| instead of
 \verb|-{stat:f()}; -{stat:g()}|.
 
 \subsection{Splicing}
@@ -100,13 +103,13 @@ no explicit quotation to cancel, but actually, there is an hidden AST
 generation. The process of compiling a Metalua source file consists in
 the following steps:
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
                   ______               ________
 +-----------+    /      \    +---+    /        \    +--------+
 |SOURCE FILE|-->< Parser >-->|AST|-->< Compiler >-->|BYTECODE|  
 +-----------+    \______/    +---+    \________/    +--------+
 
-\end{verbatim}
+\end{Verbatim}
 
 So in reality, the source file is translated into an AST; when a
 splice is found, instead of just turning that AST into bytecode, we
@@ -115,7 +118,7 @@ in the source code. This computed AST is the one which will be turned
 into bytecode in the resulting program. Of course, that means locally
 compiling the piece of code in the splice, in order to execute it:
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
                                                      +--------+
                   ______               ________   +->|BYTECODE|  
 +-----------+    /      \    +---+    /        \  |  +--------+
@@ -125,7 +128,7 @@ compiling the piece of code in the splice, in order to execute it:
                                |      /        \     +---+----+
                                +-----<   Eval   ><-------+
                                       \________/
-\end{verbatim}
+\end{Verbatim}
 
 As an example, consider the following source code, its compilation and
 its execution:
@@ -133,15 +136,18 @@ its execution:
 \def\braces#1{\{#1\}}
 ~\\\hrule
 \begin{alltt}
-{\bf{}fabien@macfabien\$} cat sample.lua
--\braces{block: print "META HELLO"; return +\braces{ print "GENERATED HELLO" } }
+{\bf{}fabien@macfabien\$} cat sample.mlua
+-\braces{block: print "META HELLO"
+         return +\braces{ print "GENERATED HELLO" } }
 print "NORMAL HELLO"
 
-{\bf{}fabien@macfabien\$} mlc sample.lua
-Compiling x.lua...
+{\bf{}fabien@macfabien\$} metalua -v sample.mlua -o sample.luac
+[ Param "sample.mlua" considered as a source file ]
+[ Compiling `File "sample.mlua" ]
 META HELLO
-...Wrote x.luac
-{\bf{}fabien@macfabien\$} lua x.luac
+[ Saving to file "sample.luac" ]
+[ Done ]
+{\bf{}fabien@macfabien\$} lua sample.luac
 GENERATED HELLO
 NORMAL HELLO
 {\bf{}fabien@macfabien\$} _
@@ -158,7 +164,7 @@ what happens is that:
   generated and returned;
 \item in the AST generated from the source code, the splice is
   replaced by the AST representing \\ \verb|print "GENERATED HELLO"|.
-  Therefore, what is passed to the compiler is the AST representing 
+  Therefore, what is passed to the compiler is the AST representing\\
   \verb|print "GENERATED HELLO";| \verb|print "NORMAL HELLO"|.
 \end{itemize}
 
@@ -214,19 +220,25 @@ through splices.
 \begin{alltt}
 {\bf{}fabien@macfabien\$} cat sample.lua
 -\{stat:
-  -- Declaring the [ternary] metafunction. As a metafunction,
-  -- it only exists within -\{...\}, i.e. not in the program itself.
+  -- Declaring the [ternary] metafunction. As a 
+  -- metafunction, it only exists within -\{...\}, 
+  -- i.e. not in the program itself.
   function ternary (cond, b1, b2)
-     return +\{ (function() if -\{cond\} then return -\{b1\} 
-                           else return -\{b2\} end end)() \}
+     return +\{ (function() 
+                    if -\{cond\} then
+                       return -\{b1\} 
+                    else
+                       return -\{b2\}
+                    end
+                 end)() \}
   end \}
 
 lang = "en"
-hi = -\braces{ ternary ( +\braces{lang=="fr"}, +\braces{"Bonjour"}, +\braces{"Hello"}) }
+hi = -\braces{ ternary (+\braces{lang=="fr"}, +\braces{"Bonjour"}, +\braces{"Hello"}) }
 print (hi)
 
 lang = "fr"
-hi = -\braces{ ternary ( +\braces{lang=="fr"}, +\braces{"Bonjour"}, +\braces{"Hello"}) }
+hi = -\braces{ ternary (+\braces{lang=="fr"}, +\braces{"Bonjour"}, +\braces{"Hello"}) }
 print (hi)
 
 {\bf{}fabien@macfabien\$} mlc sample.lua

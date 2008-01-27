@@ -1,4 +1,4 @@
-\section{Library {\tt dollar}: generic syntax for macros}
+\section[Dollar extension]{{\tt dollar}: generic syntax for macros}
 When you write a short-lived macro which takes reasonably short arguments, you
 generally don't want to write a supporting syntax for it. The dollar library
 allows you to call it in a generic way: if you store your macro in the table
@@ -10,9 +10,10 @@ ASTs of the pseudo-call's arguments.
 \begin{verbatim}
 -{ block:
    require 'dollar'
-   function mlp.macros.LOG(id)
+   function doller.LOG(id)
       match id with `Id{ id_name } -> 
-         printf("%s = %s"), id_name, table.tostring(id)
+         return +{ printf("%s = %s", id_name, 
+                          table.tostring(-{id})) }
       end
    end }
 

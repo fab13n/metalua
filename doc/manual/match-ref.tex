@@ -91,7 +91,8 @@ mentionned above:
 
 \begin{verbatim}
 match stat with
-| `Local{ identifiers, values } -> table.foreach(identifiers, |x| print(x[1])
+| `Local{ identifiers, values } ->
+   table.foreach(identifiers, |x| print(x[1])
 ... -- other cases
 end
 \end{verbatim}
@@ -162,7 +163,8 @@ by spaces. In case of success, these words are bound to variables {\tt w1}, {\tt
 
 \begin{verbatim}
 match foo with
-| "^(%w+) +(%w+) +(%w+)$"/{ w1, w2, w3 } -> do_stuff (w1, w2, w3)
+| "^(%w+) +(%w+) +(%w+)$"/{ w1, w2, w3 } -> 
+   do_stuff (w1, w2, w3)
 end
 \end{verbatim}
 

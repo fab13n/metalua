@@ -1,12 +1,12 @@
 \documentclass{book}
 \usepackage{palatino}
-\title{Man metalua}
-%\author{Fabien \sc Fleutot}
+\usepackage{graphicx}
 
 \usepackage{fancyhdr}
 %\usepackage{fullpage}
 \usepackage{alltt}
 \usepackage{url}
+\usepackage{fancyvrb}
 
 \def\summary#1{{\em#1}}
 \def\caveat#1{
@@ -23,34 +23,49 @@
 \setlength\headsep{0.4cm}
 \setlength\parindent{0cm}
 
+\title{Man metalua 0.4}
+
+\author{Fabien {\sc Fleutot}\\[10mm] 
+  $-\left\{\begin{minipage}{7.6cm}
+      \hspace{3mm}\includegraphics[width=7cm]{magritte.pdf}
+    \end{minipage}\right\}$}
+
 \begin{document}
 
 \pagestyle{fancy}
 \setlength\parskip{0.2cm}
 
 \maketitle
+\include{reading-guide}
 \tableofcontents
+
+\chapter[meta-programming]{Meta-programming in metalua}
 \include{intro}
 \include{syntax-ext}
 \include{data}
 \include{meta}
-\chapter{Standard libraries}
+
+\chapter[meta-libraries]{Meta-programming libraries and extensions}
 \include{gg-ref}
 \include{mlp-ref}
+\include{match-ref}
+\include{walk-ref}
+% \include{hygiene-ref} % Definitely not ready :(
+\include{dollar-ref}
+
+\chapter[generic libraries]{General purpose libraries and extensions}
 \include{stdlib}
 \include{clopts-ref}
 \include{springs-ref}
-\include{walk-ref}
-\chapter{Standard extensions}
-\include{match-ref}
-\include{dollar-ref}
 \include{clist-ref}
-\include{hygiene-ref}
 %\include{-ref}
+
+\chapter{Samples and tutorials}
 \include{samples}
 \include{sample-exception}
 \include{sample-match}
 %\include{}
+
 \appendix
 \include{src-hints}
 \include{ast}

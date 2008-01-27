@@ -49,29 +49,25 @@ From gg, there are two main leads to follow: either look down to mll,
 Metalua's lexer, or look up to mlp, the Metalua parser implemented on
 top of gg.
 
-\subsection{mll}
+\subsection{lexer, mlp\_lexer}
 
 As stated above, gg relies on a lexer respecting a certain API. We
 provide such a lexer for Metalua parsing, which deals with the usual
 lexing tasks: getting rid of spaces and comments, and discriminating
 between keywords, identifiers, strings, numbers etc. It's implemented
-in the file {\bf mll.lua}
+in the file {\bf lexer.lua}
+
+This lexer can be parameterized with a list of keywords; {\tt
+  mlp\_lexer.lua} defines the mlp lexer, i.e. uses the generic lexer to
+create a derived lexer, and adds Lua keywords to it. 
 
 \paragraph{State}
-Mll is not in a very good shape: it does the job, but often in a
-somewhat hackish way. Its functional core is written as a single
-next\_token() function, which offer very little opportunity for
-reuse, and whose readability ought to be improved. Ideally,
-there should be a generic lexer generator library, analog to what gg
-does for grammars, and a specific lexer implementation for
-Metalua. However, my current efforts don't focus on this, as people
-are much more likely to hack the grammar than the lexer.
-
-Today, if someone wants to create a custom lexer, the best way is
-probably to broadly cut and paste from mll.
+lexer.lua is somewhat extensible by someone willing to inspect its
+sources carfully. Among others, playing with the list lexer.extractors
+will let you create new lexical entities readers. However, the global
+architecture of the lexer still deserves a serious refactoring.
 
 \subsection{mlp}
-
 Mlp is a very important part of Metalua, the one most people will
 actually have to deal with. Understanding it requires to understand
 gg. Mlp is cut into several parts:
@@ -87,17 +83,24 @@ gg. Mlp is cut into several parts:
 \item {\bf mlp\_stat.lua} parses statements. Except for assignements,
   every different statement is introduced by a distinct initial
   keyword, and it should remain that way.
+\item {\bf mlp\_ext.lua} gathers the parts of the metalua syntax that
+  aren't regulat Lua: customizable assignments, short lambda syntax
+  etc. 
+\item {\bf mlp\_meta.lua} handles the meta-operation, splicing and
+  quoting.
+\item {\bf mlp\_misc.lua} contains various little bits that wouldn't
+  fit anywhere else. In other words, it's sort of a mess.
 \end{itemize}
 
 \subsection{Bytecode generation}
 Bytecode generation by metalua is a quick and dirty hack, which
-sort-of does the trick for now, but will be scrapped as soon as
-possible. I hacked the current scaffolding from Kein-Hong Man's
-Yueliang project (\url{http://luaforge.net/projects/yueliang}), but
-Yueliang design rationales don't really fit metalua's needs. Indeed,
-Yueliang is a translation, almost statement by statement, of the
-official C compiler included in Lua distribution. This has the
-following consequences:
+sort-of does the trick for now, but should eventually be largely
+rewritten. The current scaffolding has been hacked from Kein-Hong
+Man's Yueliang project (\url{http://luaforge.net/projects/yueliang}),
+but Yueliang design rationales don't really fit metalua's
+needs. Indeed, Yueliang is a translation, almost statement by
+statement, of the official C compiler included in Lua
+distribution. This has the following consequences:
 
 \begin{itemize}
 \item it helps to understand the original compiler in C;
@@ -131,13 +134,11 @@ produce 5.1 bytecode rather than 5.0. Finally, {\bf compile.lua},
 which uses the previous modules to convert AST to bytecode, is a
 grossly abused version of Yueliang's lparse.lua.
 
-A short-term change that should be done would be to modify lopcode: it
-does some bit shuffling with floats in a very naive and inefficient
-way: the bare minimum would be to make it use a native bit
-manipulation lib, when available. I'd guess it would roughly halve
-compilation times of large files.
+Notice a big current limitation: it only dumps little endian, double
+floats, 32 bits integers based bytecode. 64 bit and/or big endian
+platforms are currently not supported (although it shouldn't be hard
+to extend ldump.lua to handle those).
  
-\subsection{mstd}
-{\bf mstd.ml} contains a couple of generic functions, which ought to
-go into some extended standard library. Until metalua ships with its
-standard lib, mstd fills the gap.
+\subsection{The bootstrapping process}
+
+FIXME

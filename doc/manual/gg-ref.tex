@@ -1,4 +1,4 @@
-\section{Library reference: {\tt gg}, the grammar generator}
+\section{{\tt gg}, the grammar generator}
 
 \verb|gg| is the grammar generator, the library with which Metalua
 parser is built. Knowing it allows you to easily write your own
@@ -42,7 +42,7 @@ to some subparsers:
 \item \verb|mlp.id| reads an identifier.
 \end{itemize}
 
-\begin{verbatim}
+\begin{Verbatim}[fontsize=\scriptsize]
 -- Read a function definition statement
 func_stat = gg.sequence{ "function", func_stat_name, "(",
                          func_params_content, ")", mlp.block, "end" }
@@ -51,13 +51,9 @@ func_stat = gg.sequence{ "function", func_stat_name, "(",
 func_stat = gg.sequence{ "local", "function", mlp.id, "(",
                          func_params_content, ")", mlp.block, "end" }
 
-\end{verbatim}
+\end{Verbatim}
 
-\subsubsection{Constructor}
-
-\begin{verbatim}
-gg.sequence (config_table)  
-\end{verbatim}
+\subsubsection{Constructor {\tt gg.sequence (config\_table) }}
 
 This function returns a sequence parser. \verb|config_table| contains,
 in its array part, a sequence of string representing keyword parsers,
@@ -84,35 +80,31 @@ in the hash part of the table:
   {\tt x}, then the whole parser returns {\tt f3(f2(f1(x)))}.
 \end{itemize}
 
-\subsubsection{Method {\tt parse}}
+\subsubsection{Method {\tt :parse(lexstream)}}
 
-\begin{verbatim}
-x:parse (lexer)
-\end{verbatim}
-
-Read a sequence from the lexer. If the sequence can't be entirely
+Read a sequence from the lexstream. If the sequence can't be entirely
 read, an error occurs. The result is either the list of results of
 sub-parsers, or the result of \verb|builder| if it is non-nil. In the
 \verb|func_stat| example above, the result would be a list of 3
 elements: the results of \verb|func_stat_name|,
 \verb|func_params_content| and \verb|mlp.block|.
 
-It can also be directly called as simply \verb|x(lexer)| instead of
-\verb|x:parse(lexer)|.
+It can also be directly called as simply \verb|x(lexstream)| instead of
+\verb|x:parse(lexstream)|.
 
-\subsubsection{Method {\tt transformers:add}}
+\subsubsection{Method {\tt .transformers:add(f)}}
 Adds a function at the end of the transformers list.
 
 \subsection{Sequence sets}
 
 In many cases, several sequence parsers can be applied at a given
 point, and the choice of the right parser is determined by the next
-keyword in the lexer. This is typically the case for Metalua's
+keyword in the lexstream. This is typically the case for Metalua's
 statement parser. All the sequence parsers must start with a keyword
 rather than a sub-parser, and that initial keyword must be different
 for each sequence parser in the sequence set parser. The sequence set
 parser takes care of selecting the appropriate sequence
-parser. Moreover, if the next token in the lexer is not a keyword, or
+parser. Moreover, if the next token in the lexstream is not a keyword, or
 if it is a keyword but no sequence parser starts with it, the sequence
 set parser can have a default parser which is used as a fallback.
 
@@ -124,11 +116,8 @@ mlp.stat = gg.multisequence{
   mlp.do_stat, mlp.while_stat, mlp.repeat_stat, mlp.if_stat... }
 \end{verbatim}
 
-\subsubsection{Constructor}
+\subsubsection{Constructor {\tt gg.multisequence (config\_table)}}
 
-\begin{verbatim}
-gg.multisequence (config_table)
-\end{verbatim}
 
 This function returns a sequence set parser. The array part of
 \verb|config_table| contains a list of parsers. It also accepts tables
@@ -165,25 +154,17 @@ It also accepts the following fields in the table's hash part:
   functions must be of type AST$\rightarrow$AST.
 \end{itemize}
 
-\subsubsection{Method {\tt parse}}
+\subsubsection{Method {\tt :parse(lexstream)}}
 
-\begin{verbatim}
-x:parse (lexer)
-\end{verbatim}
-
-Read from the lexer. The result returned is the result of the selected
+Read from the lexstream. The result returned is the result of the selected
 parser (one of the sequence parsers, or the default parser). That
 result is either returned directly, or passed through \verb|builder|
 if this field is non-nil.
 
-It can also be directly called as simply \verb|x(lexer)| instead of
-\verb|x:parse(lexer)|.
+It can also be directly called as simply \verb|x(lexstream)| instead of
+\verb|x:parse(lexstream)|.
 
-\subsubsection{Method {\tt add}}
-
-\begin{verbatim}
-x:add (seq_parser)
-\end{verbatim}
+\subsubsection{Method {\tt :add(sequence\_parser)}}
 
 Take a sequence parser, or a config table that would be accepted by
 \verb|gg.sequence| to build a sequence parser. Add that parser to the
@@ -192,18 +173,18 @@ doesn't start with a keyword, or if that initial keyword is already
 reserved by a registered sequence parser, or if the parser is not a
 sequence parser.
 
-\subsubsection{Field {\tt default}}
+\subsubsection{Field {\tt .default}}
 This field contains the default parser, and can be set to another
 parser at any time.
 
-\subsubsection{Method {\tt transformers:add}}
+\subsubsection{Method {\tt .transformers:add}}
 Adds a function at the end of the transformers list.
 
-\subsubsection{Method {\tt get}}
+\subsubsection{Method {\tt :get(keyword)}}
 Takes a keyword (as a string), and returns the sequence in the set
 starting with that keyword, or nil if there is no such sequence.
 
-\subsubsection{Method {\tt remove(kw)}}
+\subsubsection{Method {\tt :del(keyword)}}
 Removes the sequence parser starting with keyword {\tt kw}.
 
 \subsection{List parser}
@@ -240,7 +221,7 @@ parsed, and an empty list is returned. For instance, for argument
 lists, ``\verb|)|'' would be specified as a terminator, so that empty
 argument lists ``\verb|()|'' are handled properly.
 
-Beware that separators are consumed from the lexer stream, but
+Beware that separators are consumed from the lexstream stream, but
 terminators are not.
 
 %\caveat{FIXME: check that it works as advertized (for list parserd
@@ -248,11 +229,7 @@ terminators are not.
 %  separator issue in block and table\_content parsers). There still is
 %  a design issue to settle here.}
 
-\subsubsection{Constructor}
-
-\begin{verbatim}
-gg.list (config_table)
-\end{verbatim}
+\subsubsection{Constructor {\tt gg.list (config\_table)}}
 
 This function returns a list parser. \verb|config_table| can contain
 the following fields:
@@ -295,26 +272,22 @@ the following fields:
   parser, and it is considered to be the primary parser.
 \end{itemize}
 
-\subsubsection{Method {\tt parse}}
+\subsubsection{Method {\tt :parse (lexstream)}}
 
-\begin{verbatim}
-x:parse (lexer)
-\end{verbatim}
-
-Read a list from the lexer. The result is either the list of elements
+Read a list from the lexstream. The result is either the list of elements
 as read by the primary parser, or the result of that list passed
 through \verb|builder| if it is specified.
 
-It can also be directly called as simply \verb|x(lexer)| instead of
-\verb|x:parse(lexer)|.
+It can also be directly called as simply \verb|x(lexstream)| instead of
+\verb|x:parse(lexstream)|.
 
-\subsubsection{Method {\tt transformers:add}}
+\subsubsection{Method {\tt .transformers:add}}
 Adds a function at the end of the transformers list.
 
-\subsection{Method {\tt separators:add}}
+\subsection{Method {\tt .separators:add}}
 Adds a string to the list of separators.
 
-\subsection{Method {\tt terminators:add}}
+\subsection{Method {\tt .terminators:add}}
 Adds a string to the list of terminators.
 
 \subsection{Expression parser}
@@ -397,11 +370,7 @@ have an \verb|assoc| field, and \verb|builder| takes {\tt|operator,
 Same as prefix operators, except that \verb|builder| takes
 {\tt|operand, operator|} instead of {\tt|operator, operand|}.
 
-\subsubsection{Constructor}
-
-\begin{verbatim}
-gg.expr (config_table)
-\end{verbatim}
+\subsubsection{Constructor {\tt gg.expr (config\_table)}}
 
 This function returns an expression parser. \verb|config_table|
 is a table of fields which describes the kind of expression to be
@@ -422,32 +391,23 @@ read by the parser. The following fields can appear in the table:
   sequences, as described above. Supports a {\tt default} parser.
 \end{itemize}
 
-\subsubsection{Methods {\tt prefix:add}, {\tt infix:add}, {\tt
-    suffix:add}}
+\subsubsection{Methods {\tt .prefix:add()}, {\tt .infix:add()}, {\tt
+    .suffix:add()}}
 Add an operator in the relevant table. The argument must be an
 operator sequence table, as described above.
 
-\subsubsection{Method {\tt add}}
+\subsubsection{Method {\tt :add()}}
 This is just a shortcut for {\tt primary.add}. Unspecified behavior if
 {\tt primary} doesn't support method {\tt add}.
 
 
-\subsubsection{Method {\tt parse}}
+\subsubsection{Method {\tt :parse (lexstream)}}
+Read a list from the lexstream. The result is built by \verb|builder1| calls.
 
-\begin{verbatim}
-x:parse (lexer)
-\end{verbatim}
+It can also be directly called as simply \verb|x(lexstream)| instead of
+\verb|x:parse(lexstream)|.
 
-Read a list from the lexer. The result is built by \verb|builder1| calls.
-
-It can also be directly called as simply \verb|x(lexer)| instead of
-\verb|x:parse(lexer)|.
-
-\subsubsection{Method {\tt tostring}}
-
-\begin{verbatim}
-x.tostring()
-\end{verbatim}
+\subsubsection{Method {\tt :tostring()}}
 
 Returns a string representing the parser. Mainly useful for error
 message generation.
@@ -463,11 +423,7 @@ Notice that by default, the keyword is consumed by the
 instead passed to the internal parser, add a \verb|peek=true| entry in
 the config table.
 
-\subsubsection{Constructor}
-
-\begin{verbatim}
-gg.onkeyword (config_table)
-\end{verbatim}
+\subsubsection{Constructor {\tt gg.onkeyword (config\_table)}}
 
 Create a keyword-conditionnal parser. \verb|config_table| can contain:
 
@@ -479,27 +435,23 @@ Create a keyword-conditionnal parser. \verb|config_table| can contain:
 \end{itemize}
 The order of elements in the list is not relevant.
 
-\subsubsection{Method {\tt parse}}
+\subsubsection{Method {\tt :parse (lexstream)}}
 
 Run the parser. The result is the internal parser's result, or
-\verb|false| if the next token in the lexer wasn't one of the
+\verb|false| if the next token in the lexstream wasn't one of the
 specified keywords.
 
-It can also be directly called as simply \verb|x(lexer)| instead of
-\verb|x:parse(lexer)|.
+It can also be directly called as simply \verb|x(lexstream)| instead of
+\verb|x:parse(lexstream)|.
 
 \subsection{{\tt optkeyword} parser}
 
 Watch for optional keywords: an \verb|optkeyword| parser has a list of
 keyword strings as a configuration. If such a keyword is found as the
-nex lexer element upon parsing, the keyword is consumed and that
+nex lexstream element upon parsing, the keyword is consumed and that
 string is returned. If not, \verb|false| is returned.
 
-\subsubsection{Constructor}
-
-\begin{verbatim}
-gg.optkeyword (keyword1, keyword2, ...)
-\end{verbatim}
+\subsubsection{Constructor {\tt gg.optkeyword (keyword1, keyword2, ...)}}
 
 Return a \verb|gg.optkeyword| parser, which accepts all of the
 keywords given as parameters, and returns either the found keyword, or

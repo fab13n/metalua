@@ -6,6 +6,7 @@
 *.dll
 *.exe
 *.a
+*.log
 .#*
 \#*
 .DS_Store
