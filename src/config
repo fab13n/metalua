@@ -50,7 +50,7 @@ endif
 # Environment variables settign paths
 
 LUA_PATH_DIRS = ./?.EXT;$(TARGET_LUA_PATH)/?.EXT
-LUA_PATH      = $(subst EXT,luac,$(LUA_PATH_DIRS));$(subst EXT,lua,$(LUA_PATH_DIRS))
-LUA_MPATH     = $(subst EXT,mlua,$(LUA_PATH_DIRS))
-LUA_CPATH     = $(TARGET_LUA_CPATH)/?.$(LIBEXT);$(TARGET_LUA_CPATH)/?/linit.$(LIBEXT)
+export LUA_PATH  = $(subst EXT,luac,$(LUA_PATH_DIRS));$(subst EXT,lua,$(LUA_PATH_DIRS))
+export LUA_MPATH = $(subst EXT,mlua,$(LUA_PATH_DIRS))
+export LUA_CPATH = $(TARGET_LUA_CPATH)/?.$(LIBEXT);$(TARGET_LUA_CPATH)/?/linit.$(LIBEXT)
 

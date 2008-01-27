@@ -12,6 +12,7 @@ $(PLATFORMS):
 	PLATFORM=$@ $(MAKE) all
 
 install-lua: lua
+	mkdir -p $(TARGET_BIN_PATH)
 	cp $(LUA_VM_DIR)/$(RUN) $(LUA_VM_DIR)/$(COMPILE) $(TARGET_BIN_PATH)/
 
 setenv.sh: config
@@ -25,17 +26,23 @@ setenv.sh: config
 	echo 'export PATH=$(TARGET_BIN_PATH):$$PATH' >> $@
 	chmod a+x $@
 
-copy-libraries: lib
+copy-libraries: lib/
 	mkdir -p $(TARGET_LUA_PATH)
-	cp -r lib/* $(TARGET_LUA_PATH)/
+	cp -Rp lib/ $(TARGET_LUA_PATH)/
+
+
+#	cp -p -R lib/* $(TARGET_LUA_PATH)/
 
 compile-libraries: copy-libraries bin-libraries setenv.sh compiler
-	@. setenv.sh
-	@echo "Compiling libraries:"
-	@for src in $$(find $(TARGET_LUA_PATH) -name '*.mlua') ; do \
-		bc="$$(dirname $$src)/$$(basename $$src .mlua).luac";   \
-		echo "| -> $$bc" ;                                      \
-		metalua $$src -o $$bc ;                                 \
+	echo "Compiling libraries:"
+	for src in $$(find $(TARGET_LUA_PATH) -name '*.mlua') ; do \
+		bc="$$(dirname $$src)/$$(basename $$src .mlua).luac"; \
+		if [ $$src -nt $$bc ]; then \
+			echo "| COMPILING $$bc" ; \
+			$(TARGET_BIN_PATH)/metalua $$src -o $$bc ; \
+		else \
+			echo "| up2date:  $$bc"; \
+		fi \
 	done
 
 compiler: copy-libraries bin-libraries
