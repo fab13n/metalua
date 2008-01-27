@@ -97,7 +97,18 @@ local function _walk_id (kind, supercfg, ast, ...)
          end
          if r then return r end
       | `Function{ params, _ } -> scope:push (params, x)
-      | _                      -> -- pass
+      | `Stat{ block, expr }   -> 
+         -------------------------------------------------------------
+         -- 'expr' is in the scope of 'block': create the scope and
+         -- walk the block 'manually', then prevent automatic walk
+         -- by returning 'break'.
+         -------------------------------------------------------------
+         scope:push()
+         for stat in values (block) do walk.stat(cfg, stat, x, ...) end 
+         walk.expr(cfg, expr, x, ...)
+         scope:pop()
+         return 'break'
+      | _ -> -- pass
       end
 
    end
@@ -124,15 +135,15 @@ local function _walk_id (kind, supercfg, ast, ...)
       | `Forin{ vars, ... }    -> scope:push (vars,  x)
       | `Fornum{ var, ... }    -> scope:push ({var}, x)
       | `Localrec{ vars, ... } -> scope:add  (vars,  x)
-      | `Repeat{ block, cond } -> 
+      | `Repeat{ block, expr } ->
          -------------------------------------------------------------
-         -- 'cond' is in the scope of 'block': create the scope and
+         -- 'expr' is in the scope of 'block': create the scope and
          -- walk the block 'manually', then prevent automatic walk
          -- by returning 'break'.
          -------------------------------------------------------------
-         scope:push()
-         for s in values (block) do walk.stat(cfg, s, x, ...) end 
-         walk.expr(cfg, cond, x, ...)
+         scope:push() 
+         for stat in values (block) do walk.stat(cfg, stat, x, ...) end 
+         walk.expr(cfg, expr, x, ...)
          scope:pop()
          return 'break'
       | _ -> -- pass
