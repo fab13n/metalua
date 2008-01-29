@@ -126,6 +126,7 @@ local function main (...)
 
    -------------------------------------------------------------------
    -- Get ASTs from sources
+   local last_file
    for x in values(chunks) do
       verb_print("Compiling %s", table.tostring(x))
       local st, ast
@@ -139,11 +140,18 @@ local function main (...)
          local ring = springs.new()
          ring:dostring (INIT_COMPILATION_RING)
          st, ast = ring:pcall('mlc.ast_of_luafile', f, '@'..f) -- FIXME: handle '-'
-         ast = +{ function (...) -{ast} end(...) }
+         -- Isolate each file in a separate fenv
+         ast = +{ function (...) -{ast} end (...)  }
+         last_file = ast
       end
       if not st then os.exit (AST_COMPILE_ERROR_NUMBER) end
       ast.origin = x
       table.insert(code, ast)
+   end
+   -- The last file returns the whole chunk's result
+   if last_file then
+      local c = table.shallow_copy(last_file)
+      last_file <- `Return{ origin = c.origin, c }
    end
 
    -------------------------------------------------------------------
@@ -152,7 +160,7 @@ local function main (...)
       verb_print "Resulting AST:"
       for x in values(code) do
          printf("--- AST From %s: ---", table.tostring(x.origin, 'nohash'))
-         if x.origin.tag=='File' then x=x[1][2][1] end
+         --if x.origin.tag=='File' then x=x[1][2][1] end
          table.print(x, 80, 'nohash')
       end 
    end
@@ -183,7 +191,7 @@ local function main (...)
    if cfg.output then
       -- FIXME: handle '-'
       verb_print ("Saving to file %q", cfg.output)
-      local file, err_msg = io.open(cfg.output, 'w')
+      local file, err_msg = io.open(cfg.output, 'wb')
       if not file then error("can't open output file: "..err_msg) end
       file:write(bytecode)
       file:close()

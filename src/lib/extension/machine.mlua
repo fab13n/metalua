@@ -193,3 +193,5 @@ mlp.lexer:add{ 'machine', 'state', 'when', 'on', '->' }
 mlp.expr:add{  'machine', machine_content, 'end', builder = |x|x[1] }
 mlp.stat:add{  'machine', mlp.expr, machine_content, 'end',
    builder = |x| `Set{ {x[1]}, {x[2]} } }
+
+return +{ require 'extension.machine-runtime' }

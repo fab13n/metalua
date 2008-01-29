@@ -245,3 +245,19 @@ So, alpha
 conversion must happen at CT
 
 
+Extension
+=========
+The current extension() function automatically loads a runtime, even
+when empty. More control should be given. Both RT and CT parts should
+go in the same directory. Finally, RT should probably handle macro
+hygiene in a standardized way.
+
+==> extension() should be like a require(), except that it:
+- prepends 'extension.' to the module name
+- returns nil when require() returns true
+
+From there, macro alphas could be handled as follows:
+- create a common alpha at the opening of the extension. As an empty list.
+- push in in H() so that it'll be shared by all hygienizations
+- return it if there' no runtime, or return it with a require()
+  statement for the RT lib.

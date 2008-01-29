@@ -344,3 +344,4 @@ mlp.stat:add{ "newtype", mlp.expr, "=", mlp.expr, builder = newtype_builder }
 --------------------------------------------------------------------------
 --mlp.expr.infix:add{ "::", prec=100, builder = |a, _, b| insert_test(a,b) }
 
+return +{ require 'extension.types-runtime' }

@@ -23,7 +23,7 @@
 --------------------------------------------------------------------------------
 
 -- Get match parsers and builder, for catch cases handling:
-require 'extension-compiler.match' 
+require 'extension.match' 
 
 -- We'll need to track rogue return statements:
 require 'walk'

@@ -46,46 +46,51 @@ end
 -- Execute a metalua module sources compilation in a separate ring.
 ----------------------------------------------------------------------
 local function spring_load(filename)   
-   if os.getenv "LUA_MFAST" == "yes" then 
+   local env_fast = os.getenv 'LUA_FAST'
+
+   if env_fast=='yes' or env_fast=='true' then 
+      -- degraded mode without spring:
       print "Warning: loading metalua source file in the same compilation ring;"
       print "metalevels 0 might interfere, condider unsetting environment variable LUA_MFAST"
       return mlc.function_of_luafile(filename) 
+   else
+      -- run compilation in a separate spring universe:
+      require 'springs'
+      local r = springs.new()
+      r:dostring [[require 'metalua.compiler']]
+      local f = r:call('mlc.function_of_luafile', filename)
+      r:close()
+      return f
    end
-   require 'springs'
-   local r = springs.new()
-   r:dostring [[require 'metalua.compiler']]
-   local f = r:call('mlc.function_of_luafile', filename)
-   return f
 end
 
 ----------------------------------------------------------------------
--- Load a metalua source file. Intended to replace the Lua loader
--- in package.loaders.
+-- Load a metalua source file.
 ----------------------------------------------------------------------
 function package.metalua_loader (name)
    local file, filename_or_msg = package.findfile (name, package.mpath)
    if not file then return filename_or_msg end
-   --print ('Metalua loader: found file '..filename_or_msg)
    file:close()
    return spring_load(filename_or_msg)
 end
 
+----------------------------------------------------------------------
+-- Placed after lua/luac loader, so precompiled files have
+-- higher precedence.
+----------------------------------------------------------------------
 table.insert(package.loaders, package.metalua_loader)
 
 ----------------------------------------------------------------------
--- Loads a couple syntax extension + support library in a single
--- operation. For instance, [-{ extension "exceptions" }] should both
--- * load the exception syntax in the parser at compile time
--- * put the instruction to load the support lib in the compiled file
+-- Load an extension.
 ----------------------------------------------------------------------
-
 function extension (name, noruntime)
-   local ext_runtime_name = metalua.ext_runtime_prefix  .. name
-   local ext_compiler_name = metalua.ext_compiler_prefix .. name
-   require (ext_compiler_name)
-   if not noruntime then
-      return {tag="Call", {tag="Id", "require"},
-                          {tag="String", ext_runtime_name} }
+   local complete_name = 'extension.'..name
+   local x = require (complete_name)
+   if x==true then return
+   elseif type(x) ~= 'table' then 
+      error ("extension returned %s instead of an AST", type(x))
+   else
+      return x
    end
 end
 

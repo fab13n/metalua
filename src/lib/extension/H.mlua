@@ -16,3 +16,5 @@ mlp.stat:add{ '!', mlp.expr, builder = |x| +{stat: (-{x}).h_boundary=true } }
 --   ==> first pass to mark binders which contain boundaries,
 --       then 2nd pass only touched those which have a splice
 --       in them.
+
+return +{ require 'extension.H-runtime' }

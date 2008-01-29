@@ -160,8 +160,8 @@ function table.deep_copy(x)
 end
 
 function table.override(dst, src)
-   for k, v in pairs(src)   do dst[k] = v end
-   for i = #src+1, #dst  do dst[i] = nil end
+   for k, v in pairs(src) do dst[k] = v end
+   for i = #src+1, #dst   do dst[i] = nil end
    return dst
 end
 
