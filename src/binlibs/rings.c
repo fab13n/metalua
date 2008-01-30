@@ -21,7 +21,7 @@ typedef struct {
 } state_data;
 
 
-int luaopen_rings (lua_State *L);
+LUALIB_API int luaopen_rings (lua_State *L);
 
 
 /*
@@ -260,7 +260,7 @@ static void set_info (lua_State *L) {
 /*
 ** Opens library.
 */
-int luaopen_rings (lua_State *L) {
+LUALIB_API int luaopen_rings (lua_State *L) {
 	/* Library functions */
 	struct luaL_reg rings[] = {
 		{"new", state_new},

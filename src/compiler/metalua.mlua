@@ -60,7 +60,7 @@ parser = clopts {
       action= function (newargs) runargs=table.icat(runargs, newargs) end,
       usage = "pass all remaining arguments to the program"
    },
-   usage=[[
+usage=[[
 
 Compile and/or execute metalua programs. Parameters passed to the
 compiler should be prefixed with an option flag, hinting what must be
@@ -159,6 +159,13 @@ local function main (...)
    if cfg['print-ast'] then 
       verb_print "Resulting AST:"
       for x in values(code) do
+-- [[ Get rid of fenv isolation cruft
+         match x with
+         | +{stat: return function(...) -{ast} end (...) }
+         | +{expr: function(...) -{ast} end (...) } -> x=ast
+         | _ -> 
+         end
+--]]
          printf("--- AST From %s: ---", table.tostring(x.origin, 'nohash'))
          --if x.origin.tag=='File' then x=x[1][2][1] end
          table.print(x, 80, 'nohash')
@@ -195,7 +202,9 @@ local function main (...)
       if not file then error("can't open output file: "..err_msg) end
       file:write(bytecode)
       file:close()
-      pcall(os.execute, 'chmod a+x "'..cfg.output..'"')
+      if cfg.sharpbang and os.getenv "OS" ~= "Windows_NT" then
+         pcall(os.execute, 'chmod a+x "'..cfg.output..'"')
+      end
    end
 
    -------------------------------------------------------------------

@@ -1,0 +1,1 @@
+@%LUA_ROOT%\lua %LUA_ROOT%\metalua.luac %1 %2 %3 %4 %5 %6 %7 %8 %9

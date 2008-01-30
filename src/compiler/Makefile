@@ -41,6 +41,8 @@ mlp.luac: $(MLP_LUA)
 %.luac: %.mlua bootstrap.lua mlp.luac bytecode.luac
 	$(LUA_RUN) bootstrap.lua $<
 
+# FIXME what's this?! some old stuff from when metalua files hadn't their own
+# extensions?
 # Metalua files compilation through the bootstrap compiler
 %.luac: %.lua
 	$(LUA_COMPILE) -o $@ bootstrap $<
