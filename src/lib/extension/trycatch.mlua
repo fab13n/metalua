@@ -25,6 +25,9 @@
 -- Get match parsers and builder, for catch cases handling:
 require 'extension.match' 
 
+-{ extension 'H' }
+-{ extension 'log' }
+
 -- We'll need to track rogue return statements:
 require 'walk'
 
@@ -35,6 +38,9 @@ local mkpcall = |block| +{pcall(function() -{block} end)}
 function trycatch_builder(x)
    local try_code, catch_cases, finally_code = unpack(x)
    local insert_return_catcher = false
+
+   local H = H:new{side='inside'}
+   !try_code; !(catch_code or { }); !(finally_code or { })
 
    --$log(try_code, catch_cases, finally_code)
 
@@ -66,13 +72,14 @@ function trycatch_builder(x)
          match x with 
          | `Return{...} -> 
             insert_return_catcher = true
-            local setvar = 
-               +{stat:caught_return = -{ `Table{ unpack(x) } } }
-            x.tag = nil
-            x <- { setvar; `Return }
+-- FIXME: caught_return won't be tranformed because it's inside 
+--        a user-bounded block
+            local setvar = +{stat:caught_return = -{`Table{ unpack(x) }}}
+            x <- { setvar; `Return }; x.tag = nil;
+            $log('transformed return stat:', x, 60)
             return 'break'
          | `Function{...} -> return 'break' 
-            -- inside this, returns would be the function's, not ours.
+            -- inside this, returns would be the nested function's, not ours.
          | _ -> -- pass
          end
       end
@@ -85,7 +92,7 @@ function trycatch_builder(x)
 
    -- code handling the error catching process:
    local catch_result do
-      if catch_cases then
+      if #catch_cases>0 then
          ----------------------------------------------------------
          -- Protect catch code against failures: they run in a pcall(), and
          -- the result is kept in catch_* vars so that it can be used to
@@ -137,6 +144,9 @@ function trycatch_builder(x)
          if not user_success and not catch_success then error(catch_error) end 
          -{ caught_return_rethrow }
       end }
+
+   H(result)
+
    return result
 end
 

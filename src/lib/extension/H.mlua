@@ -10,7 +10,7 @@ mlp.expr.prefix:add{ '!', prec = 5,
                               v }
              end }
 
-mlp.stat:add{ '!', mlp.expr, builder = |x| +{stat: (-{x}).h_boundary=true } }
+mlp.stat:add{ '!', mlp.expr, builder = |x| +{stat: (-{x[1]}).h_boundary=true } }
 
 -- * if there's no boundary in it, is there a need to rename vars?
 --   ==> first pass to mark binders which contain boundaries,
