@@ -109,6 +109,12 @@
 --
 ----------------------------------------------------------------------
 
+
+-- match relies on the global function 'type', which can be shadowed
+-- by the user. A copy of it is stored in this unique local, at the
+-- extension point.
+local type_alpha = mlp.gensym 'type'
+
 ----------------------------------------------------------------------
 -- Convert a tested term and a list of (pattern, statement) pairs
 -- into a pattern-matching AST.
@@ -139,6 +145,10 @@ function match_builder (x)
    local function acc_assign (lhs, rhs)
       local_vars[lhs[1]] = true
       acc (`Set{ {lhs}, {rhs} }) end
+   local function acc_type_test(var, t)
+      return acc_test +{ -{`Call{ type_alpha, var}} ~= -{`String{t}} }
+   end
+
 
    -------------------------------------------------------------------
    -- Set of variables bound in the current pattern, to find
@@ -188,7 +198,7 @@ function match_builder (x)
          end
 
          -- Can only match strings
-         acc_test +{ type(-{v}) ~= 'string' }
+         acc_type_test (v, 'string')
          -- put all captures in a list
          local capt_list  = +{ { string.strmatch(-{v}, -{regexp}) } }
          -- save them in a var_n for recursive decomposition
@@ -198,7 +208,7 @@ function match_builder (x)
          pattern_builder (n2, sub_pattern)
       elseif "Table" == pattern.tag then
          local seen_dots, len = false, 0
-         acc_test +{ type( -{v} ) ~= "table" } 
+         acc_type_test(v, 'table')
          for i = 1, #pattern do
             local key, sub_pattern
             if pattern[i].tag=="Pair" then -- Explicit key/value pair
@@ -326,3 +336,4 @@ mlp.stat:add{ name = "match statement",
    "end",
    builder = |x| match_builder{ x[1], x[3] } }
 
+return `Local{ {type_alpha}, {+{type}} }
