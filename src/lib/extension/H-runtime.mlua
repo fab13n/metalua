@@ -31,7 +31,7 @@ require 'walk.id'
 
 H = { } --setmetatable(H, H)
 H.__index=H
-H.template = { }
+H.template = { alpha = { } }
 
 --------------------------------------------------------------------------------
 --
@@ -89,7 +89,8 @@ function H:__call (ast)
 
       -- free_vars is an old_name -> new_name dictionary computed from alpha:
       -- self.alpha is not an efficient representation for searching.
-      if not alpha or #alpha==0 then alpha = `Local{ { }, { } }; self.alpha=alpha end
+      if not alpha then alpha = { }; self.alpha = alpha end
+      if #alpha==0 then alpha <- `Local{ { }, { } } end
       local new, old = unpack(alpha) 
       local free_vars  = { }
 
