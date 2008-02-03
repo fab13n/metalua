@@ -766,7 +766,7 @@ end
 ------------------------------------------------------------------------
 
 function stat.Local (fs, ast)
-  local names, values = ast[1], ast[2]
+  local names, values = ast[1], ast[2] or { }
   for i = 1, #names do new_localvar (fs, names[i][1], i-1) end
   local e = { }
   if #values == 0 then e.k = "VVOID" else explist (fs, values, e) end
