@@ -1,3 +1,7 @@
+-- WARNING, this is undertested, especially in cases where mutliple
+-- modules have thei own fenvs. Use at your own risks, or test/debug
+-- for the whole community's benefits :)
+
 --print'xglobal\'s args' table.print{...}
 
 local function decl_builder(x)

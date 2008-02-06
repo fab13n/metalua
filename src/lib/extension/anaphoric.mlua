@@ -12,10 +12,6 @@
 -- * in a while loop, it's bound to the test:
 --   > while file:read "*a" do table.insert (lines, it) end
 --
--- * in a function definition, it's bound to the function itself, allowing
---   recursive calls of anonymous functions:
---   > fact = |x| x<=1 and 1 or x*it(x-1)
---
 -- 'it' is bound the the most closely surrounding structure. If you wanted to
 -- use its content at a deeper position in the AST, you would have to save it
 -- in a temporary variable. But what you should really do in such a case is
@@ -24,9 +20,9 @@
 --------------------------------------------------------------------------------
 
 -- TODO: 'and' operator could, and maybe should, be anaphoric as well
--- TODO: OTOH, anaphoric functions are maybe a trap: 'it' will always
---       be used in an 'if' that will block it.
--- TODO: anaphoric functions aren't implemented anyway.
+-- TODO: anaphoric functions would be cool for recursive functions, but
+--       recursive calls are always in an 'if' statement, so the pronoun
+--       used for functions must not be the same as for 'if'.
 
 require 'freevars'
 
