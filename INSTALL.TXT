@@ -1,0 +1,106 @@
+Installation guidelines
+=======================
+
+TESTING AN INSTALLATION PROCEDURE IS HARD, AND RARELY DONE RIGHT FROM
+THE FIRST TIME. IF YOU EXPERIENCE INSTALLATION TROUBLES, PLEASE REPORT
+THEM, TO AVOID THEM TO FUTURE USERS. mailto:metalua@gmail.com
+
+Prerequisites
+-------------
+- a 32 bits, little endian CPU 
+  (or the willingness to tweak the bytecode dumper by yourself)
+- a C compiler
+- Under Unix-like OSes, GNU/Make.
+- Under MS-Windows, Microsoft Visual Studio
+- optionally, your own Lua VM
+- optionally, the readline library
+
+MS-Windows
+----------
+You need to:
+
+- edit metalua\src\win32\make-win32-msvc.bat, and set the
+  user configuration:
+  - The directory where you want to put your libs and executables, 
+    MUALIB_TARGET.
+  - The directory where the compiler and linker are,
+    MSVCDIR.
+
+- open a DOS shell in metalua\src, and run the batch file above:
+  d:\fabien\src\metalua\src> win32\make-win32-msvc
+
+Notice that under windows, Pluto is linked statically with the Lua VM,
+as it exploits some APIs which are not exported as DLL by default. If
+you want to run your own Lua VM, you'll need either:
+- to set the LUA_MFAST environment variable so that the compiler won't
+  use Pluto; but then, interactions between compile-time parts of
+  files compiled together might sometimes cause troubles
+- or recompile your VM with Pluto linked in it
+- or recompile it by exporting the LUAI_FUNC functions as DLL entry
+  points. 
+
+- Set your environment variables. A script metalua\src\mlua_setenv.bat
+  must have been generated, which contains the appropriate
+  settings. If you want to commit these setting permanently, you'll
+  have to set them in "My Computer" <right-click> "Properties" <click>
+  "Adanced settings" <click> "Environment variables".
+
+Mingw
+-----
+There is also a migw port, which hasn't been tested for a while and is
+likely to be broken. I'd be grateful if someone provided a patch for
+this. I've never tried to compile it under cygwin either,
+contributions are welcome.
+
+Un*x
+----
+Set your configuration in metalua/src/config:
+
+- PLATFORM is the name of the target platform for the Lua VM. You need
+  a platform which supports dynamic library loading, i.e. posix is not
+  OK. The most likely choices are linux, macosx, mingw, freebsd,
+  openbsd.
+
+- TARGET_LUA_PATH is the place where Lua libraries will be
+  installed. It points to a temporary directory by default.
+
+- TARGET_LUA_CPATH is the target directory for C libraries. Unless
+  you've got a special reason not to, it's a good idea to use the same
+  directory as for TARGET_LUA_PATH
+
+- TARGET_BIN_PATH is the place where binary executables will be put.
+
+Other settings should probably not be touched unless you know what
+you're doing.
+
+After the `make`, the system should be installed; the environment
+variables required to make it work are set in the generated script
+setenv.sh. To install them, either do `. setenv.sh`, or recopy them in
+your .bashrc file.
+
+Troubleshooting:
+----------------
+
+Under Linux, if you don't have readline and don't want to install it
+(e.g. you rely on rlwrap or ledit), you'll have to remove -lreadline
+from lua/Makefile, and to remove the #define LUA_USE_READLINE from
+lua/luaconf.h
+
+If you use your own Lua VM, depending on your OS, you might have
+problems with unexported symbols which are required by Pluto. Either
+link Pluto with statically with your VM (take inspiration from the
+win32 hack above), 
+
+
+
+Test drive
+----------
+There are some samples in metalua/samples, which can be rn simply by
+typing in the shell `metalua samplename.mlua`. Use `metalua -h` to
+have an overview of interesting options. Among them, "-a" dumps the
+AST resulting from a compilation: that's the perfect learning tool for
+practical-oriented minds.
+
+Once you've played with teh samples, and maybe written a couple of
+simple programs, I'm afraid the next step will be to RTFM :) 
+

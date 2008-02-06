@@ -17,7 +17,7 @@
 
 \begin{alltt}
 
-block: \L{ stat\star (\T{Return}\L{expr\star} | \T{Break})? }
+block: \L{ stat\star }
 
 stat:
 | \T{Do}\L{ block }
@@ -29,6 +29,10 @@ stat:
 | \T{Forin}\L{ \L{ident\plus} \L{expr\plus} block }
 | \T{Local}\L{ \L{ident\plus} \L{expr\plus}? }
 | \T{Localrec}\L{ \L{ident\plus} \L{expr\plus}? }
+| \T{Goto}\L{\P{string}}
+| \T{Label}\L{\P{string}}
+| \T{Return}
+| \T{Break}
 | apply
 
 expr:
@@ -37,8 +41,9 @@ expr:
 | \T{String}\L{ \P{string} }
 | \T{Function}\L{ \L{ ident\star \T{Dots}? } block } 
 | \T{Table}\L{ ( \T{Pair}\L{ expr expr } | expr )\star }
-| \T{Op}\L{ opid expr expr? }
+| \T{Op}\L{ binopid expr expr } | \T{Op}\L{ unopid expr }
 | \T{Paren}\L{ expr }
+| \T{Stat}\L{ block expr }
 | apply
 | lhs
 
@@ -50,11 +55,11 @@ lhs: ident | \T{Index}\L{ expr expr }
 
 ident: \T{Id}\L{ \P{string} }
 
-opid: \T{Add}    | \T{Sub}    | \T{Mul}    | \T{Div} 
-    | \T{Mod}    | \T{Pow}    | \T{Concat} | \T{Eq} 
-    | \T{Lt}     | \T{Le}     | \T{And}    | \T{Or}
-    | \T{Not}    | \T{Len}
+binopid: "add" | "sub" | "mul"    | "div"
+       | "mod" | "pow" | "concat" | "eq"
+       | "lt"  | "le"  | "and"    | "or"
 
+unopid:  "not" | "len" | "unm"
 \end{alltt}
   
 % {\bf{}Relaxed forms:}
