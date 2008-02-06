@@ -1,4 +1,4 @@
-PLATFORMS = macosx mingw
+PLATFORMS = macosx mingw linux
 
 include config
 

@@ -13,8 +13,6 @@ ast = +{ block:
 disp = |msg,ast| printf("\n%s:\n%s", msg, table.tostring(ast, 80, 'nohash'))
 disp('initial term', ast)
 
-require'autotable'
-
 do -- Make globals explicit:
    local ast = table.deep_copy(ast)
    local cfg = { id = { } }
@@ -50,39 +48,4 @@ do -- Alpha rename local vars:
    walk_id.block(cfg, ast)
    disp('Local alpha-renamed', ast)
 end
-
-
---[=[
-
-
-local varlist_mt = { __index = function (self, key) 
-                                  local x={ }; self[key] = x; return x 
-                               end }
-local bound_vars = setmetatable({ }, varlist_mt)
-local free_vars  = setmetatable({ }, varlist_mt)
-
-cfg = { 
-   id = { 
-      bound = |x, binder| table.insert(bound_vars[binder], x),
-      free  = |x|         table.insert(free_vars[x[1]], x) } }
-
-walk_id.block(cfg, x)
-
--- Alpha convert bound variables
-for binder, occurences in pairs(bound_vars) do
-   local new_name = "_LOCAL_"..occurences[1][1]
-   local cfg = { binder = function (x) x[1]=new_name; return 'break' end }
-   walk.guess(cfg, binder)
-   for occ in ivalues(occurences) do occ[1] = new_name end
-end
-
--- Alpha convert free variables
-for name, occurences in pairs(free_vars) do
-   local new_name = "_GLOBAL_"..occurences[1][1]
-   for occ in ivalues(occurences) do occ[1] = new_name end
-end   
---]=]
-
---print "\n\n TERM AFTER PARSING:"
---table.print(x,60,'nohash')
 

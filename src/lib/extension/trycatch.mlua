@@ -99,7 +99,7 @@ function trycatch_builder(x)
 
    -- code handling the error catching process:
    local catch_result do
-      if #catch_cases>0 then
+      if catch_cases and #catch_cases>0 then
          ----------------------------------------------------------
          -- Protect catch code against failures: they run in a pcall(), and
          -- the result is kept in catch_* vars so that it can be used to

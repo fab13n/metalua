@@ -1,3 +1,8 @@
+-- This is a simple and somewhat stupid example of how to switch
+-- lexers dynamically. Behind a V, X and Y are the only reserved
+-- keywords. In normal conditions, X and Y aren't keywords and can be
+-- used as variables.
+
 -{ block:
    require 'lexer'
    local my_lexer = lexer.lexer:clone() -- no keywords

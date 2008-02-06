@@ -135,3 +135,4 @@ local x = if false then 1 elseif bar then 2 else 3
 ------------------------------------------------------------
 
 assert (x == 3)
+print "It seems to work..."

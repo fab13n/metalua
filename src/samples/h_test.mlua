@@ -3,10 +3,6 @@
 
 require 'metalua.compiler'
 
---assert (+{foo}.quote, "no q!?")
-
--- Usage samples:
-
 TEST_CASES = { 
 
    {  "everything should be renamed",
@@ -32,8 +28,6 @@ TEST_CASES = {
      +{ block:
         print(i)
         -{!`Call{`Id 'print', `String 'hi' } } 
-        -- Bugger. I don't detect any non-quoted element , so 
-        -- the -{+{ }} thingie won't protect from capture.
         -{!+{print 'hi'}} },
      { } },
  
@@ -49,10 +43,6 @@ TEST_CASES = {
         print (x, y) },
      {  alpha = +{stat: local RENAMED_PRINT = print}, 
         keep  = {y = true} } } } 
- 
---   { +{ block: -- 
---         },
---     { } },
 
 for case in ivalues(TEST_CASES) do
    local comment, ast, cfg = unpack(case)

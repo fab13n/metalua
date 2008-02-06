@@ -294,7 +294,7 @@ operator \verb+==+.
 
 \paragraph{Unary Operators}
 Unary operations are similar to binary operators, except that they
-only take the AST of one subexression.  The following table associates
+only take the AST of one subexression. The following table associates
 a Lua unary operator to its AST:
 
 \begin{center}
@@ -305,7 +305,7 @@ a Lua unary operator to its AST:
   \bf Op. & \bf AST \\
   
   \hline\hline %%%%%%%%%%%%%%
-  \verb+-+   & \verb+"sub"+ & 
+  \verb+-+   & \verb+"unm"+ & 
   \verb+#+   & \verb+"len"+ & 
   \verb+not+ & \verb+"not"+ \\
   \hline %%%%%%%%%%%%%%%%%%%%
@@ -314,11 +314,11 @@ a Lua unary operator to its AST:
 
 \subparagraph{Examples}
 \begin{itemize}
-\item \verb|-x| is represented as \verb|`Op{ `Sub, `Id "x" }|;
+\item \verb|-x| is represented as \verb|`Op{ 'unm', `Id "x" }|;
 \item \verb|-(1+2)| is represented as:\\
-  \verb|`Op{ `Sub, `Op{ `Add, `Number 1, `Number 2 } }|
+  \verb|`Op{ 'unm', `Op{ 'add', `Number 1, `Number 2 } }|
 \item \verb|#x| is represented as
-  \verb|`Op{ `Len, `Id "x" }|
+  \verb|`Op{ 'len', `Id "x" }|
 \end{itemize}
 
 \paragraph{Indexed access}

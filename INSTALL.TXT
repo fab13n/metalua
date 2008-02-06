@@ -1,9 +1,11 @@
 Installation guidelines
 =======================
 
-TESTING AN INSTALLATION PROCEDURE IS HARD, AND RARELY DONE RIGHT FROM
-THE FIRST TIME. IF YOU EXPERIENCE INSTALLATION TROUBLES, PLEASE REPORT
+======================================================================
+TESTING AN INSTALLATION PROCEDURE IS HARD, AND RARELY DONE RIGHT AT
+THE FIRST TRY. IF YOU EXPERIENCE INSTALLATION TROUBLES, PLEASE REPORT
 THEM, TO AVOID THEM TO FUTURE USERS. mailto:metalua@gmail.com
+======================================================================
 
 Prerequisites
 -------------
@@ -21,23 +23,13 @@ You need to:
 
 - edit metalua\src\win32\make-win32-msvc.bat, and set the
   user configuration:
-  - The directory where you want to put your libs and executables, 
+  * The directory where you want to put your libs and executables, 
     MUALIB_TARGET.
-  - The directory where the compiler and linker are,
+  * The directory where the compiler and linker are,
     MSVCDIR.
 
 - open a DOS shell in metalua\src, and run the batch file above:
   d:\fabien\src\metalua\src> win32\make-win32-msvc
-
-Notice that under windows, Pluto is linked statically with the Lua VM,
-as it exploits some APIs which are not exported as DLL by default. If
-you want to run your own Lua VM, you'll need either:
-- to set the LUA_MFAST environment variable so that the compiler won't
-  use Pluto; but then, interactions between compile-time parts of
-  files compiled together might sometimes cause troubles
-- or recompile your VM with Pluto linked in it
-- or recompile it by exporting the LUAI_FUNC functions as DLL entry
-  points. 
 
 - Set your environment variables. A script metalua\src\mlua_setenv.bat
   must have been generated, which contains the appropriate
@@ -49,8 +41,8 @@ Mingw
 -----
 There is also a migw port, which hasn't been tested for a while and is
 likely to be broken. I'd be grateful if someone provided a patch for
-this. I've never tried to compile it under cygwin either,
-contributions are welcome.
+this. I've never tried to compile it under cygwin either, patches are
+welcome.
 
 Un*x
 ----
@@ -80,18 +72,23 @@ your .bashrc file.
 
 Troubleshooting:
 ----------------
-
 Under Linux, if you don't have readline and don't want to install it
 (e.g. you rely on rlwrap or ledit), you'll have to remove -lreadline
 from lua/Makefile, and to remove the #define LUA_USE_READLINE from
 lua/luaconf.h
 
 If you use your own Lua VM, depending on your OS, you might have
-problems with unexported symbols which are required by Pluto. Either
-link Pluto with statically with your VM (take inspiration from the
-win32 hack above), 
+problems with unexported symbols required by Pluto. Pluto requires the
+symbols prefixed with LUAI_FUNC in the VM to be exported, and they
+aren't by default under Linux and Windows. This is set in luaconf.h;
+you'll need to change that setting in your own Lua VM if you want to
+use it.
 
-
+Alternatively, you can let metalua run without Pluto by setting the
+environment variable LUA_MFAST to "yes". However, this might cause
+parasitic interactions when several source files are compiled
+simultaneously, so you'd rather precompile each file and library one
+by one.
 
 Test drive
 ----------

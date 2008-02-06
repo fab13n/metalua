@@ -17,4 +17,5 @@ src/lua/lua
 src/compiler/bootstrap
 src/compiler/metalua
 junk
+patches
 ran

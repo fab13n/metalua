@@ -90,6 +90,8 @@ function H:__call (ast)
       -- free_vars is an old_name -> new_name dictionary computed from alpha:
       -- self.alpha is not an efficient representation for searching.
       if not alpha then alpha = { }; self.alpha = alpha end
+      -- FIXME: alpha should only be overridden when there actually are some
+      -- globals renamed.
       if #alpha==0 then alpha <- `Local{ { }, { } } end
       local new, old = unpack(alpha) 
       local free_vars  = { }

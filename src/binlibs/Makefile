@@ -18,5 +18,5 @@ clean:
 .PHONY: libraries install clean
 
 %.$(LIBEXT): %.$(OBJEXT)
-	$(MKLIB) -o $@ $+
+	$(MKLIB) -o $@ $+ $(LDFLAGS)
 

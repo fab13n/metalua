@@ -46,6 +46,13 @@ ifeq ($(PLATFORM), mingw)
   LUA_BINARIES  = $(COMPILE).exe $(RUN).exe metalua.dll
 endif
 
+ifeq ($(PLATFORM), linux)
+  LIBEXT        = so
+  MKLIB         = gcc -shared
+  LDFLAGS	= -L../$(LUA_VM_DIR) -llua
+  LUA_BINARIES  = $(COMPILE) $(RUN)
+endif
+
 #########################################################
 # Environment variables settign paths
 

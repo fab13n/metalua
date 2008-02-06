@@ -178,6 +178,10 @@
 ** (versions 3.2 and later) mark them as "hidden" to optimize access
 ** when Lua is compiled as a shared library.
 */
+#if 1 /* Metalua: export internal symbols needed by Pluto. */
+#  define LUAI_FUNC LUA_API
+#  define LUAI_DATA LUA_API
+#else /* Metalua: Original version, disabled */
 #if defined(luaall_c)
 #define LUAI_FUNC	static
 #define LUAI_DATA	/* empty */
@@ -190,6 +194,7 @@
 #else
 #define LUAI_FUNC	extern
 #define LUAI_DATA	extern
+#endif
 #endif
 
 
