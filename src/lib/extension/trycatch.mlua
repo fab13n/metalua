@@ -4,6 +4,9 @@
 --
 -- TODO:
 --
+-- * Hygiene! this stuff is absolutely not hygienic, and lexically nested
+--   try...with 
+--
 -- * give a more lua-like syntax:
 --   > try ... (catch expr then block)* (finally block)? end
 --
@@ -39,6 +42,11 @@ function trycatch_builder(x)
    local try_code, catch_cases, finally_code = unpack(x)
    local insert_return_catcher = false
 
+   -- Can't be hygienize automatically by the current version of H, as
+   -- it must bridge from inside user code (hacjed return statements)
+   -- to outside macro code.
+   local caught_return = !mlp.gensym 'caught_return'
+
    local H = H:new{side='inside'}
    !try_code; !(catch_code or { }); !(finally_code or { })
 
@@ -72,9 +80,8 @@ function trycatch_builder(x)
          match x with 
          | `Return{...} -> 
             insert_return_catcher = true
--- FIXME: caught_return won't be tranformed because it's inside 
---        a user-bounded block
-            local setvar = +{stat:caught_return = -{`Table{ unpack(x) }}}
+            -- Setvar's 'caught_return' code can't be hygienize by H currently.
+            local setvar = `Set{ {caught_return}, { `Table{ unpack(x) } } }
             x <- { setvar; `Return }; x.tag = nil;
             $log('transformed return stat:', x, 60)
             return 'break'
@@ -122,9 +129,9 @@ function trycatch_builder(x)
    ----------------------------------------------------------------
    local caught_return_init, caught_return_rethrow do
       if insert_return_catcher then
-         caught_return_init    = +{stat: local caught_return }
+         caught_return_init    = `Local{{caught_return}}
          caught_return_rethrow =
-            +{stat: if caught_return then return unpack(caught_return) end}
+            +{stat: if -{caught_return} then return unpack(-{caught_return}) end}
       else
          caught_return_init, caught_return_rethrow = { }, { }
       end
