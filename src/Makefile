@@ -28,10 +28,7 @@ setenv.sh: config
 
 copy-libraries: lib/
 	mkdir -p $(TARGET_LUA_PATH)
-	cp -Rp lib/ $(TARGET_LUA_PATH)/
-
-
-#	cp -p -R lib/* $(TARGET_LUA_PATH)/
+	cp -Rp lib/* $(TARGET_LUA_PATH)/
 
 compile-libraries: copy-libraries bin-libraries setenv.sh compiler
 	echo "Compiling libraries:"

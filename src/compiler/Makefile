@@ -31,6 +31,8 @@ MLP_LUA =           \
       mlp_stat.lua  \
       mlp_ext.lua 
 
+metalua.luac: mlc.luac
+
 bytecode.luac: $(BYTECODE_LUA)
 	$(LUA_COMPILE) -o $@ $^
 

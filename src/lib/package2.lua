@@ -46,7 +46,7 @@ end
 -- Execute a metalua module sources compilation in a separate ring.
 ----------------------------------------------------------------------
 local function spring_load(filename)   
-   local env_fast = os.getenv 'LUA_FAST'
+   local env_fast = os.getenv 'LUA_MFAST'
 
    if env_fast=='yes' or env_fast=='true' then 
       -- degraded mode without spring:
