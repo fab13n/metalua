@@ -50,8 +50,8 @@ local function spring_load(filename)
 
    if env_fast=='yes' or env_fast=='true' then 
       -- degraded mode without spring:
-      print "Warning: loading metalua source file in the same compilation ring;"
-      print "metalevels 0 might interfere, condider unsetting environment variable LUA_MFAST"
+      -- print "Warning: loading metalua source file in the same compilation ring;"
+      -- print "metalevels 0 might interfere, condider unsetting environment variable LUA_MFAST"
       return mlc.function_of_luafile(filename) 
    else
       -- run compilation in a separate spring universe:
