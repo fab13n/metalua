@@ -4,7 +4,7 @@
 # Platforms currently supported: mingw, macosx.
 # Feel welcome to contribute additional ones! :)
 
-PLATFORM  = none
+PLATFORM  = linux
 PLATFORMS = macosx mingw linux
 
 
@@ -45,7 +45,9 @@ endif
 ifeq ($(PLATFORM), mingw)
   LIBEXT        = dll
   MKLIB         = gcc -shared
-  LUA_BINARIES  = $(COMPILE).exe $(RUN).exe metalua.dll
+  LUALIB        = ../lua/lua51.dll
+  LDFLAGS       = $(LUALIB) 
+  LUA_BINARIES  = $(COMPILE).exe $(RUN).exe lua51.dll
 endif
 
 ifeq ($(PLATFORM), linux)

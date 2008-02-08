@@ -7,20 +7,19 @@ else
 all: setenv.sh lua libraries install-lua bin-libraries compiler compile-libraries
 endif
 
-install-lua: lua
-	mkdir -p $(TARGET_BIN_PATH)
+install-lua: lua target-dirs
 	cp $(LUA_VM_DIR)/$(RUN) $(LUA_VM_DIR)/$(COMPILE) $(TARGET_BIN_PATH)/
 
-setenv.sh: config
-	mkdir -p $(TARGET_BIN_PATH)
-	mkdir -p $(TARGET_LUA_PATH)
-	mkdir -p $(TARGET_LUA_CPATH)
+setenv.sh: config target-dirs
 	echo '#!/bin/bash'                           >  $@
 	echo 'export LUA_PATH="$(LUA_PATH)"'         >> $@
 	echo 'export LUA_CPATH="$(LUA_CPATH)"'       >> $@
 	echo 'export LUA_MPATH="$(LUA_MPATH)"'       >> $@
 	echo 'export PATH=$(TARGET_BIN_PATH):$$PATH' >> $@
 	chmod a+x $@
+
+
+copy-libraries: lib/ target-dirs
 
 copy-libraries: lib/
 	mkdir -p $(TARGET_LUA_PATH)
@@ -39,18 +38,23 @@ compile-libraries: copy-libraries bin-libraries setenv.sh compiler
 	done
 
 compiler: copy-libraries bin-libraries
-	$(MAKE) -C $@ $(PLATFORM)
+	LUA_PATH="$(LUA_PATH)" LUA_CPATH="$(LUA_CPATH)" LUA_MPATH="$(LUA_MPATH)" $(MAKE) -C $@ $(PLATFORM)
 
 bin-libraries:
 	$(MAKE) -C binlibs	$(PLATFORM) install
 
 lua: $@
-	$(MAKE) -C $@ $(PLATFORM)
+	$(MAKE) -C $@ $(PLATFORM) 
 
 
 clean:
 	$(MAKE) -C lua      clean
 	$(MAKE) -C compiler clean
 	$(MAKE) -C binlibs  clean
+
+target-dirs: $(TARGET_BIN_PATH) $(TARGET_LUA_PATH) $(TARGET_LUA_CPATH)
+
+$(TARGET_BIN_PATH) $(TARGET_LUA_PATH) $(TARGET_LUA_CPATH):
+	mkdir -p $@
 
 .PHONY: all libraries lua bin-libraries copy-libraries compile-libraries compiler

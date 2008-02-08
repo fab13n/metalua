@@ -182,19 +182,17 @@
 #  define LUAI_FUNC LUA_API
 #  define LUAI_DATA LUA_API
 #else /* Metalua: Original version, disabled */
-#if defined(luaall_c)
-#define LUAI_FUNC	static
-#define LUAI_DATA	/* empty */
-
-#elif defined(__GNUC__) && ((__GNUC__*100 + __GNUC_MINOR__) >= 302) && \
-      defined(__ELF__)
-#define LUAI_FUNC	__attribute__((visibility("hidden"))) extern
-#define LUAI_DATA	LUAI_FUNC
-
-#else
-#define LUAI_FUNC	extern
-#define LUAI_DATA	extern
-#endif
+#  if defined(luaall_c)
+#    define LUAI_FUNC	static
+#    define LUAI_DATA	/* empty */
+#  elif defined(__GNUC__) && ((__GNUC__*100 + __GNUC_MINOR__) >= 302) && \
+        defined(__ELF__)
+#    define LUAI_FUNC	__attribute__((visibility("hidden"))) extern
+#    define LUAI_DATA	LUAI_FUNC
+#  else
+#    define LUAI_FUNC	extern
+#    define LUAI_DATA	extern
+#  endif
 #endif
 
 

@@ -12,6 +12,8 @@ install:   libraries
 	mkdir -p $(TARGET_LUA_CPATH)
 	cp $(LIBS) $(TARGET_LUA_CPATH)
 
+# TODO [EVE] there is still a question, how to remove dlls,
+# cause clean knows nothing about platform
 clean:
 	-rm *.o *.$(LIBEXT)
 

@@ -107,9 +107,10 @@ function mlc.convert (x, src_fmt, dst_fmt, name)
       return nil
    end
    
+   if x then x.source = name end -- TODO [EVE] store debug info in the special part of ast
+
    POINT 'ast', 'table' -- x is the AST
-   x = bytecode.metalua_compile(x) 
-   x.source = name
+   x = bytecode.metalua_compile(x, name or x.source) 
    POINT 'proto', 'table' 
    x = bytecode.dump_string (x)
    POINT 'luacstring', 'string' -- normally x is a bytecode dump

@@ -155,6 +155,8 @@ local function main (...)
          st, ast = spring_pcall('mlc.ast_of_luafile', f, '@'..f)
          -- Isolate each file in a separate fenv
          ast = +{ function (...) -{ast} end (...)  }
+         ast.source  = '@'..f -- TODO [EVE]
+         code.source = '@'..f -- TODO [EVE]
          last_file = ast
       end
       if not st then os.exit (AST_COMPILE_ERROR_NUMBER) end
@@ -164,7 +166,7 @@ local function main (...)
    -- The last file returns the whole chunk's result
    if last_file then
       local c = table.shallow_copy(last_file)
-      last_file <- `Return{ origin = c.origin, c }
+      last_file <- `Return{ source = c.source, c }
    end
 
    -------------------------------------------------------------------
@@ -172,14 +174,7 @@ local function main (...)
    if cfg['print-ast'] then 
       verb_print "Resulting AST:"
       for x in values(code) do
--- [[ Get rid of fenv isolation cruft
-         match x with
-         | +{stat: return function(...) -{ast} end (...) }
-         | +{expr: function(...) -{ast} end (...) } -> x=ast
-         | _ -> 
-         end
---]]
-         printf("--- AST From %s: ---", table.tostring(x.origin, 'nohash'))
+         printf("--- AST From %s: ---", table.tostring(x.source, 'nohash'))
          --if x.origin.tag=='File' then x=x[1][2][1] end
          table.print(x, 80, 'nohash')
       end 

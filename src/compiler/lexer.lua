@@ -317,8 +317,8 @@ function lexer:next (n)
       if a then 
          debugf ("[L:%i K:%i T:%s %q]", a.line or -1, a.char or -1, 
                  a.tag or '<none>', a[1])
-         self.lastline = a.lineinfo.last
-      end     
+      end
+      self.lastline = a.lineinfo.last
    end
    return a or eof_token
 end
