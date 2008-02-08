@@ -982,7 +982,7 @@ function luaK:code(fs, i, line)
   if line == 0 then
     f.lineinfo[fs.pc] = fs.lastline
     if fs.lastline == 0 then
-      print(debug.traceback())
+      --print(debug.traceback())
     end    
   end
 

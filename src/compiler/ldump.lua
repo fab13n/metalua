@@ -295,7 +295,7 @@ function luaU:DumpLines(f, D)
   --was DumpVector
   for i = 0, n - 1 do
     self:DumpInt(f.lineinfo[i], D)  -- was DumpBlock
-    print(i, f.lineinfo[i])
+    --print(i, f.lineinfo[i])
   end
 end
 

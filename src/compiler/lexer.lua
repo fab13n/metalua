@@ -315,9 +315,9 @@ function lexer:next (n)
    for i=1,n do 
       a = _G.table.remove (self.peeked, 1) 
       if a then 
-        debugf ("[L:%i K:%i T:%s %q]", a.line or -1, a.char or -1, 
-                a.tag or '<none>', a[1]) end
-        self.lastline = a.lineinfo.last
+         debugf ("[L:%i K:%i T:%s %q]", a.line or -1, a.char or -1, 
+                 a.tag or '<none>', a[1])
+         self.lastline = a.lineinfo.last
       end     
    end
    return a or eof_token
