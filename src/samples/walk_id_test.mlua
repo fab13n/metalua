@@ -24,28 +24,3 @@ do -- Make globals explicit:
    disp('Globals made explicit', ast)
 end
 
-
-do -- Alpha rename local vars:
-   local ast = table.deep_copy(ast)
-   local cfg = { id = { } }
-   local translations = autotable()
-   function cfg.id.bound (id, binder) 
-      local tmp = translations[id[1]]
-      if not tmp then
-         printf("new tmp for name %s", id[1])
-         tmp = { }
-         translations[id[i]] = tmp
-      end
-      local new_name = tmp[binder]
-      if not new_name then
-         printf("new name for name %s binder %s", id[1], tostring(binder))
-         new_name = mlp.gensym('_local_'..id[1])
-         
-         tmp[binder] = new_name
-      end
-      id[1] = new_name
-   end
-   walk_id.block(cfg, ast)
-   disp('Local alpha-renamed', ast)
-end
-

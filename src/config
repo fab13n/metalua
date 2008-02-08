@@ -4,7 +4,9 @@
 # Platforms currently supported: mingw, macosx.
 # Feel welcome to contribute additional ones! :)
 
-PLATFORM         = macosx
+PLATFORM  = none
+PLATFORMS = macosx mingw linux
+
 
 #########################################################
 # Installation paths.

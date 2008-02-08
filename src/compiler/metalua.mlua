@@ -4,7 +4,25 @@
 
 require 'metalua.compiler'
 require 'clopts'
-require 'springs'
+
+do
+   local mfast = os.getenv 'LUA_NOSPRINGS'
+   if mfast=='yes' or mfast=='true' then
+      function spring_pcall(f, ...)
+	 if type(f)=='string' then f = loadstring("return "..f)() end
+	 return pcall(f, ...)
+      end
+   else
+      require 'springs'
+      function spring_pcall(...)
+         local ring = springs.new()
+         ring:dostring (INIT_COMPILATION_RING)
+         st, ast = ring:pcall(...)
+	 ring:close()
+	 return st, ast
+      end
+   end
+end
 
 AST_COMPILE_ERROR_NUMBER        = -1
 RUNTIME_ERROR_NUMBER            = -3
@@ -132,14 +150,9 @@ local function main (...)
       local st, ast
       match x with
       | `Library{ l } -> st, ast = true, `Call{ `Id 'require', `String{ l } }
-      | `Literal{ e } -> 
-         local ring = springs.new()
-         ring:dostring (INIT_COMPILATION_RING)
-         st, ast = ring:pcall('mlc.ast_of_luastring', e, 'literal')
+      | `Literal{ e } -> st, ast = spring_pcall('mlc.ast_of_luastring', e, 'literal')
       | `File{ f } -> 
-         local ring = springs.new()
-         ring:dostring (INIT_COMPILATION_RING)
-         st, ast = ring:pcall('mlc.ast_of_luafile', f, '@'..f) -- FIXME: handle '-'
+         st, ast = spring_pcall('mlc.ast_of_luafile', f, '@'..f)
          -- Isolate each file in a separate fenv
          ast = +{ function (...) -{ast} end (...)  }
          last_file = ast

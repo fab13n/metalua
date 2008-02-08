@@ -48,7 +48,7 @@ for case in ivalues(TEST_CASES) do
    local comment, ast, cfg = unpack(case)
    print ('\n'..'-':rep(70))
    print (comment)
-   if cfg then H:set(cfg) end
+   local H = H:new(cfg)
    print ("\nBEFORE PARSING:")
    $log (ast, H, 50)
    H(ast)

@@ -46,7 +46,7 @@ require 'mlp'
 require 'package2'
 
 local function compile_file (src_filename)
-   io.write("Compiling "..src_filename.."... ")
+   print("Compiling "..src_filename.."... ")
    local src_file     = io.open (src_filename, 'r')
    local src          = src_file:read '*a'; src_file:close()
    local ast          = mlc.ast_of_luastring (src)
@@ -56,7 +56,7 @@ local function compile_file (src_filename)
    local dst_file     = io.open (dst_filename, 'wb')
    dst_file:write(dump)
    dst_file:close()
-   io.write("OK.")
+   print("...Wrote "..dst_filename)
 end
 
 

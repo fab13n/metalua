@@ -1,15 +1,11 @@
-PLATFORMS = macosx mingw linux
-
 include config
 
-none:
-	@echo Please select one of supported platforms:
-	@echo $(PLATFORMS)
-
+ifeq ($(PLATFORM), none)
+all:
+	@echo "You haven't edited 'config' yet. Set your settings there, then run 'make' again"
+else
 all: setenv.sh lua libraries install-lua bin-libraries compiler compile-libraries
-
-$(PLATFORMS):
-	PLATFORM=$@ $(MAKE) all
+endif
 
 install-lua: lua
 	mkdir -p $(TARGET_BIN_PATH)
@@ -31,7 +27,7 @@ copy-libraries: lib/
 	cp -Rp lib/* $(TARGET_LUA_PATH)/
 
 compile-libraries: copy-libraries bin-libraries setenv.sh compiler
-	echo "Compiling libraries:"
+	@echo "Compiling libraries:"
 	for src in $$(find $(TARGET_LUA_PATH) -name '*.mlua') ; do \
 		bc="$$(dirname $$src)/$$(basename $$src .mlua).luac"; \
 		if [ $$src -nt $$bc ]; then \

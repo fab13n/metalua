@@ -1,3 +1,7 @@
+require 'verbose_require'
+
+-{ require 'verbose_require' and nil }
+
 -{ extension 'withdo' }
 
 local original_close = io.close

@@ -25,11 +25,12 @@
 --
 --------------------------------------------------------------------------------
 
--- Get match parsers and builder, for catch cases handling:
-require 'extension.match' 
-
 -{ extension 'H' }
 -{ extension 'log' }
+
+-- Get match parsers and builder, for catch cases handling:
+local match_alpha = require 'extension.match' 
+local H = H:new{side='inside', alpha = match_alpha }
 
 -- We'll need to track rogue return statements:
 require 'walk'
@@ -47,7 +48,6 @@ function trycatch_builder(x)
    -- to outside macro code.
    local caught_return = !mlp.gensym 'caught_return'
 
-   local H = H:new{side='inside'}
    !try_code; !(catch_code or { }); !(finally_code or { })
 
    --$log(try_code, catch_cases, finally_code)
@@ -169,5 +169,6 @@ mlp.stat:add{
    'end',
    builder = trycatch_builder }
 
+return H.alpha
 
 
