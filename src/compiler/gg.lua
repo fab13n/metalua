@@ -1,5 +1,5 @@
 ----------------------------------------------------------------------
--- Metalua:  $Id: gg.lua,v 1.2 2006/11/15 09:07:50 fab13n Exp $
+-- Metalua.
 --
 -- Summary: parser generator. Collection of higher order functors,
 --   which allow to build and combine parsers. Relies on a lexer
@@ -7,14 +7,10 @@
 --
 ----------------------------------------------------------------------
 --
--- Copyright (c) 2006, Fabien Fleutot <metalua@gmail.com>.
+-- Copyright (c) 2006-2008, Fabien Fleutot <metalua@gmail.com>.
 --
 -- This software is released under the MIT Licence, see licence.txt
 -- for details.
---
-----------------------------------------------------------------------
--- History:
--- $Log: gg.lua,v $
 --
 ----------------------------------------------------------------------
 
@@ -89,6 +85,9 @@ end
 -------------------------------------------------------------------------------
 local function raw_parse_sequence (lx, p)
    local r = { }
+
+   local lineinfo = { first = lx:peek().lineinfo.first }
+   
    for i=1, #p do
       e=p[i]
       if type(e) == "string" then 
@@ -96,12 +95,18 @@ local function raw_parse_sequence (lx, p)
             parse_error (lx, "Keyword '%s' expected", e) end
       elseif is_parser (e) then
          table.insert (r, e (lx)) 
+         
+         lineinfo.last = lx.lastline
       else 
          gg.parse_error (lx,"Sequence `%s': element #%i is not a string "..
                          "nor a parser: %s", 
                          p.name, i, table.tostring(e))
       end
    end
+   lineinfo.last = lx.lastline
+
+   r.lineinfo = lineinfo
+
    return r
 end
 
@@ -130,7 +135,7 @@ end
 -- Generate a tracable parsing error (not implemented yet)
 -------------------------------------------------------------------------------
 function parse_error(lx, fmt, ...)   
-   local line = lx:peek().line or -1
+   local line = lx:peek().lineinfo.first or -1
    local char = lx:peek().char or -1
    local msg  = string.format("line %i, char %i: "..fmt, line, char, ...)   
    local src = lx.src
@@ -181,6 +186,7 @@ function sequence (p)
    function p:parse (lx)
       -- Raw parsing:
       local x = raw_parse_sequence (lx, self)
+      local lineinfo = x.lineinfo
       
       -- Builder application:
       local builder, tb = self.builder, type (self.builder)
@@ -188,7 +194,11 @@ function sequence (p)
       elseif tb == "function" or builder and builder.__call then x = builder(x)
       elseif builder == nil then -- nothing
       else error("Invalid builder of type "..tb.." in sequence") end
-      return transform (x, self)
+      
+      x = transform (x, self)
+      if x then x.lineinfo = lineinfo end
+
+      return x     
    end
 
    -------------------------------------------------------------------
@@ -456,13 +466,19 @@ function expr (p)
       -- or false if no operator was found.
       ------------------------------------------------------
       local function handle_suffix (e)
+         local lineinfo = { first = e.lineinfo and e.lineinfo.first or 0 }
          local p2_func, p2 = get_parser_info (self.suffix)
          if not p2 then return false end
          if not p2.prec or p2.prec>=prec then
             local op = p2_func(lx)
             if not op then return false end
+            if op.lineinfo then 
+              lineinfo.last = op.lineinfo.last 
+            end
             e = p2.builder (e, op)
-            return transform (transform (e, p2), self)
+            e = transform (transform (e, p2), self)
+            e.lineinfo = lineinfo
+            return e
          end
          return false
       end --</expr.parse.handle_suffix>

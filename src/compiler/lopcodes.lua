@@ -18,7 +18,7 @@
 
 --[[--------------------------------------------------------------------
 
-  $Id: lopcodes.lua,v 1.4 2006/11/10 02:11:17 fab13n Exp $
+  $Id$
 
   lopcodes.lua
   Lua 5 virtual machine opcodes in Lua
@@ -33,19 +33,6 @@
 ------------------------------------------------------------------------
 
   [FF] Slightly modified, mainly to produce Lua 5.1 bytecode.
-
-  $Log: lopcodes.lua,v $
-  Revision 1.4  2006/11/10 02:11:17  fab13n
-  compiler faithfulness to 5.1 improved
-  gg.expr extended
-  mlp.expr refactored
-
-  Revision 1.3  2006/11/07 04:38:00  fab13n
-  first bootstrapping version.
-
-  Revision 1.2  2006/11/05 15:08:34  fab13n
-  updated code generation, to be compliant with 5.1
-
 
 ----------------------------------------------------------------------]]
 

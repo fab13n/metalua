@@ -18,7 +18,7 @@
 
 --[[--------------------------------------------------------------------
 
-  $Id: lcode.lua,v 1.5 2006/11/15 09:07:50 fab13n Exp $
+  $Id$
 
   lcode.lua
   Lua 5 code generator in Lua
@@ -33,21 +33,6 @@
 ------------------------------------------------------------------------
 
   [FF] Slightly modified, mainly to produce Lua 5.1 bytecode.
-
-  $Log: lcode.lua,v $
-  Revision 1.5  2006/11/15 09:07:50  fab13n
-  debugged meta operators.
-  Added command line options handling.
-
-  Revision 1.4  2006/11/09 09:39:57  fab13n
-  some cleanup
-
-  Revision 1.3  2006/11/07 04:37:59  fab13n
-  first bootstrapping version.
-
-  Revision 1.2  2006/11/05 15:08:34  fab13n
-  updated code generation, to be compliant with 5.1
-
 
 ----------------------------------------------------------------------]]
 
@@ -605,6 +590,7 @@ function luaK:exp2nextreg(fs, e)
   self:dischargevars(fs, e)
   --[FF] Allready in place (added for expr.Stat)
   if e.k == "VNONRELOC" and e.info == fs.freereg then 
+     --printf("Expression already in next reg %i: %s", fs.freereg, tostringv(e))
      return end
   self:freeexp(fs, e)
   self:reserveregs(fs, 1)
@@ -964,6 +950,9 @@ end
 ------------------------------------------------------------------------
 function luaK:fixline(fs, line)
    --assert (line)
+   if not line then
+     --print(debug.traceback "fixline (line == nil)")
+   end
    fs.f.lineinfo[fs.pc - 1] = line or 0
 end
 
@@ -971,7 +960,10 @@ end
 --
 ------------------------------------------------------------------------
 function luaK:code(fs, i, line)
-   assert (line)
+  if not line then 
+    line = 0
+    --print(debug.traceback "line == nil")
+  end
   local f = fs.f
 
   do -- print it
@@ -983,14 +975,21 @@ function luaK:code(fs, i, line)
   end
 
   self:dischargejpc(fs)  -- 'pc' will change
-  -- put new instruction in code array
---FF  luaY:growvector(fs.L, f.code, fs.pc, f.sizecode, nil,
---FF                  luaY.MAX_INT, "code size overflow")
+
   f.code[fs.pc] = i
-  -- save corresponding line information
---FF  luaY:growvector(fs.L, f.lineinfo, fs.pc, f.sizelineinfo, nil,
---FF                  luaY.MAX_INT, "code size overflow")
   f.lineinfo[fs.pc] = line
+
+  if line == 0 then
+    f.lineinfo[fs.pc] = fs.lastline
+    if fs.lastline == 0 then
+      print(debug.traceback())
+    end    
+  end
+
+  if f.lineinfo[fs.pc] == 0 then
+    f.lineinfo[fs.pc] = 42
+  end
+
   local pc = fs.pc
   fs.pc = fs.pc + 1
   return pc
