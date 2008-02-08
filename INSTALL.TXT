@@ -72,11 +72,14 @@ your .bashrc file.
 
 Troubleshooting:
 ----------------
+
+* No Readline *
 Under Linux, if you don't have readline and don't want to install it
 (e.g. you rely on rlwrap or ledit), you'll have to remove -lreadline
 from lua/Makefile, and to remove the #define LUA_USE_READLINE from
 lua/luaconf.h
 
+* Custom VM *
 If you use your own Lua VM, depending on your OS, you might have
 problems with unexported symbols required by Pluto. Pluto requires the
 symbols prefixed with LUAI_FUNC in the VM to be exported, and they
@@ -84,9 +87,10 @@ aren't by default under Linux and Windows. This is set in luaconf.h;
 you'll need to change that setting in your own Lua VM if you want to
 use it.
 
+* Pluto issues *
 Alternatively, you can let metalua run without Pluto by setting the
-environment variable LUA_MFAST to "yes". However, this might cause
-parasitic interactions when several source files are compiled
+environment variable LUA_NOSPRINGS to "true". However, this might
+cause parasitic interactions when several source files are compiled
 simultaneously, so you'd rather precompile each file and library one
 by one.
 

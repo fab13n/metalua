@@ -338,5 +338,5 @@ I'd like to thank the people who wrote the open source code which
 makes metalua run: the Lua team, the authors of Yueliang, Pluto, Lua
 Rings, Bitlib; and the people whose bug reports, patches and
 insightful discussions dramatically improved the global design,
-including John Belmonte, Viacheslav Egorov, David Manura, Olivier
+including John Belmonte, Vyacheslav Egorov, David Manura, Olivier
 Gournet, Eric Raible, Laurence Tratt...
