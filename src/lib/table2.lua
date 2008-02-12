@@ -103,24 +103,16 @@ function table.isub (t, ...)
    return u
 end
 
---[[
 function table.iall (f, ...)
    local result = true
    local function g(...) return not f(...) end
-   table.iforeach(g, ...)
-   return result
+   return not table.iforeach(g, ...)
+   --return result
 end
 
 function table.iany (f, ...)
    local function g(...) return not f(...) end
-   return table.iall(g, ...)
-end
-]]
-
-function table.inverse (t)
-   local i = { }
-   for a, b in pairs(t) do i[b]=a end
-   return i
+   return not table.iall(g, ...)
 end
 
 function table.shallow_copy(x)
