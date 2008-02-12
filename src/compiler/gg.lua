@@ -51,10 +51,9 @@ function parser_metatable.__call (parser, lx, ...)
       local char = lx:peek().char
       local status, ast = pcall (parser.parse, parser, lx, ...)      
       if status then return ast else
-         local msg = ast
-         if msg then print(msg) end
-         printf(" - (%i) in parser %s", char, parser.name or parser.kind)
-         error()
+         local msg = ast:strmatch "gg.lua:%d+: (.*)" or ast
+         msg=msg..string.format("\n - (%i) in parser %s", char, parser.name or parser.kind)
+         error(msg)
       end
    end
 end
@@ -145,7 +144,7 @@ function parse_error(lx, fmt, ...)
       while src:sub(j,j) ~= '\n' and j<=#src do j=j+1 end      
       local srcline = src:sub (i+1, j-1)
       local idx  = string.rep (" ", char-i-1).."^"
-      msg = printf("%s\n>>> %s\n>>> %s", msg, srcline, idx)
+      msg = string.format("%s\n>>> %s\n>>> %s", msg, srcline, idx)
    end
    error(msg)
 end
@@ -653,7 +652,7 @@ function onkeyword (p)
       if type(x)=="string" then table.insert (p.keywords, x)
       else assert (not p.primary and is_parser (x)); p.primary = x end
    end
-   assert (p.primary)
+   assert (p.primary, 'no primary parser in gg.onkeyword')
    return p
 end --</onkeyword>
 

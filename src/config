@@ -4,7 +4,7 @@
 # Platforms currently supported: mingw, macosx.
 # Feel welcome to contribute additional ones! :)
 
-PLATFORM  = linux
+PLATFORM  = macosx
 PLATFORMS = macosx mingw linux
 
 
@@ -13,6 +13,8 @@ PLATFORMS = macosx mingw linux
 # You might want to first build & install in a temporary
 # directory, to check that everything works fine,
 # before targetting /usr/local/*
+#
+# Beware: only absolute paths work.
 
 TARGET_LUA_PATH  = /tmp/metalua
 TARGET_LUA_CPATH = $(TARGET_LUA_PATH)
@@ -20,7 +22,7 @@ TARGET_BIN_PATH  = /tmp/bin
 
 #########################################################
 # Lua VM settings
-# LUA_VM_DIR is relative to $(METALUA_DIR)/src
+# LUA_VM_DIR is relative to the 'src' directory.
 
 LUA_VM_DIR       = lua
 COMPILE          = luac
@@ -40,6 +42,7 @@ ifeq ($(PLATFORM), macosx)
   LIBEXT        = so
   MKLIB         = gcc -bundle -undefined dynamic_lookup
   LUA_BINARIES  = $(COMPILE) $(RUN)
+  USE_READLINE  = yes
 endif
 
 ifeq ($(PLATFORM), mingw)

@@ -29,11 +29,11 @@ compile-libraries: copy-libraries bin-libraries setenv.sh compiler
 	@echo "Compiling libraries:"
 	for src in $$(find $(TARGET_LUA_PATH) -name '*.mlua') ; do \
 		bc="$$(dirname $$src)/$$(basename $$src .mlua).luac"; \
-		if [ $$src -nt $$bc ]; then \
+		if [ -f $$bc ]  && [ $$bc -nt $$src ]; then \
+			echo "| up2date:  $$bc"; \
+		else \
 			echo "| COMPILING $$bc" ; \
 			$(TARGET_BIN_PATH)/metalua $$src -o $$bc ; \
-		else \
-			echo "| up2date:  $$bc"; \
 		fi \
 	done
 

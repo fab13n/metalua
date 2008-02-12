@@ -154,12 +154,17 @@ local function main (...)
       | `File{ f } -> 
          st, ast = spring_pcall('mlc.ast_of_luafile', f, '@'..f)
          -- Isolate each file in a separate fenv
-         ast = +{ function (...) -{ast} end (...)  }
-         ast.source  = '@'..f -- TODO [EVE]
-         code.source = '@'..f -- TODO [EVE]
-         last_file = ast
+         if st then
+            ast = +{ function (...) -{ast} end (...)  }
+            ast.source  = '@'..f -- TODO [EVE]
+            code.source = '@'..f -- TODO [EVE]
+            last_file = ast
+         end
       end
-      if not st then os.exit (AST_COMPILE_ERROR_NUMBER) end
+      if not st then 
+         printf ("Cannot compile %s: %s", table.tostring(x), ast)
+         os.exit (AST_COMPILE_ERROR_NUMBER)
+      end
       ast.origin = x
       table.insert(code, ast)
    end
@@ -233,9 +238,12 @@ local function main (...)
    -------------------------------------------------------------------
    -- Run REPL loop
    if cfg.interactive then
-      print ("*":rep(70))
-      print "*** !!! Interactive loop not implemented !!!"
-      print ("*":rep(70))
+      verb_print "Starting REPL loop"
+      require 'metaloop'
+      metaloop.run()
+--       print ("*":rep(70))
+--       print "*** !!! Interactive loop not implemented !!!"
+--       print ("*":rep(70))
    end
 
    verb_print "Done"
