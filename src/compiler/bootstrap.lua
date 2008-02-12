@@ -35,7 +35,7 @@ package.preload.mlc = function()
       local f   = io.open(name, 'r')
       local src = f:read '*a'
       f:close()
-      return mlc.function_of_luastring (src, name)
+      return mlc.function_of_luastring (src, "@"..name)
    end
 end
 
@@ -50,7 +50,7 @@ local function compile_file (src_filename)
    local src_file     = io.open (src_filename, 'r')
    local src          = src_file:read '*a'; src_file:close()
    local ast          = mlc.ast_of_luastring (src)
-   local proto        = bytecode.metalua_compile (ast, src_filename)
+   local proto        = bytecode.metalua_compile (ast, '@'..src_filename)
    local dump         = bytecode.dump_string (proto)
    local dst_filename = src_filename:gsub ("%.mlua$", ".luac")
    local dst_file     = io.open (dst_filename, 'wb')

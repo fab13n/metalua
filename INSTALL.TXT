@@ -102,6 +102,6 @@ have an overview of interesting options. Among them, "-a" dumps the
 AST resulting from a compilation: that's the perfect learning tool for
 practical-oriented minds.
 
-Once you've played with teh samples, and maybe written a couple of
+Once you've played with the samples, and maybe written a couple of
 simple programs, I'm afraid the next step will be to RTFM :) 
 

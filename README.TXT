@@ -7,7 +7,7 @@ Metalua 0.4
 Metalua is a static metaprogramming system for Lua: a set of tools
 that let you alter the compilation process in arbitrary, powerful and
 maintainable ways. For the potential first-time users of such a
-system, a descripition of these tools, as implemented by metalua,
+system, a descripition of these tools, as implemented by Metalua,
 follows.
 
 Dynamic Parsers
@@ -49,7 +49,7 @@ Yacc-like systems might seem simpler to adopt than combinators, as
 long as they're used on extremely simple problems. However, if you
 either try to write something non trivial, or to write a simple macro
 in a robust way, you'll need to use lots of messy tricks and hacks,
-and spend much more time getting them (approximatively) right than
+and spend much more time getting them (approximately) right than
 that 1/2 hour required to master the regular features of gg.
 
 
@@ -62,7 +62,7 @@ manipulate source code conveniently: without the proper tools and
 abstractions, even the simplest tasks will turn into a dirty hacks
 fest, then either into a maintenance nightmare, or simply into
 abandonware. Providing an empowering framework so that you don't get
-stuck in such predicaments is metalua's whole purpose.  The central
+stuck in such predicaments is Metalua's whole purpose.  The central
 concept is that programs prefer to manipulate code as trees, whereas
 most developers prefer ASCII sources, so both representations must be
 freely interchangeable. The make-or-break deal is then:
@@ -76,14 +76,14 @@ freely interchangeable. The make-or-break deal is then:
 
 On the former point, Lisps are at a huge advantage, their user syntax
 already being trees. But languages with casual syntax can also offer
-interchangeable tree/source views; metalua has some quoting +{ ... }
+interchangeable tree/source views; Metalua has some quoting +{ ... }
 and anti-quoting -{ ... } operators which let you switch between both
 representations at will: internally it works on trees, but you always
 have the option to see them as quoted sources. Metalua also supports a
 slightly improved syntax for syntax trees, to improve their
 readability.
 
-Library-wise, metalua offers a set of syntax tree manipulation tools:
+Library-wise, Metalua offers a set of syntax tree manipulation tools:
 
 - Structural pattern matching, a feature traditionally found in
   compiler-writing specialized languages (and which has nothing to do
@@ -99,10 +99,10 @@ Library-wise, metalua offers a set of syntax tree manipulation tools:
   into unique fresh names", "list the variables which escape this
   chunk's scope", "insert a type-checking instruction into every
   assignments to variable X", etc. Most of non-trivial macros will
-  requir some of those global code transformations, if you really want
+  require some of those global code transformations, if you really want
   them to behave correctly.
 
-- Macro hygiene, although not perfect yet in metalua, is required if
+- Macro hygiene, although not perfect yet in Metalua, is required if
   you want to make macro writing reasonably usable (and contrary to a
   popular belief, renaming local variables into fresh names only
   address the easiest part of the hygiene issue; cf. changelog below
@@ -126,7 +126,7 @@ Notworthy changes since 0.3
 
 
 - The compiler/interpreter front-end is completely rewritten. The new
-  frontend program, aptly named 'metalua', supports proper passing of
+  frontend program, aptly named 'Metalua', supports proper passing of
   arguments to programs, and is generally speaking much more user
   friendly than the mlc from the previous version.
 
@@ -136,9 +136,9 @@ Notworthy changes since 0.3
   that's part Lua part Metalua, you keep a natural access to the
   native Lua compiler.
 
-  By convention, metalua source files should have extension .mlua. By
+  By convention, Metalua source files should have extension .mlua. By
   default, bytecode and plain lua files have higher precedence than
-  metalua sources, which lets you easily precompile your libraries.
+  Metalua sources, which lets you easily precompile your libraries.
 
 
 - Compilation of files are separated in different Lua Rings: this
@@ -147,15 +147,15 @@ Notworthy changes since 0.3
 
 
 - Metalua features are accessible programmatically. Library
-  'metalua.runtime' loads only the libraries necessary to run an
-  already compiled file; 'metalua.compile' loads everything useful at
+  'Metalua.runtime' loads only the libraries necessary to run an
+  already compiled file; 'Metalua.compile' loads everything useful at
   compile-time.
 
   Transformation functions are available in a library 'mlc' that
   contains all meaningful transformation functions in the form
   'mlc.destformat_of_sourceformat()', such as 'mlc.luacfile_of_ast()',
   'mlc.function_of_luastring()' etc. This library has been
-  significantly completed and rewritten (in metalua) since v0.3.
+  significantly completed and rewritten (in Metalua) since v0.3.
 
 
 - Helper libraries have been added. For now they're in the
@@ -172,7 +172,7 @@ Notworthy changes since 0.3
 
 - Extensions to Lua standard libraries: many more features in table
   and the baselib, a couple of string features, and a package system
-  which correctly handles metalua source files.
+  which correctly handles Metalua source files.
 
 
 - Builds on Linux, OSX, Microsoft Visual Studio. Might build on mingw
@@ -185,7 +185,7 @@ Notworthy changes since 0.3
   computer. It uses Microsoft Visual Studio as a compiler (tested with
   VC++ 6).
 
-  Notice that parts of the compiler itself are now written in metalua,
+  Notice that parts of the compiler itself are now written in Metalua,
   which means that its building now goes through a bootstrapping
   stage.
 
@@ -248,13 +248,13 @@ Notworthy changes since 0.3
   hygiene, when user's binders capture globals required by the
   macro-generated code. That's the cause of pretty puzzling and hard
   to find bugs. And the *really* tricky part, which is still an open
-  problem in metalua, is when you have several levels of nesting
+  problem in Metalua, is when you have several levels of nesting
   between user code and macro code. For now this case has to be
   hygienized by hand.
 
   Note 2: Converge has a pretty powerful approach to hygienic macros
   in a Lisp-1 language; for reasons that would be too long to expose
-  here, I don't think its approch would be the best suited to metalua.
+  here, I don't think its approach would be the best suited to Metalua.
   But I might well be proved wrong eventually.
 
   Note 3: Redittors must have read that Paul Graham has released Arc,
@@ -269,7 +269,7 @@ Notworthy changes since 0.3
   and use it as $MYMACRO(1, 2, 3) in your code.
 
   With this extension, you can write macros without knowing anything
-  about the metalua parser. Together with quasi-quotes and automatic
+  about the Metalua parser. Together with quasi-quotes and automatic
   hygiene, this will probably be the closest we can go to "macros for
   dummies" without creating an unmaintainable mess generator.
 
@@ -304,7 +304,7 @@ Notworthy changes since 0.3
 
   * Try ... catch ... finally extension. Syntax is less than ideal,
     but the proper way to fix that is to refactor the match extension
-    to improve code reuse. There would be many other greate ways to
+    to improve code reuse. There would be many other great ways to
     leverage a refactored match extension, e.g. destructuring binds or
     multiple dispatch methods. To be done in the next version.
 
@@ -325,7 +325,7 @@ Notworthy changes since 0.3
 
 You might expect in next versions
 =================================
-The next versions of metalua will provide some of the following
+The next versions of Metalua will provide some of the following
 improvements, in no particular order: better error reporting,
 especially at runtime (there's a patch I've been too lazy to test
 yet), support for 64 bits CPUs, better support for macro hygiene, more
@@ -335,7 +335,7 @@ samples and extensions, an adequate test suite, refactored libraries.
 Credits
 =======
 I'd like to thank the people who wrote the open source code which
-makes metalua run: the Lua team, the authors of Yueliang, Pluto, Lua
+makes Metalua run: the Lua team, the authors of Yueliang, Pluto, Lua
 Rings, Bitlib; and the people whose bug reports, patches and
 insightful discussions dramatically improved the global design,
 including John Belmonte, Vyacheslav Egorov, David Manura, Olivier

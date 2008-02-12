@@ -71,7 +71,8 @@ function clopts(cfg)
    end
 
    -- Unless overridden, -h and --help display the help msg
-   local default_help = {action=print_usage;long='help';short='h';type='nil'}
+   local default_help = { action = | | print_usage() or os.exit(0);
+                          long='help';short='h';type='nil'}
    if not short.h   then short.h   = default_help end
    if not long.help then long.help = default_help end
 
