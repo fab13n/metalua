@@ -58,18 +58,15 @@
 
 module("bytecode", package.seeall)
 
-local cfg = { }
-cfg.little_endian, cfg.int_size, 
-cfg.size_t_size,   cfg.instr_size, 
-cfg.number_size,   cfg.integral = 
-   string.dump(function()end):byte(7, 12)
+format = { }
+format.header = string.dump(function()end):sub(1, 12)
+format.little_endian, format.int_size, 
+format.size_t_size,   format.instr_size, 
+format.number_size,   format.integral = 
+   format.header:byte(7, 12)
 
---for k, v in pairs(cfg) do
---   printf("%s:\t%i", k, v)
---end
-
-assert(cfg.number_size==8, "Number format not supported by dumper")
-assert(cfg.little_endian==1, "Big endian architectures not supported by dumper")
+assert(format.number_size==8, "Number format not supported by dumper")
+assert(format.little_endian==1, "Big endian architectures not supported by dumper")
 
 --requires luaP
 luaU = {}
@@ -234,14 +231,14 @@ end
 -- dumps a 32-bit signed integer (for int)
 ------------------------------------------------------------------------
 function luaU:DumpInt(x, D)
-  self:DumpBlock(self:from_int(x, cfg.int_size), D)
+  self:DumpBlock(self:from_int(x, format.int_size), D)
 end
 
 ------------------------------------------------------------------------
 -- dumps a 32-bit unsigned integer (for size_t)
 ------------------------------------------------------------------------
 function luaU:DumpSize(x, D)
-  self:DumpBlock(self:from_int(x, cfg.size_t_size), D)
+  self:DumpBlock(self:from_int(x, format.size_t_size), D)
 end
 
 ------------------------------------------------------------------------
@@ -393,15 +390,7 @@ end
 --FF: updated for version 5.1
 ------------------------------------------------------------------------
 function luaU:DumpHeader(D)
-  self:DumpLiteral(self.LUA_SIGNATURE, D)
-  self:DumpByte(self.VERSION, D)
-  self:DumpByte(self.FORMAT_VERSION, D)
-  self:DumpByte(self:endianness(), D)
-  self:DumpByte(4, D)  -- sizeof(int)
-  self:DumpByte(4, D)  -- sizeof(size_t)
-  self:DumpByte(4, D)  -- sizeof(Instruction)
-  self:DumpByte(8, D)  -- sizeof lua_Number
-  self:DumpByte(0, D)  -- integral flag
+  self:DumpLiteral(format.header, D)
 end
 
 ------------------------------------------------------------------------
@@ -436,11 +425,11 @@ function dump_string (proto)
 end
 
 -- FIXME: [make_setS] sucks, perform synchronous file writing
+-- Now unused
 function dump_file (proto, filename)
    local writer, buff = luaU:make_setS()
    luaU:dump (proto, writer, buff)
    local file = io.open (filename, "wb")
-   file:write (UNIX_SHARPBANG or "")
    file:write (buff.data)
    io.close(file)
    if UNIX_SHARPBANG then os.execute ("chmod a+x "..filename) end

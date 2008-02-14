@@ -5,7 +5,7 @@
 # Feel welcome to contribute additional ones! :)
 
 PLATFORM  = macosx
-PLATFORMS = macosx mingw linux
+PLATFORMS = macosx mingw linux bsd
 
 
 #########################################################
@@ -56,7 +56,15 @@ endif
 ifeq ($(PLATFORM), linux)
   LIBEXT        = so
   MKLIB         = gcc -shared
-  LDFLAGS	= -L../$(LUA_VM_DIR) -llua
+  LDFLAGS		= -L../$(LUA_VM_DIR) -llua
+  LUA_BINARIES  = $(COMPILE) $(RUN)
+endif
+
+ifeq ($(PLATFORM), bsd)
+  LIBEXT        = so
+  MKLIB         = gcc -shared
+  CFLAGS       += -fPIC
+  LDFLAGS		= -fPIC
   LUA_BINARIES  = $(COMPILE) $(RUN)
 endif
 
