@@ -51,7 +51,7 @@ mlp.luac: $(MLP_LUA)
 
 # Compiler/interpreter
 metalua: metalua.luac $(LIBRARIES)
-	$(LUA_RUN) metalua.luac --verbose --sharpbang '#!/usr/bin/env lua' --output metalua --file metalua.mlua
+	$(LUA_RUN) metalua.luac --verbose --sharpbang '#!$(TARGET_BIN_PATH)/lua' --output metalua --file metalua.mlua
 
 install: metalua $(LIBRARIES)
 	mkdir -p $(TARGET_BIN_PATH)

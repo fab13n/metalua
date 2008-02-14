@@ -10,15 +10,9 @@
 #define lzio_c
 #define LUA_CORE
 
-#include "lua.h"
+#include "pdep/pdep.h"
 
-#include "llimits.h"
-#include "lmem.h"
-#include "lstate.h"
-#include "lzio.h"
-
-
-int luaZ_fill (ZIO *z) {
+int pdep_fill (ZIO *z) {
   size_t size;
   lua_State *L = z->L;
   const char *buff;
@@ -32,12 +26,12 @@ int luaZ_fill (ZIO *z) {
 }
 
 
-int luaZ_lookahead (ZIO *z) {
+int pdep_lookahead (ZIO *z) {
   if (z->n == 0) {
-    if (luaZ_fill(z) == EOZ)
+    if (pdep_fill(z) == EOZ)
       return EOZ;
     else {
-      z->n++;  /* luaZ_fill removed first byte; put back it */
+      z->n++;  /* pdep_fill removed first byte; put back it */
       z->p--;
     }
   }
@@ -45,7 +39,7 @@ int luaZ_lookahead (ZIO *z) {
 }
 
 
-void luaZ_init (lua_State *L, ZIO *z, lua_Reader reader, void *data) {
+void pdep_init (lua_State *L, ZIO *z, lua_Reader reader, void *data) {
   z->L = L;
   z->reader = reader;
   z->data = data;
@@ -55,10 +49,10 @@ void luaZ_init (lua_State *L, ZIO *z, lua_Reader reader, void *data) {
 
 
 /* --------------------------------------------------------------- read --- */
-size_t luaZ_read (ZIO *z, void *b, size_t n) {
+size_t pdep_read (ZIO *z, void *b, size_t n) {
   while (n) {
     size_t m;
-    if (luaZ_lookahead(z) == EOZ)
+    if (pdep_lookahead(z) == EOZ)
       return n;  /* return number of missing bytes */
     m = (n <= z->n) ? n : z->n;  /* min. between n and z->n */
     memcpy(b, z->p, m);
@@ -71,10 +65,10 @@ size_t luaZ_read (ZIO *z, void *b, size_t n) {
 }
 
 /* ------------------------------------------------------------------------ */
-char *luaZ_openspace (lua_State *L, Mbuffer *buff, size_t n) {
+char *pdep_openspace (lua_State *L, Mbuffer *buff, size_t n) {
   if (n > buff->buffsize) {
     if (n < LUA_MINBUFFER) n = LUA_MINBUFFER;
-    luaZ_resizebuffer(L, buff, n);
+    pdep_resizebuffer(L, buff, n);
   }
   return buff->buffer;
 }

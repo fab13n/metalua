@@ -58,6 +58,19 @@
 
 module("bytecode", package.seeall)
 
+local cfg = { }
+cfg.little_endian, cfg.int_size, 
+cfg.size_t_size,   cfg.instr_size, 
+cfg.number_size,   cfg.integral = 
+   string.dump(function()end):byte(7, 12)
+
+--for k, v in pairs(cfg) do
+--   printf("%s:\t%i", k, v)
+--end
+
+assert(cfg.number_size==8, "Number format not supported by dumper")
+assert(cfg.little_endian==1, "Big endian architectures not supported by dumper")
+
 --requires luaP
 luaU = {}
 
@@ -166,17 +179,17 @@ end
 -- converts a number to a little-endian 32-bit integer string
 -- * input value assumed to not overflow, can be signed/unsigned
 -----------------------------------------------------------------------
-function luaU:from_int(x)
+function luaU:from_int(x, size)
   local v = ""
   x = math.floor(x)
   if x >= 0 then
-    for i = 1, 4 do
+    for i = 1, size do
       v = v..string.char(math.mod(x, 256)); x = math.floor(x / 256)
     end
   else -- x < 0
     x = -x
     local carry = 1
-    for i = 1, 4 do
+    for i = 1, size do
       local c = 255 - math.mod(x, 256) + carry
       if c == 256 then c = 0; carry = 1 else carry = 0 end
       v = v..string.char(c); x = math.floor(x / 256)
@@ -221,14 +234,14 @@ end
 -- dumps a 32-bit signed integer (for int)
 ------------------------------------------------------------------------
 function luaU:DumpInt(x, D)
-  self:DumpBlock(self:from_int(x), D)
+  self:DumpBlock(self:from_int(x, cfg.int_size), D)
 end
 
 ------------------------------------------------------------------------
 -- dumps a 32-bit unsigned integer (for size_t)
 ------------------------------------------------------------------------
 function luaU:DumpSize(x, D)
-  self:DumpBlock(self:from_int(x), D)
+  self:DumpBlock(self:from_int(x, cfg.size_t_size), D)
 end
 
 ------------------------------------------------------------------------

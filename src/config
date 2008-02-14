@@ -18,7 +18,7 @@ PLATFORMS = macosx mingw linux
 
 TARGET_LUA_PATH  = /tmp/metalua
 TARGET_LUA_CPATH = $(TARGET_LUA_PATH)
-TARGET_BIN_PATH  = /tmp/bin
+TARGET_BIN_PATH  = $(TARGET_LUA_PATH)/bin
 
 #########################################################
 # Lua VM settings

@@ -1,5 +1,5 @@
 /*
-** $Id: luaconf.h,v 1.82a 2006/04/10 18:27:23 roberto Exp $
+** $Id: luaconf.h,v 1.82.1.6 2008/01/18 17:07:48 roberto Exp $
 ** Configuration file for Lua
 ** See Copyright Notice in lua.h
 */
@@ -178,21 +178,18 @@
 ** (versions 3.2 and later) mark them as "hidden" to optimize access
 ** when Lua is compiled as a shared library.
 */
-#if 1 /* Metalua: export internal symbols needed by Pluto. */
-#  define LUAI_FUNC LUA_API
-#  define LUAI_DATA LUA_API
-#else /* Metalua: Original version, disabled */
-#  if defined(luaall_c)
-#    define LUAI_FUNC	static
-#    define LUAI_DATA	/* empty */
-#  elif defined(__GNUC__) && ((__GNUC__*100 + __GNUC_MINOR__) >= 302) && \
-        defined(__ELF__)
-#    define LUAI_FUNC	__attribute__((visibility("hidden"))) extern
-#    define LUAI_DATA	LUAI_FUNC
-#  else
-#    define LUAI_FUNC	extern
-#    define LUAI_DATA	extern
-#  endif
+#if defined(luaall_c)
+#define LUAI_FUNC	static
+#define LUAI_DATA	/* empty */
+
+#elif defined(__GNUC__) && ((__GNUC__*100 + __GNUC_MINOR__) >= 302) && \
+      defined(__ELF__)
+#define LUAI_FUNC	__attribute__((visibility("hidden"))) extern
+#define LUAI_DATA	LUAI_FUNC
+
+#else
+#define LUAI_FUNC	extern
+#define LUAI_DATA	extern
 #endif
 
 
@@ -445,7 +442,8 @@
 ** functions. This limit is arbitrary; its only purpose is to stop C
 ** functions to consume unlimited stack space.
 */
-#define LUAI_MAXCSTACK	2048
+#define LUAI_MCS_AUX	((int)(INT_MAX / (4*sizeof(LUA_NUMBER))))
+#define LUAI_MAXCSTACK	(LUAI_MCS_AUX > SHRT_MAX ? SHRT_MAX : LUAI_MCS_AUX)
 
 
 
@@ -669,7 +667,7 @@ union luai_Cast { double l_d; long l_l; };
 */
 #if defined(LUA_USE_POPEN)
 
-#define lua_popen(L,c,m)	((void)L, popen(c,m))
+#define lua_popen(L,c,m)	((void)L, fflush(NULL), popen(c,m))
 #define lua_pclose(L,file)	((void)L, (pclose(file) != -1))
 
 #elif defined(LUA_WIN)

@@ -19,6 +19,12 @@
 #include "lua.h"
 #include "pluto.h"
 
+#define USE_PDEP
+
+#ifdef USE_PDEP
+#include "pdep/pdep.h"
+#define LIF(prefix, name) pdep ## _ ## name
+#else
 #include "lapi.h"
 #include "ldo.h"
 #include "lfunc.h"
@@ -30,6 +36,8 @@
 #include "lstate.h"
 #include "lstring.h"
 #include "lauxlib.h"
+#define LIF(prefix, name) lua ## prefix ## _ ## name
+#endif
 
 #include <string.h>
 
@@ -245,6 +253,7 @@ static Proto *toproto(lua_State *L, int stackpos)
 
 static UpVal *toupval(lua_State *L, int stackpos)
 {
+	lua_assert(ttype(getobject(L, stackpos)) == LUA_TUPVAL);
 	return gco2uv(getobject(L, stackpos)->value.gc);
 }
 
@@ -252,7 +261,7 @@ static void pushproto(lua_State *L, Proto *proto)
 {
 	TValue o;
 	setptvalue(L, &o, proto);
-	luaA_pushobject(L, &o);
+	LIF(A,pushobject)(L, &o);
 }
 
 #define setuvvalue(L,obj,x) \
@@ -264,14 +273,14 @@ static void pushupval(lua_State *L, UpVal *upval)
 {
 	TValue o;
 	setuvvalue(L, &o, upval);
-	luaA_pushobject(L, &o);
+	LIF(A,pushobject)(L, &o);
 }
 
 static void pushclosure(lua_State *L, Closure *closure)
 {
 	TValue o;
 	setclvalue(L, &o, closure);
-	luaA_pushobject(L, &o);
+	LIF(A,pushobject)(L, &o);
 }
 
 static void persistfunction(PersistInfo *pi)
@@ -365,7 +374,7 @@ static void persistupval(PersistInfo *pi)
 
 	lua_pop(pi->L, 1);
 					/* perms reftbl ... */
-	luaA_pushobject(pi->L, uv->v);
+	LIF(A,pushobject)(pi->L, uv->v);
 					/* perms reftbl ... obj */
 	persist(pi);
 					/* perms reftbl ... obj */
@@ -381,7 +390,7 @@ static void persistproto(PersistInfo *pi)
 		int i;
 		pi->writer(pi->L, &p->sizek, sizeof(int), pi->ud);
 		for(i=0; i<p->sizek; i++) {
-			luaA_pushobject(pi->L, &p->k[i]);
+			LIF(A,pushobject)(pi->L, &p->k[i]);
 					/* perms reftbl ... proto const */
 			persist(pi);
 			lua_pop(pi->L, 1);
@@ -726,7 +735,7 @@ static int bufwriter (lua_State *L, const void* p, size_t sz, void* ud) {
 	const char* cp = (const char*)p;
 	WriterInfo *wi = (WriterInfo *)ud;
 
-	luaM_reallocvector(L, wi->buf, wi->buflen, wi->buflen+sz, char);
+	LIF(M,reallocvector)(L, wi->buf, wi->buflen, wi->buflen+sz, char);
 	while(sz)
 	{
 		/* how dearly I love ugly C pointer twiddling */
@@ -757,7 +766,7 @@ int persist_l(lua_State *L)
 					/* (empty) */
 	lua_pushlstring(L, wi.buf, wi.buflen);
 					/* str */
-	luaM_freearray(L, wi.buf, wi.buflen, char);
+	pdep_freearray(L, wi.buf, wi.buflen, char);
 	return 1;
 }
 
@@ -789,7 +798,7 @@ static void unpersistboolean(UnpersistInfo *upi)
 {
 					/* perms reftbl ... */
 	int b;
-	verify(luaZ_read(&upi->zio, &b, sizeof(int)) == 0);
+	verify(LIF(Z,read)(&upi->zio, &b, sizeof(int)) == 0);
 	lua_pushboolean(upi->L, b);
 					/* perms reftbl ... bool */
 }
@@ -798,7 +807,7 @@ static void unpersistlightuserdata(UnpersistInfo *upi)
 {
 					/* perms reftbl ... */
 	void *p;
-	verify(luaZ_read(&upi->zio, &p, sizeof(void *)) == 0);
+	verify(LIF(Z,read)(&upi->zio, &p, sizeof(void *)) == 0);
 	lua_pushlightuserdata(upi->L, p);
 					/* perms reftbl ... ludata */
 }
@@ -807,7 +816,7 @@ static void unpersistnumber(UnpersistInfo *upi)
 {
 					/* perms reftbl ... */
 	lua_Number n;
-	verify(luaZ_read(&upi->zio, &n, sizeof(lua_Number)) == 0);
+	verify(LIF(Z,read)(&upi->zio, &n, sizeof(lua_Number)) == 0);
 	lua_pushnumber(upi->L, n);
 					/* perms reftbl ... num */
 }
@@ -815,14 +824,14 @@ static void unpersistnumber(UnpersistInfo *upi)
 static void unpersiststring(UnpersistInfo *upi)
 {
 					/* perms reftbl sptbl ref */
-	int length;
+	size_t length;
 	char* string;
-	verify(luaZ_read(&upi->zio, &length, sizeof(int)) == 0);
-	string = luaM_newvector(upi->L, length, char);
-	verify(luaZ_read(&upi->zio, string, length) == 0);
+	verify(LIF(Z,read)(&upi->zio, &length, sizeof(size_t)) == 0);
+	string = pdep_newvector(upi->L, length, char);
+	verify(LIF(Z,read)(&upi->zio, string, length) == 0);
 	lua_pushlstring(upi->L, string, length);
 					/* perms reftbl sptbl ref str */
-	luaM_freearray(upi->L, string, length, char);
+	pdep_freearray(upi->L, string, length, char);
 }
 
 static void unpersistspecialtable(int ref, UnpersistInfo *upi)
@@ -890,7 +899,7 @@ static void unpersisttable(int ref, UnpersistInfo *upi)
 					/* perms reftbl ... */
 	{
 		int isspecial;
-		verify(luaZ_read(&upi->zio, &isspecial, sizeof(int)) == 0);
+		verify(LIF(Z,read)(&upi->zio, &isspecial, sizeof(int)) == 0);
 		if(isspecial) {
 			unpersistspecialtable(ref, upi);
 					/* perms reftbl ... tbl */
@@ -904,8 +913,8 @@ static void unpersisttable(int ref, UnpersistInfo *upi)
 
 static UpVal *makeupval(lua_State *L, int stackpos)
 {
-	UpVal *uv = luaM_new(L, UpVal);
-	luaC_link(L, (GCObject*)uv, LUA_TUPVAL);
+	UpVal *uv = pdep_new(L, UpVal);
+	pdep_link(L, (GCObject*)uv, LUA_TUPVAL);
 	uv->tt = LUA_TUPVAL;
 	uv->v = &uv->u.value;
 	uv->u.l.prev = NULL;
@@ -916,14 +925,14 @@ static UpVal *makeupval(lua_State *L, int stackpos)
 
 static Proto *makefakeproto(lua_State *L, lu_byte nups)
 {
-	Proto *p = luaF_newproto(L);
+	Proto *p = pdep_newproto(L);
 	p->sizelineinfo = 1;
-	p->lineinfo = luaM_newvector(L, 1, int);
+	p->lineinfo = pdep_newvector(L, 1, int);
 	p->lineinfo[0] = 1;
 	p->sizecode = 1;
-	p->code = luaM_newvector(L, 1, Instruction);
+	p->code = pdep_newvector(L, 1, Instruction);
 	p->code[0] = CREATE_ABC(OP_RETURN, 0, 1, 0);
-	p->source = luaS_newlstr(L, "", 0);
+	p->source = pdep_newlstr(L, "", 0);
 	p->maxstacksize = 2;
 	p->nups = nups;
 	p->sizek = 0;
@@ -941,7 +950,7 @@ static Proto *makefakeproto(lua_State *L, lu_byte nups)
 static void boxupval_start(lua_State *L)
 {
 	LClosure *lcl;
-	lcl = (LClosure*)luaF_newLclosure(L, 1, hvalue(&L->l_gt));
+	lcl = (LClosure*)pdep_newLclosure(L, 1, hvalue(&L->l_gt));
 	pushclosure(L, (Closure*)lcl);
 					/* ... func */
 	lcl->p = makefakeproto(L, 1);
@@ -988,9 +997,9 @@ static void unpersistfunction(int ref, UnpersistInfo *upi)
 	int i;
 	lu_byte nupvalues;
 
-	verify(luaZ_read(&upi->zio, &nupvalues, sizeof(lu_byte)) == 0);
+	verify(LIF(Z,read)(&upi->zio, &nupvalues, sizeof(lu_byte)) == 0);
 
-	lcl = (LClosure*)luaF_newLclosure(upi->L, nupvalues, hvalue(&upi->L->l_gt));
+	lcl = (LClosure*)pdep_newLclosure(upi->L, nupvalues, hvalue(&upi->L->l_gt));
 	pushclosure(upi->L, (Closure*)lcl);
 
 					/* perms reftbl ... func */
@@ -1080,11 +1089,11 @@ static void unpersistproto(int ref, UnpersistInfo *upi)
 	 * particular, we need to give the function a valid string for its
 	 * source, and valid code, even before we actually read in the real
 	 * code. */
-	TString *source = luaS_newlstr(upi->L, "", 0);
-	p = luaF_newproto(upi->L);
+	TString *source = pdep_newlstr(upi->L, "", 0);
+	p = pdep_newproto(upi->L);
 	p->source = source;
 	p->sizecode=1;
-	p->code = luaM_newvector(upi->L, 1, Instruction);
+	p->code = pdep_newvector(upi->L, 1, Instruction);
 	p->code[0] = CREATE_ABC(OP_RETURN, 0, 1, 0);
 	p->maxstacksize = 2;
 	p->sizek = 0;
@@ -1098,8 +1107,8 @@ static void unpersistproto(int ref, UnpersistInfo *upi)
 
 	/* Read in constant references */
 	{
-		verify(luaZ_read(&upi->zio, &sizek, sizeof(int)) == 0);
-		luaM_reallocvector(upi->L, p->k, 0, sizek, TValue);
+		verify(LIF(Z,read)(&upi->zio, &sizek, sizeof(int)) == 0);
+		LIF(M,reallocvector)(upi->L, p->k, 0, sizek, TValue);
 		for(i=0; i<sizek; i++) {
 					/* perms reftbl ... proto */
 			unpersist(upi);
@@ -1113,8 +1122,8 @@ static void unpersistproto(int ref, UnpersistInfo *upi)
 	}
 	/* Read in sub-proto references */
 	{
-		verify(luaZ_read(&upi->zio, &sizep, sizeof(int)) == 0);
-		luaM_reallocvector(upi->L, p->p, 0, sizep, Proto*);
+		verify(LIF(Z,read)(&upi->zio, &sizep, sizeof(int)) == 0);
+		LIF(M,reallocvector)(upi->L, p->p, 0, sizep, Proto*);
 		for(i=0; i<sizep; i++) {
 					/* perms reftbl ... proto */
 			unpersist(upi);
@@ -1129,18 +1138,18 @@ static void unpersistproto(int ref, UnpersistInfo *upi)
 
 	/* Read in code */
 	{
-		verify(luaZ_read(&upi->zio, &p->sizecode, sizeof(int)) == 0);
-		luaM_reallocvector(upi->L, p->code, 1, p->sizecode, Instruction);
-		verify(luaZ_read(&upi->zio, p->code,
+		verify(LIF(Z,read)(&upi->zio, &p->sizecode, sizeof(int)) == 0);
+		LIF(M,reallocvector)(upi->L, p->code, 1, p->sizecode, Instruction);
+		verify(LIF(Z,read)(&upi->zio, p->code,
 			sizeof(Instruction) * p->sizecode) == 0);
 	}
 
 	/* Read in misc values */
 	{
-		verify(luaZ_read(&upi->zio, &p->nups, sizeof(lu_byte)) == 0);
-		verify(luaZ_read(&upi->zio, &p->numparams, sizeof(lu_byte)) == 0);
-		verify(luaZ_read(&upi->zio, &p->is_vararg, sizeof(lu_byte)) == 0);
-		verify(luaZ_read(&upi->zio, &p->maxstacksize, sizeof(lu_byte)) == 0);
+		verify(LIF(Z,read)(&upi->zio, &p->nups, sizeof(lu_byte)) == 0);
+		verify(LIF(Z,read)(&upi->zio, &p->numparams, sizeof(lu_byte)) == 0);
+		verify(LIF(Z,read)(&upi->zio, &p->is_vararg, sizeof(lu_byte)) == 0);
+		verify(LIF(Z,read)(&upi->zio, &p->maxstacksize, sizeof(lu_byte)) == 0);
 	}
 }
 
@@ -1181,8 +1190,8 @@ static void unpersistthread(int ref, UnpersistInfo *upi)
 	/* First, deserialize the object stack. */
 	{
 		size_t i, stacksize;
-		verify(luaZ_read(&upi->zio, &stacksize, sizeof(size_t)) == 0);
-		luaD_growstack(L2, (int)stacksize);
+		verify(LIF(Z,read)(&upi->zio, &stacksize, sizeof(size_t)) == 0);
+		LIF(D,growstack)(L2, (int)stacksize);
 		/* Make sure that the first stack element (a nil, representing
 		 * the imaginary top-level C function) is written to the very,
 		 * very bottom of the stack */
@@ -1200,16 +1209,16 @@ static void unpersistthread(int ref, UnpersistInfo *upi)
 	/* Now, deserialize the CallInfo stack. */
 	{
 		size_t i, numframes;
-		verify(luaZ_read(&upi->zio, &numframes, sizeof(size_t)) == 0);
-		luaD_reallocCI(L2,numframes*2);
+		verify(LIF(Z,read)(&upi->zio, &numframes, sizeof(size_t)) == 0);
+		LIF(D,reallocCI)(L2,numframes*2);
 		for(i=0; i<numframes; i++) {
 			CallInfo *ci = L2->base_ci + i;
 			size_t stackbase, stackfunc, stacktop, savedpc;
-			verify(luaZ_read(&upi->zio, &stackbase, sizeof(size_t)) == 0);
-			verify(luaZ_read(&upi->zio, &stackfunc, sizeof(size_t)) == 0);
-			verify(luaZ_read(&upi->zio, &stacktop, sizeof(size_t)) == 0);
-			verify(luaZ_read(&upi->zio, &ci->nresults, sizeof(int)) == 0);
-			verify(luaZ_read(&upi->zio, &savedpc, sizeof(size_t)) == 0);
+			verify(LIF(Z,read)(&upi->zio, &stackbase, sizeof(size_t)) == 0);
+			verify(LIF(Z,read)(&upi->zio, &stackfunc, sizeof(size_t)) == 0);
+			verify(LIF(Z,read)(&upi->zio, &stacktop, sizeof(size_t)) == 0);
+			verify(LIF(Z,read)(&upi->zio, &ci->nresults, sizeof(int)) == 0);
+			verify(LIF(Z,read)(&upi->zio, &savedpc, sizeof(size_t)) == 0);
 			
 			if(stacklimit < stacktop)
 				stacklimit = stacktop;
@@ -1231,10 +1240,10 @@ static void unpersistthread(int ref, UnpersistInfo *upi)
 	{
 		size_t stackbase, stacktop;
 		L2->savedpc = L2->ci->savedpc;
-		verify(luaZ_read(&upi->zio, &L2->status, sizeof(lu_byte)) == 0);
-		verify(luaZ_read(&upi->zio, &stackbase, sizeof(size_t)) == 0);
-		verify(luaZ_read(&upi->zio, &stacktop, sizeof(size_t)) == 0);
-		verify(luaZ_read(&upi->zio, &L2->errfunc, sizeof(ptrdiff_t)) == 0);
+		verify(LIF(Z,read)(&upi->zio, &L2->status, sizeof(lu_byte)) == 0);
+		verify(LIF(Z,read)(&upi->zio, &stackbase, sizeof(size_t)) == 0);
+		verify(LIF(Z,read)(&upi->zio, &stacktop, sizeof(size_t)) == 0);
+		verify(LIF(Z,read)(&upi->zio, &L2->errfunc, sizeof(ptrdiff_t)) == 0);
 		L2->base = L2->stack + stackbase;
 		L2->top = L2->stack + stacktop;
 	}
@@ -1260,7 +1269,7 @@ static void unpersistthread(int ref, UnpersistInfo *upi)
 			lua_pop(upi->L, 1);
 					/* perms reftbl ... thr */
 
-			verify(luaZ_read(&upi->zio, &stackpos, sizeof(size_t)) == 0);
+			verify(LIF(Z,read)(&upi->zio, &stackpos, sizeof(size_t)) == 0);
 			uv->v = L2->stack + stackpos;
 			gcunlink(upi->L, (GCObject*)uv);
 			uv->marked = luaC_white(g);
@@ -1279,7 +1288,7 @@ static void unpersistthread(int ref, UnpersistInfo *upi)
 	/* 'top' and the values up to there must be filled with 'nil' */
 	{
 		StkId o;
-		luaD_checkstack(L2, (int)stacklimit);
+		LIF(D,checkstack)(L2, (int)stacklimit);
 		for (o = L2->top; o <= L2->top + stacklimit; o++)
 			setnilvalue(o);
 	}
@@ -1289,7 +1298,7 @@ static void unpersistuserdata(int ref, UnpersistInfo *upi)
 {
 					/* perms reftbl ... */
 	int isspecial;
-	verify(luaZ_read(&upi->zio, &isspecial, sizeof(int)) == 0);
+	verify(LIF(Z,read)(&upi->zio, &isspecial, sizeof(int)) == 0);
 	if(isspecial) {
 		unpersist(upi);
 					/* perms reftbl ... spfunc? */
@@ -1311,12 +1320,12 @@ static void unpersistuserdata(int ref, UnpersistInfo *upi)
 					/* perms reftbl ... udata */
 	} else {
 		size_t length;
-		verify(luaZ_read(&upi->zio, &length, sizeof(size_t)) == 0);
+		verify(LIF(Z,read)(&upi->zio, &length, sizeof(size_t)) == 0);
 
 		lua_newuserdata(upi->L, length);
 					/* perms reftbl ... udata */
 		registerobject(ref, upi);
-		verify(luaZ_read(&upi->zio, lua_touserdata(upi->L, -1), length) == 0);
+		verify(LIF(Z,read)(&upi->zio, lua_touserdata(upi->L, -1), length) == 0);
 
 		unpersist(upi);
 					/* perms reftbl ... udata mt/nil? */
@@ -1362,13 +1371,13 @@ static void unpersist(UnpersistInfo *upi)
 					/* perms reftbl ... */
 	int firstTime;
 	int stacksize = lua_gettop(upi->L); stacksize = stacksize; /* DEBUG */
-	luaZ_read(&upi->zio, &firstTime, sizeof(int));
+	LIF(Z,read)(&upi->zio, &firstTime, sizeof(int));
 	if(firstTime) {
 		int ref;
 		int type;
-		luaZ_read(&upi->zio, &ref, sizeof(int));
+		LIF(Z,read)(&upi->zio, &ref, sizeof(int));
 		lua_assert(!inreftable(upi->L, ref));
-		luaZ_read(&upi->zio, &type, sizeof(int));
+		LIF(Z,read)(&upi->zio, &type, sizeof(int));
 #ifdef PLUTO_DEBUG
 		printindent(upi->level);
 		printf("1 %d %d\n", ref, type);
@@ -1425,7 +1434,7 @@ static void unpersist(UnpersistInfo *upi)
 #endif
 	} else {
 		int ref;
-		luaZ_read(&upi->zio, &ref, sizeof(int));
+		LIF(Z,read)(&upi->zio, &ref, sizeof(int));
 #ifdef PLUTO_DEBUG
 		printindent(upi->level);
 		printf("0 %d\n", ref);
@@ -1459,7 +1468,7 @@ void pluto_unpersist(lua_State *L, lua_Chunkreader reader, void *ud)
 	upi.level = 0;
 #endif
 
-	luaZ_init(L, &upi.zio, reader, ud);
+	LIF(Z,init)(L, &upi.zio, reader, ud);
 
 					/* perms */
 	lua_newtable(L);
@@ -1498,7 +1507,7 @@ int unpersist_l(lua_State *L)
 	lua_settop(L, 2);
 					/* perms? str? */
 	origbuf = luaL_checklstring(L, 2, &bufsize);
-	tempbuf = luaM_newvector(L, bufsize, char);
+	tempbuf = LIF(M,newvector)(L, bufsize, char);
 	memcpy(tempbuf, origbuf, bufsize);
 
 	li.buf = tempbuf;
@@ -1511,7 +1520,7 @@ int unpersist_l(lua_State *L)
 					/* perms */
 	pluto_unpersist(L, bufreader, &li);
 					/* perms rootobj */
-	luaM_freearray(L, tempbuf, bufsize, char);
+	LIF(M,freearray)(L, tempbuf, bufsize, char);
 	return 1;
 }
 
@@ -1521,8 +1530,7 @@ static luaL_reg pluto_reg[] = {
 	{ NULL, NULL }
 };
 
-LUALIB_API int luaopen_pluto(lua_State *L) {
+int luaopen_pluto(lua_State *L) {
 	luaL_openlib(L, "pluto", pluto_reg, 0);
 	return 1;
 }
-

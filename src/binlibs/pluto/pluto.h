@@ -18,9 +18,8 @@
 
 /* lua.h must be included before this file */
 
-
 void pluto_persist(lua_State *L, lua_Chunkwriter writer, void *ud);
 
 void pluto_unpersist(lua_State *L, lua_Chunkreader reader, void *ud);
 
-LUALIB_API int luaopen_pluto(lua_State *L);
+int luaopen_pluto(lua_State *L);
