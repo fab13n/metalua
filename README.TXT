@@ -2,8 +2,8 @@ README.TXT
 ==========
 For installation matters, cf. INSTALL.TXT
 
-Metalua 0.4
-===========
+Metalua 0.4.1
+=============
 Metalua is a static metaprogramming system for Lua: a set of tools
 that let you alter the compilation process in arbitrary, powerful and
 maintainable ways. For the potential first-time users of such a
@@ -113,8 +113,17 @@ Library-wise, Metalua offers a set of syntax tree manipulation tools:
   extensions.
 
 
-Notworthy changes since 0.3
-===========================
+Notworthy changes from 0.4 to 0.4.1
+===================================
+
+- Proper reporting of runtime errors
+- Interactive REPL loop
+- Support for 64 bits architectures
+- Update to Pluto 2.2 and Lua 5.1.3
+- Build for Visual Studio .NET
+
+Notworthy changes from 0.3 to 0.4
+=================================
 
 - A significantly bigger code base, mostly due to more libraries:
   about 2.5KLoC for libs, 4KLoC for the compiler. However, this remains
@@ -338,5 +347,5 @@ I'd like to thank the people who wrote the open source code which
 makes Metalua run: the Lua team, the authors of Yueliang, Pluto, Lua
 Rings, Bitlib; and the people whose bug reports, patches and
 insightful discussions dramatically improved the global design,
-including John Belmonte, Vyacheslav Egorov, David Manura, Olivier
-Gournet, Eric Raible, Laurence Tratt...
+including John Belmonte, Olivier Gournet, Vyacheslav Egorov, David
+Manura, Olivier Gournet, Eric Raible, Laurence Tratt...
