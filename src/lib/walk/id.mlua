@@ -58,7 +58,7 @@ local function _walk_id (kind, supercfg, ast, ...)
 
    assert(walk[kind], "Inbalid AST kind selector")
    assert(type(supercfg=='table'), "Config table expected")
-   assert(type(AST=='table'), "AST expected")
+   assert(type(ast)=='table', "AST expected")
 
    local cfg = { expr = { }; block = { }; stat = { } }
    local scope = scope:new()

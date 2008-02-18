@@ -5,317 +5,290 @@
 --
 ----------------------------------------------------------------------
 --
--- Copyright (c) 2006, Fabien Fleutot <metalua@gmail.com>.
+-- Copyright (c) 2006-2008, Fabien Fleutot <metalua@gmail.com>.
 --
 -- This software is released under the MIT Licence, see licence.txt
 -- for details.
 --
 --------------------------------------------------------------------------------
 --
--- This extension, borrowed from ML dialects, allows in a single operation to
--- analyze the structure of nested ADT, and bind local variables to subtrees
--- of the analyzed ADT before executing a block of statements chosen depending
--- on the tested term's structure.
+-- Glossary:
 --
--- The general form of a pattern matching statement is:
+-- * term_seq: the tested stuff, a sequence of terms
+-- * pattern_element: might match one term of a term seq. Represented
+--   as expression ASTs.
+-- * pattern_seq: might match a term_seq
+-- * pattern_group: several pattern seqs, one of them might match
+--                  the term seq.
+-- * case: pattern_group * guard option * block
+-- * match_statement: tested term_seq * case list 
 --
--- match <tested_term> with
--- | <pattern_1_1> | <pattern_1_2> | <pattern_1_3> -> <block_1>
--- | <pattern_2> -> <block_2>
--- | <pattern_3_1> | <pattern_3_2> if <some_condition> -> <block_3> 
--- end
--- 
--- If one of the patterns <pattern_1_x> accurately describes the
--- structure of <tested_term>, then <block_1> is executed (and no
--- other block of the match statement is tested). If none of
--- <pattern_1_x> patterns mathc <tested_term>, but <pattern_2> does,
--- then <block_2> is evaluated before exiting. If no pattern matches,
--- the whole <match> statemetn does nothing. If more than one pattern
--- matches, the first one wins.
--- 
--- When an additional condition, introduced by [if], is put after
--- the patterns, this condition is evaluated if one of the patterns matches,
--- and the case is considered successful only if the condition returns neither
--- [nil] nor [false].
+-- Hence a complete match statement is a:
 --
--- Terminology
--- ===========
---
--- The whole compound statement is called a match; Each schema is
--- called a pattern; Each sequence (list of patterns, optional guard,
--- statements block) is called a case.
---
--- Patterns
--- ========
--- Patterns can consist of:
---
--- - numbers, booleans, strings: they only match terms equal to them
---
--- - variables: they match everything, and bind it, i.e. the variable
---   will be set to the corresponding tested value when the block will
---   be executed (if the whole pattern and the guard match). If a
---   variable appears more than once in a single pattern, all captured
---   values have to be equal, in the sense of the "==" operator.
---
--- - tables: a table matches if all these conditions are met:
---   * the tested term is a table;
---   * all of the pattern's keys are strings or integer or implicit indexes;
---   * all of the pattern's values are valid patterns, except maybe the
---     last value with implicit integer key, which can also be [...];
---   * every value in the tested term is matched by the corresponding
---     sub-pattern;
---   * There are as many integer-indexed values in the tested term as in
---     the pattern, or there is a [...] at the end of the table pattern.
--- 
--- Pattern examples
--- ================
---
--- Pattern { 1, a } matches term { 1, 2 }, and binds [a] to [2].
--- It doesn't match term { 1, 2, 3 } (wrong number of parameters).
---
--- Pattern { 1, a, ... } matches term { 1, 2 } as well as { 1, 2, 3 }
--- (the trailing [...] suppresses the same-length condition)
--- 
--- `Foo{ a, { bar = 2, b } } matches `Foo{ 1, { bar = 2, "THREE" } }, 
--- and binds [a] to [1], [b] to ["THREE"] (the syntax sugar for [tag] fields
--- is available in patterns as well as in regular terms).
+-- { list(expr),  list{ list(list(expr)), expr or false, block } } 
 --
 -- Implementation hints
 -- ====================
 --
--- Since the control flow quickly becomes hairy, it's implemented with
--- gotos and labels. [on_success] holds the label name where the
--- control flow must go when the currently parsed pattern
--- matches. [on_failure] is the next position to reach if the current
--- pattern mismatches: either the next pattern in a multiple-patterns
--- case, or the next case when parsing the last pattern of a case, or
--- the end of the match code for the last pattern of the last case.
+-- The implementation is made as modular as possible, so that parts
+-- can be reused in other extensions. The priviledged way to share
+-- contextual information across functions is through the 'cfg' table
+-- argument. Its fields include:
 --
--- [case_vars] is the list of variables created for the current
--- case. It's kept to generate the local variables declaration.
--- [pattern_vars] is also kept, to detect non-linear variables
--- (variables which appear more than once in a given pattern, and
--- therefore require an == test).
+-- * code: code generated from pattern. A pattern_(element|seq|group)
+--   is compiled as a sequence of instructions which will jump to
+--   label [cfg.on_failure] if the tested term doesn't match.
 --
---------------------------------------------------------------------------------
+-- * on_failure: name of the label where the code will jump if the
+--   pattern doesn't match
 --
--- TODO:
+-- * locals: names of local variables used by the pattern. This
+--   includes bound variables, and temporary variables used to
+--   destructure tables. Names are stored as keys of the table,
+--   values are meaningless.
 --
--- [CHECK WHETHER IT'S STILL TRUE AFTER TESTS INVERSION]
--- - Optimize jumps: the bytecode generated often contains several
---   [OP_JMP 1] in a row, which is quite silly. That might be due to the
---   implementation of [goto], but something can also probably be done
---   in pattern matching implementation.
+-- * after_success: label where the code must jump after a pattern
+--   succeeded to capture a term, and the guard suceeded if there is
+--   any, and the conditional block has run.
 --
+-- * ntmp: number of temporary variables used to destructurate table
+--   in the current case.
+--
+-- Code generation is performed by acc_xxx() functions, which accumulate
+-- code in cfg.code:
+--
+-- * acc_test(test, cfg) will generate a jump to cfg.on_failure 
+--   *when the test returns TRUE*
+--
+-- * acc_stat accumulates a statement
+-- 
+-- * acc_assign accumulate an assignment statement, and makes sure that 
+--   the LHS variable the registered as local in cfg.locals.
+--   
 ----------------------------------------------------------------------
 
+-- TODO: hygiene wrt type()
 
--- match relies on the global function 'type', which can be shadowed
--- by the user. A copy of it is stored in this unique local, at the
--- extension point.
-local type_alpha = mlp.gensym 'type'
+module ('spmatch', package.seeall)
+require 'strict'
 
-----------------------------------------------------------------------
--- Convert a tested term and a list of (pattern, statement) pairs
--- into a pattern-matching AST.
-----------------------------------------------------------------------
-function match_builder (x)
+tmpvar_base = mlp.gensym 'table_submatch.' [1]
+function next_tmpvar(cfg)
+   local n2 = cfg.ntmp
+   if cfg.ntmp then n2=cfg.ntmp+1; cfg.ntmp=n2 else cfg.ntmp, n2 = 1, 1 end
+   return `Id{ tmpvar_base .. n2 }
+end
 
-   local tested_terms_list, cases = unpack(x)
+-- Code accumulators
+acc_stat = |x,cfg| table.insert (cfg.code, x)
+acc_test = |x,cfg| acc_stat(+{stat: if -{x} then -{`Goto{cfg.on_failure}} end}, cfg)
+-- lhs :: `Id{ string }
+-- rhs :: expr
+function acc_assign (lhs, rhs, cfg)
+   assert(lhs.tag=='Id')
+   cfg.locals[lhs[1]] = true
+   acc_stat (`Set{ {lhs}, {rhs} }, cfg)
+end
 
-   local local_vars = { }
-   local var = |n| `Id{ "$v" .. n }
-   local on_failure -- current target upon pattern mismatch
+literal_tags = table.transpose{ 'String', 'Number', 'True', 'False', 'Nil' }
 
-   local literal_tags = table.transpose
-      { 'String', 'Number', 'True', 'False', 'Nil' }
+-- pattern :: `Id{ string }
+-- term    :: expr
+function id_pattern_element_builder (pattern, term, cfg)
+   assert (pattern.tag == "Id")
+   if pattern[1] == "_" then 
+      -- "_" is used as a dummy var ==> no assignment, no == checking
+      cfg.locals._ = true
+   elseif cfg.locals[pattern[1]] then 
+      -- This var is already bound ==> test for equality
+      acc_test (+{ -{term} ~= -{pattern} }, cfg)
+   else
+      -- Free var ==> bind it, and remember it for latter linearity checking
+      acc_assign (pattern, term, cfg) 
+      cfg.locals[pattern[1]] = true
+   end
+end
 
-   local current_code -- list where instructions are accumulated
-   local pattern_vars -- list where local vars are accumulated
-   local case_vars    -- list where local vars are accumulated
+-- Concatenate code in [cfg.code], that will jump to label
+-- [cfg.on_failure] if [pattern] doesn't match [term]. [pattern]
+-- should be an identifier, or at least cheap to compute and
+-- side-effects free.
+--
+-- pattern :: pattern_element
+-- term    :: expr
+function pattern_element_builder (pattern, term, cfg)
+   if literal_tags[pattern.tag] then
+      acc_test (+{ -{term} ~= -{pattern} }, cfg)
+   elseif "Id" == pattern.tag then 
+      id_pattern_element_builder (pattern, term, cfg)
+   elseif "Op" == pattern.tag and "div" == pattern[1] then
+      regexp_pattern_element_builder (pattern, term, cfg)
+   elseif "Table" == pattern.tag then
+      table_pattern_element_builder (pattern, term, cfg)
+   else 
+      error ("Invalid pattern: "..table.tostring(pattern, "nohash"))
+   end
+end
 
-   -------------------------------------------------------------------
-   -- Accumulate statements in [current_code]
-   -------------------------------------------------------------------
-   local function acc (x) 
-      --printf ("%s", disp.ast (x))
-      table.insert (current_code, x) end
-   local function acc_test (it) -- the test must fail for match to succeeed.
-      acc +{stat: if -{it} then -{`Goto{ on_failure }} end } end
-   local function acc_assign (lhs, rhs)
-      local_vars[lhs[1]] = true
-      acc (`Set{ {lhs}, {rhs} }) end
-   local function acc_type_test(var, t)
-      return acc_test +{ -{`Call{ type_alpha, var}} ~= -{`String{t}} }
+-- pattern :: `Op{ 'div', string, list{`Id string} or `Id{ string }}
+-- term    :: expr
+function regexp_pattern_element_builder (pattern, term, cfg)
+   local op, regexp, sub_pattern = unpack(pattern)
+
+   -- Sanity checks --
+   assert (op=='div', "Don't know what to do with that op in a pattern")
+   assert (regexp.tag=="String", 
+           "Left hand side operand for '/' in a pattern must be "..
+           "a literal string representing a regular expression")
+   assert (sub_pattern.tag=="Table",
+           "Right hand side operand for '/' in a pattern must be "..
+           "an identifier or a list of identifiers")
+   for x in ivalues(sub_pattern) do
+      assert (x.tag=="Id" or x.tag=='Dots',
+              "Right hand side operand for '/' in a pattern must be "..
+              "a list of identifiers")
    end
 
+   -- Regexp patterns can only match strings
+   acc_test (+{ type(-{term}) ~= 'string' }, cfg)
+   -- put all captures in a list
+   local capt_list  = +{ { string.strmatch(-{term}, -{regexp}) } }
+   -- save them in a var_n for recursive decomposition
+   local v2 = next_tmpvar(cfg)
+   acc_stat (+{stat: local -{v2} = -{capt_list} }, cfg)
+   -- was capture successful?
+   acc_test (+{ not next (-{v2}) }, cfg)
+   pattern_element_builder (sub_pattern, v2, cfg)
+end
 
-   -------------------------------------------------------------------
-   -- Set of variables bound in the current pattern, to find
-   -- non-linear patterns.
-   -------------------------------------------------------------------
-   local function handle_id (id, val)
-      assert (id.tag=="Id")
-      if id[1] == "_" then 
-         -- "_" is used as a dummy var ==> no assignment, no == checking
-         case_vars["_"] = true
-      elseif pattern_vars[id[1]] then 
-         -- This var is already bound ==> test for equality
-         acc_test +{ -{val} ~= -{id} }
+-- pattern :: pattern and `Table{ }
+-- term    :: expr
+function table_pattern_element_builder (pattern, term, cfg)
+   local seen_dots, len = false, 0
+   acc_test (+{ type( -{term} ) ~= "table" }, cfg)
+   for i = 1, #pattern do
+      local key, sub_pattern
+      if pattern[i].tag=="Pair" then -- Explicit key/value pair
+         key, sub_pattern = unpack (pattern[i])
+         assert (literal_tags[key.tag], "Invalid key")
+      else -- Implicit key
+         len, key, sub_pattern = len+1, `Number{ len+1 }, pattern[i]
+      end
+      
+      -- '...' can only appear in final position
+      -- Could be fixed actually...
+      assert (not seen_dots, "Wrongly placed `...' ")
+
+      if sub_pattern.tag == "Id" then 
+         -- Optimization: save a useless [ v(n+1)=v(n).key ]
+         id_pattern_element_builder (sub_pattern, `Index{ term, key }, cfg)
+         if sub_pattern[1] ~= "_" then 
+            acc_test (+{ -{sub_pattern} == nil }, cfg)
+         end
+      elseif sub_pattern.tag == "Dots" then
+         -- Remember to suppress arity checking
+         seen_dots = true
       else
-         -- Free var ==> bind it, and remember it for latter linearity checking
-         acc_assign (id, val) 
-         pattern_vars[id[1]] = true
-         case_vars[id[1]]    = true
+         -- Business as usual:
+         local v2 = next_tmpvar(cfg)
+         acc_assign (v2, `Index{ term, key }, cfg)
+         pattern_element_builder (sub_pattern, v2, cfg)
       end
    end
+   if not seen_dots then -- Check arity
+      acc_test (+{ #-{term} ~= -{`Number{len}} }, cfg)
+   end
+end
 
-   -------------------------------------------------------------------
-   -- Turn a pattern into a list of tests and assignments stored into
-   -- [current_code]. [n] is the depth of the subpattern into the
-   -- toplevel pattern; [pattern] is the AST of a pattern, or a
-   -- subtree of that pattern when [n>0].
-   -------------------------------------------------------------------
-   local function pattern_builder (n, pattern)
-      local v = var(n)
-      if literal_tags[pattern.tag]  then acc_test +{ -{v} ~= -{pattern} }
-      elseif "Id"    == pattern.tag then handle_id (pattern, v)
-      elseif "Op"    == pattern.tag and "div" == pattern[1] then
-         local n2 = n>0 and n+1 or 1
-         local _, regexp, sub_pattern = unpack(pattern)
-         if sub_pattern.tag=="Id" then sub_pattern = `Table{ sub_pattern } end
-         -- Sanity checks --
-         assert (regexp.tag=="String", 
-                 "Left hand side operand for '/' in a pattern must be "..
-                 "a literal string representing a regular expression")
-         assert (sub_pattern.tag=="Table",
-                 "Right hand side operand for '/' in a pattern must be "..
-                 "an identifier or a list of identifiers")
-         for x in ivalues(sub_pattern) do
-            assert (x.tag=="Id" or x.tag=='Dots',
-                 "Right hand side operand for '/' in a pattern must be "..
-                 "a list of identifiers")
-         end
+-- Jumps to [cfg.on_faliure] if pattern_seq doesn't match
+-- term_seq.
+function pattern_seq_builder (pattern_seq, term_seq, cfg)
+   if #pattern_seq ~= #term_seq then error ("Bad seq arity") end
+   for i=1, #pattern_seq do
+      pattern_element_builder(pattern_seq[i], term_seq[i], cfg)
+   end
+end
 
-         -- Can only match strings
-         acc_type_test (v, 'string')
-         -- put all captures in a list
-         local capt_list  = +{ { string.strmatch(-{v}, -{regexp}) } }
-         -- save them in a var_n for recursive decomposition
-         acc +{stat: local -{var(n2)} = -{capt_list} }
-         -- was capture successful?
-         acc_test +{ not next (-{var(n2)}) }
-         pattern_builder (n2, sub_pattern)
-      elseif "Table" == pattern.tag then
-         local seen_dots, len = false, 0
-         acc_type_test(v, 'table')
-         for i = 1, #pattern do
-            local key, sub_pattern
-            if pattern[i].tag=="Pair" then -- Explicit key/value pair
-               key, sub_pattern = unpack (pattern[i])
-               assert (literal_tags[key.tag], "Invalid key")
-            else -- Implicit key
-               len, key, sub_pattern = len+1, `Number{ len+1 }, pattern[i]
-            end
-            assert (not seen_dots, "Wrongly placed `...' ")
-            if sub_pattern.tag == "Id" then 
-               -- Optimization: save a useless [ v(n+1)=v(n).key ]
-               handle_id (sub_pattern, `Index{ v, key })
-               if sub_pattern[1] ~= "_" then 
-                  acc_test +{ -{sub_pattern} == nil } 
-               end
-            elseif sub_pattern.tag == "Dots" then
-               -- Remember to suppress arity checking
-               seen_dots = true
-            else
-               -- Business as usual:
-               local n2 = n>0 and n+1 or 1
-               acc_assign (var(n2), `Index{ v, key })
-               pattern_builder (n2, sub_pattern)
-            end
-         end
-         if not seen_dots then -- Check arity
-            acc_test +{ #-{v} ~= -{`Number{len}} }
-         end
-      else 
-         error ("Invalid pattern: "..table.tostring(pattern, "nohash"))
+--------------------------------------------------
+-- for each case i:
+--   pattern_seq_builder_i:
+--    * on failure, go to on_failure_i
+--    * on success, go to on_success
+--   label on_success:
+--   block
+--   goto after_success
+--   label on_failure_i
+--------------------------------------------------
+function case_builder (case, term_seq, cfg)
+   local patterns_group, guard, block = unpack(case)
+   local on_success = mlp.gensym 'on_success' [1]
+   for i = 1, #patterns_group do
+      local pattern_seq = patterns_group[i]
+      cfg.on_failure = mlp.gensym 'match_fail' [1]
+      pattern_seq_builder(pattern_seq, term_seq, cfg)
+      if i<#patterns_group then
+         acc_stat(`Goto{on_success}, cfg)
+         acc_stat(`Label{cfg.on_failure}, cfg)
       end
    end
+   acc_stat (`Label{on_success}, cfg)
+   if guard then acc_test (+{not -{guard}}, cfg) end
+   block.tag = 'Do'
+   acc_stat (block, cfg)
+   acc_stat (`Goto{cfg.after_success}, cfg)
+   acc_stat (`Label{cfg.on_failure}, cfg)
+end
 
-   local end_of_match = mlp.gensym "_end_of_match"
-   local arity = #tested_terms_list
-   local x = `Local{ { }, { } }
-   for i=1,arity do 
-      x[1][i]=var(-i)
-      x[2][i]= tested_terms_list[i]
+function match_builder (x)
+   local term_seq, cases = unpack(x)
+   local cfg = { 
+      code          = `Do{ },
+      after_success = mlp.gensym "_after_success" }
+
+   local match_locals
+
+   -- Make sure that all tested terms are variables or literals
+   for i=1, #term_seq do
+      local t = term_seq[i]
+      if t.tag ~= 'Id' and not literal_tags[t.tag] then
+         local v = mlp.gensym 'v'
+         if not match_locals then match_locals = `Local{ {v}, {t} } else
+            table.insert(match_locals[1], v)
+            table.insert(match_locals[2], t)
+         end
+         term_seq[i] = v
+      end
    end
-   local complete_code = `Do{ x }
-
-   -- Foreach [{patterns, guard, block}]:
-   for i = 1, #cases do
-      local patterns, guard, block = unpack (cases[i])
    
-      -- Reset accumulators
-      local local_decl_stat = { }
-      current_code = `Do{ `Local { local_decl_stat, { } } } -- reset code accumulator
-      case_vars = { }
-      table.insert (complete_code, current_code)
+   if match_locals then acc_stat(match_locals, cfg) end
 
-      local on_success = mlp.gensym "_on_success" -- 1 success target per case
-
-      -----------------------------------------------------------
-      -- Foreach [pattern] in [patterns]:
-      -- on failure go to next pattern if any, 
-      -- next case if no more pattern in current case.
-      -- on success (i.e. no [goto on_failure]), go to after last pattern test
-      -- if there is a guard, test it before the block: it's common to all patterns,
-      -----------------------------------------------------------
-      for j = 1, #patterns do
-         if #patterns[j] ~= arity then 
-            error( "Invalid match: pattern has only "..
-                   #patterns[j].." elements, "..
-                   arity.." were expected")
-         end
-         pattern_vars = { }
-         on_failure = mlp.gensym "_on_failure" -- 1 failure target per pattern
-         
-         for k = 1, arity do pattern_builder (-k, patterns[j][k]) end
-         if j<#patterns then 
-            acc (`Goto{on_success}) 
-            acc (`Label{on_failure}) 
+   for i=1, #cases do
+      local case_cfg = { 
+         after_success = cfg.after_success,
+         code         = `Do{ },
+         locals       = { } }
+      case_builder (cases[i], term_seq, case_cfg)
+      if next (case_cfg.locals) then
+         local case_locals = { }
+         table.insert (case_cfg.code, 1, `Local{ case_locals, { } })
+         for v in keys (case_cfg.locals) do
+            table.insert (case_locals, `Id{ v })
          end
       end
-      acc (`Label{on_success})
-      if guard then acc_test (`Op{ "not", guard}) end
-      acc (block)
-      acc (`Goto{end_of_match}) 
-      acc (`Label{on_failure})
-
-      -- fill local variables declaration:
-      local v1 = var(1)[1]
-      for k, _ in pairs(case_vars) do
-         if k[1] ~= v1 then table.insert (local_decl_stat, `Id{k}) end
-      end
-
+      acc_stat(case_cfg.code, cfg)
    end
-   acc +{error "mismatch"} -- cause a mismatch error after last case failed
-   table.insert(complete_code, `Label{ end_of_match })
-   return complete_code
+   acc_stat(+{error 'mismatch'}, cfg)
+   acc_stat(`Label{cfg.after_success}, cfg)
+   return cfg.code
 end
 
 ----------------------------------------------------------------------
--- Sugar: add the syntactic extension that makes pattern matching
---        pleasant to read and write.
+-- Syntactical front-end
 ----------------------------------------------------------------------
 
 mlp.lexer:add{ "match", "with", "->" }
 mlp.block.terminators:add "|"
 
--- Output-format:
--- match_cases_list    := list of patterns_with_block
--- patterns_with_block := { list of patterns, guard?, block }
--- pattern             := mlp.expr
--- guard?              := mlp.expr | false
 match_cases_list_parser = gg.list{ name = "match cases list",
    gg.sequence{ name = "match case",
       gg.list{ name  = "match case patterns list",
@@ -336,4 +309,3 @@ mlp.stat:add{ name = "match statement",
    "end",
    builder = |x| match_builder{ x[1], x[3] } }
 
-return `Local{ {type_alpha}, {+{type}} }
