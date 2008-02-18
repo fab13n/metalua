@@ -1,0 +1,17 @@
+-{ extension 'dset' }
+
+require 'strict'
+
+bind {a, b} = {'o', 'k'}
+
+print(a..b)
+
+c, d = 'k', 'o'
+
+do
+   local bind {c, {d}} = {'o', {'k'}}
+   print(c..d)
+end
+
+print(d..c)
+   
