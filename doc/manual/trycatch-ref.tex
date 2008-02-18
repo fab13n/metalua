@@ -1,0 +1,87 @@
+\section{Extension {\tt trywith}: exceptions and finalization}
+Lua offers error handling primitives \verb+pcall()+ and
+\veb+xpcall()+. However, they are pretty low level, and their syntax
+is cumbersome to use and read back. This extension offers a proper
+syntax for the handling of such exceptions.
+
+\subsection{Syntax}
+An error handling statement has the following form:
+
+\begin{verbatim}
+try
+   <protected block>
+catch <exception pattern #1> then
+   <exception handling block #1>
+catch <exception pattern #2> then
+   <exception handling block #2>
+   ...
+catch <exception pattern #n> then
+   <exception handling block #n>
+finally
+   <finalization block>
+end
+\end{verbatim}
+
+\subsection{Semantics}
+When such a statement is executed:
+\begin{itemize}
+\item the protected code is executed
+\item if its execution causes an error, the error message is matched
+  against all exception patterns, until one matches or the last one is
+  reached (see the \verb+match+ extension for patterns
+  semantics). Patterns can include guard clauses. The block
+  corresponding to the first matching pattern is executed. If no
+  pattern matches, the error will be rethrown.
+\item the block following the \verb+finally+ keyword will be executed
+  no matter what: if the protected block executes succesfully, if it
+  raises an error, if it causes a \verb+return+, if an error occurs in
+  an exception handling block, whether an error is caught or
+  not... The only reason why the finalization block might not be run
+  is because of a sudden death of the process (call to {\tt os.exit()}
+  or core dump).
+\end{itemize}
+
+The finally block can be omitted, or there can be no error catching
+case. The following examples are legal:
+
+\begin{verbatim}
+try
+   f = io.open ('file.txt', 'r')
+   num_char = #f:read '*a'
+finally
+   f:close()
+end
+
+try
+   do_stuff()
+catch "mismatch" then
+   print "match statement failure"
+catch "[Ee]of"/_ then -- regexp pattern
+   print "An end-of-file error seems to have happened"
+catch x if type(x)=='table' then
+   print "The error is a table, not a string!"
+end
+\end{verbatim}
+
+ \subsection{RAII}
+ RAII, or ``Resource Acquisition Is Initialization'', is a common
+ programming pattern in which an object's lifetime is strictly
+ associated with a given lexical scope. For instance, if a file is
+ opened in a given scope, it must be closed as soon as this scope is
+ leaved, even if it's leaved due to a {\tt return} or an error. The
+ ``finally'' block allows this, but since it's a very common use case,
+ there is a dedicated extension ``with/do'': you initialize some resource
+ behind the ``with'' keyword, and it will be closed after the ``do''
+ block is left. The only constraint is that the resources must have a
+ {\tt:close()} method which releases them. Here is a usage example:
+
+\begin{verbatim}
+-{ extension 'withdo' }
+
+with f1, f2 = io.open 'file1.txt', io.open 'file2.txt' do
+   local t1 = f1:read '*a'
+   local t2 = f2:read '*a'
+   printf("The files contain %i and %i chars respectively", t1, t2)
+end
+\end{verbatim}
+
