@@ -52,10 +52,12 @@ module ("mlp", package.seeall)
 
 function splice (ast)
    --printf(" [SPLICE] Ready to compile:\n%s", _G.table.tostring (ast, "nohash", 60))
-   local f = mlc.function_of_ast(ast)
+   local f = mlc.function_of_ast(ast, '=splice')
    --printf " [SPLICE] Splice Compiled."
-   local result = f()   
+   --local status, result = pcall(f)
    --printf " [SPLICE] Splice Evaled."
+   --if not status then print 'ERROR IN SPLICE' end
+   local result=f()
    return result
 end
 

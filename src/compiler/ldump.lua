@@ -62,11 +62,12 @@ format = { }
 format.header = string.dump(function()end):sub(1, 12)
 format.little_endian, format.int_size, 
 format.size_t_size,   format.instr_size, 
-format.number_size,   format.integral = 
-   format.header:byte(7, 12)
+format.number_size,   format.integral = format.header:byte(7, 12)
+format.little_endian = format.little_endian~=0
+format.integral      = format.integral     ~=0
 
-assert(format.number_size==8, "Number format not supported by dumper")
-assert(format.little_endian==1, "Big endian architectures not supported by dumper")
+assert(format.integral or format.number_size==8, "Number format not supported by dumper")
+assert(format.little_endian, "Big endian architectures not supported by dumper")
 
 --requires luaP
 luaU = {}
@@ -79,9 +80,9 @@ luaU.LUA_TSTRING  = 4
 luaU.LUA_TNONE   = -1
 
 -- definitions for headers of binary files
-luaU.LUA_SIGNATURE = "\27Lua"   -- binary files start with "<esc>Lua"
-luaU.VERSION = 81               -- 0x50; last format change was in 5.0
-luaU.FORMAT_VERSION = 0         -- 0 is official version. yeah I know I'm a liar.
+--luaU.LUA_SIGNATURE = "\27Lua"   -- binary files start with "<esc>Lua"
+--luaU.VERSION = 81               -- 0x50; last format change was in 5.0
+--luaU.FORMAT_VERSION = 0         -- 0 is official version. yeah I know I'm a liar.
 
 -- a multiple of PI for testing native format
 -- multiplying by 1E7 gives non-trivial integer values
@@ -98,7 +99,7 @@ luaU.FORMAT_VERSION = 0         -- 0 is official version. yeah I know I'm a liar
 ------------------------------------------------------------------------
 function luaU:ttype(o)
   local tt = type(o.value)
-  if tt == "number"      then return self.LUA_TNUMBER
+  if     tt == "number"  then return self.LUA_TNUMBER
   elseif tt == "string"  then return self.LUA_TSTRING
   elseif tt == "nil"     then return self.LUA_TNIL
   elseif tt == "boolean" then return self.LUA_TBOOLEAN
@@ -245,7 +246,11 @@ end
 -- dumps a LUA_NUMBER (hard-coded as a double)
 ------------------------------------------------------------------------
 function luaU:DumpNumber(x, D)
-  self:DumpBlock(self:from_double(x), D)
+   if format.integral then
+      self:DumpBlock(self:from_int(x, format.number_size), D)
+   else
+      self:DumpBlock(self:from_double(x), D)
+   end
 end
 
 ------------------------------------------------------------------------

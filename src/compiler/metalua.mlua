@@ -178,9 +178,9 @@ local function main (...)
    -- AST printing
    if cfg['print-ast'] then 
       verb_print "Resulting AST:"
-      for x in values(code) do
+      for x in ivalues(code) do
          printf("--- AST From %s: ---", table.tostring(x.source, 'nohash'))
-         --if x.origin.tag=='File' then x=x[1][2][1] end
+         if x.origin and x.origin.tag=='File' then x=x[1][1][2][1] end
          table.print(x, 80, 'nohash')
       end 
    end

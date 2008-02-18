@@ -103,7 +103,7 @@ function mlc.convert (x, src_fmt, dst_fmt, name)
       -- x = error msg; get rid of ???
       x = x:strmatch "[^:]+:[0-9]+: (.*)" or x
       error(string.format("Parsing error in %s line %s, char %s: \n%s",
-                          filename or "?", lx.line, lx.i, x))
+                          name or "?", lx.line, lx.i, x))
       return nil
    end
    
