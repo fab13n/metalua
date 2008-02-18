@@ -4,29 +4,14 @@
 --
 -- TODO:
 --
--- * Hygiene! this stuff is absolutely not hygienic, and lexically nested
---   try...with 
---
--- * give a more lua-like syntax:
---   > try ... (catch expr then block)* (finally block)? end
---
--- * create an RAII-like feature, possibly in a separate extension:
---   > with v1, v2, ... = rsc1, rsc2, ... do block end ==>
---   > try local v1 = rsc1
---   >    try v2 = rsc2
---   >       ...
---   >    finally v2:close()
---   > finally v1:close() end
---
--- * match.mlua refactoring: there are many other places where it
---   should be usable (fancy assignments...), if it were cut in
---   smaller, more usable functions. They should probably go in a
---   separate module.
+-- * Hygienize calls to pcall()
 --
 --------------------------------------------------------------------------------
 
 -{ extension 'H' }
 -{ extension 'log' }
+
+require 'extension.match'
 
 -- Get match parsers and builder, for catch cases handling:
 local match_alpha = require 'extension.match' 
@@ -40,6 +25,7 @@ local mkpcall = |block| +{pcall(function() -{block} end)}
 
 -- The statement builder:
 function trycatch_builder(x)
+   --$log ("trycatch_builder", x, 'nohash', 60)
    local try_code, catch_cases, finally_code = unpack(x)
    local insert_return_catcher = false
 
@@ -48,9 +34,16 @@ function trycatch_builder(x)
    -- to outside macro code.
    local caught_return = !mlp.gensym 'caught_return'
 
-   !try_code; !(catch_code or { }); !(finally_code or { })
+   !try_code; !(finally_code or { })
+   -- FIXME: Am I sure there's no need to hygienize inside?
+   --[[if catch_cases then
+      for case in ivalues(catch_cases) do
+         --$log(case,'nohash')
+         local patterns, guard, block = unpack(case)
+         ! block
+      end
+   end]]
 
-   --$log(try_code, catch_cases, finally_code)
 
    ----------------------------------------------------------------
    -- Returns in the try-block must be transformed:
@@ -83,7 +76,7 @@ function trycatch_builder(x)
             -- Setvar's 'caught_return' code can't be hygienize by H currently.
             local setvar = `Set{ {caught_return}, { `Table{ unpack(x) } } }
             x <- { setvar; `Return }; x.tag = nil;
-            $log('transformed return stat:', x, 60)
+            --$log('transformed return stat:', x, 60)
             return 'break'
          | `Function{...} -> return 'break' 
             -- inside this, returns would be the nested function's, not ours.
@@ -117,7 +110,7 @@ function trycatch_builder(x)
          -- so we introduce a catch-all do-nothing last case:
          ----------------------------------------------------------
          table.insert (catch_cases, { { { `Id '_' } }, false, { } }) 
-         catch_result = match_builder{ {+{user_error}}, catch_cases }
+         catch_result = spmatch.match_builder{ {+{user_error}}, catch_cases }
       else
          catch_result = { }
       end
@@ -157,14 +150,30 @@ function trycatch_builder(x)
    return result
 end
 
+function catch_case_builder(x)
+   --$log ("catch_case_builder", x, 'nohash', 60)
+   local patterns, guard, _, code = unpack(x)
+   -- patterns ought to be a pattern_group, but each expression must
+   -- be converted into a single-element pattern_seq.
+   for i = 1, #patterns do patterns[i] = {patterns[i]} end
+   return { patterns, guard, code }
+end
+
 mlp.lexer:add{ 'try', 'catch', 'finally', '->' }
 mlp.block.terminators:add{ 'catch', 'finally' }
-table.insert(match_cases_list_parser.terminators, 'finally')
 
 mlp.stat:add{
    'try', 
    mlp.block, 
-   gg.onkeyword{ 'catch', match_cases_list_parser },
+   gg.onkeyword{ 'catch', 
+      gg.list{
+         gg.sequence{ 
+            mlp.expr_list,
+            gg.onkeyword{ 'if', mlp.expr },
+            gg.optkeyword 'then', 
+            mlp.block,
+            builder = catch_case_builder },
+         separators = 'catch' } },
    gg.onkeyword{ 'finally', mlp.block },
    'end',
    builder = trycatch_builder }
