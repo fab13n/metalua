@@ -359,11 +359,12 @@ function lexer:newstream (src_or_stream)
    if type(src_or_stream)=='table' then -- it's a stream
       return setmetatable({ }, self):takeover(src_or_stream)
    elseif type(src_or_stream)=='string' then -- it's a source string
+      local src = src_or_stream
       local stream = { 
-         src    = src_or_stream; -- The source, as a single string
-         peeked = { };           -- Already peeked, but not discarded yet, tokens
-         i      = 1;             -- Character offset in src
-         line   = 1;             -- Current line number
+         src    = src; -- The source, as a single string
+         peeked = { }; -- Already peeked, but not discarded yet, tokens
+         i      = 1;   -- Character offset in src
+         line   = 1;   -- Current line number
       }
       setmetatable (stream, self)
 

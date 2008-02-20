@@ -141,7 +141,7 @@ function clopts(cfg)
       local args = type(...)=='table' and ... or {...}
       local i, i_max = 1, #args
       while i <= i_max do         
-         local arg, flags, opts, opt = args[i]
+         local arg, flag, opt, opts = args[i]
          --printf('beginning of loop: i=%i/%i, arg=%q', i, i_max, arg)
          if arg=='-' then
             i=actionate (cfg, short, '-', '', i, args)

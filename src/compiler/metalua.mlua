@@ -194,7 +194,7 @@ local function main (...)
    end
 
    -- FIXME: check for failures
-   -- FIXME: handle metabugs
+   mlc.metabugs = cfg.metabugs
    local bytecode = mlc.luacstring_of_ast (code)
    code = nil
 

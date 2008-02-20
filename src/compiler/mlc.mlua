@@ -89,7 +89,7 @@ function mlc.convert (x, src_fmt, dst_fmt, name)
 
    local status -- status = compilation success
    local lx=x
-   if SHOW_METABUGS
+   if mlc.metabugs
    -- If SHOW_METABUGS is true, errors should be attributed to a parser bug.
    then status, x = true, mlp.chunk (lx)
    -- If SHOW_METABUGS is false, errors should be attributed to an invalid entry.

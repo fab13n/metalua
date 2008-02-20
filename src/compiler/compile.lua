@@ -1052,7 +1052,7 @@ function expr.expr (fs, ast, v)
    local parser = expr[ast.tag]
    if parser then parser (fs, ast, v)
    elseif not ast.tag then 
-      error ("No tag in expression "..table.tostring(ast))
+      error ("No tag in expression "..table.tostring(ast, 'nohash', 80))
    else 
       error ("No parser for node `"..ast.tag) end
    debugf (" - /`%s", ast.tag)
