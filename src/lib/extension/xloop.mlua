@@ -49,7 +49,7 @@ function xloop_builder(x)
       | `Break -> x <- exit()
       | `Forin{ ... } | `Fornum{ ... } | `While{ ... } | `Repeat{ ... } -> 
          return 'break'
-      | _ -> _
+      | _ -> -- pass
       end
    end
    function cfg.expr.down(x) if x.tag=='Function' then return 'break' end end

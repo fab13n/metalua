@@ -2,6 +2,18 @@ require 'extension.match'
 module ('spmatch', package.seeall)
 -{extension 'log'}
 
+match_function_builder = |tag| function (x)                      
+   local func_name, _, cases = unpack(x)
+   local arity = #cases[1][1][1]
+   if arity==0 then 
+      error "There must be at least 1 case in match function" 
+   end
+   local args = { }
+   for i=1, arity do args[i] = mlp.gensym("arg."..i) end
+   local body = match_builder{args, cases}
+   return { tag=tag, {func_name}, { `Function{ args, {body} } } }
+end
+
 -- Get rid of the former parser, it will be blended in a multiseq:
 mlp.stat:del 'match'
 
@@ -14,28 +26,25 @@ mlp.stat:add{ 'match',
       -- "match function f $2 end"
       ----------------------------------------------------------------
       { 'function', mlp.expr, gg.optkeyword '|',
-         match_cases_list_parser,
-         'end',
-         builder = function(x)                      
-            local func_name, _, cases = unpack(x)
-            local arity = #cases[1][1][1]
-            if arity==0 then 
-               error "There must be at least 1 case in match function" 
-            end
-            local args = { }
-            for i=1, arity do args[i] = mlp.gensym("arg."..i) end
-            local body = match_builder{args, cases}
-            return `Set{ {func_name}, { `Function{ args, {body} } } }
-         end },
+         match_cases_list_parser, 'end', 
+         builder = match_function_builder 'Set' },
 
       ----------------------------------------------------------------
       -- Reintroduce the original match statement:
       ----------------------------------------------------------------
       default = gg.sequence{
          mlp.expr_list, 'with', gg.optkeyword '|',
-         match_cases_list_parser,
-         'end',
+         match_cases_list_parser, 'end',
          builder = |x| match_builder{ x[1], x[3] } } } }
+
+----------------------------------------------------------------------
+-- Shortcut: "local match function f $cases end" translates to:
+-- "local function f($args) match $args with $cases end end"
+----------------------------------------------------------------------
+mlp.stat:get'local'[2]:add{
+   'match', 'function', mlp.expr, gg.optkeyword '|',
+   match_cases_list_parser, 'end',
+   builder = match_function_builder 'Localrec' }
 
 mlp.expr:add{ 'match', builder = |x| x[1], gg.multisequence{
 
