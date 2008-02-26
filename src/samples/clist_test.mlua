@@ -15,5 +15,6 @@ while n < #sieve do
    n += 1
 end
 
+print "Prime numbers < 100, computed with lists by comprehension:"
 table.print(sieve)
 

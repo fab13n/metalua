@@ -2,7 +2,11 @@ require 'extension.match'
 module ('spmatch', package.seeall)
 -{extension 'log'}
 
-match_function_builder = |tag| function (x)                      
+----------------------------------------------------------------------
+-- Back-end for "match function ..." and "local match function..."
+-- Tag must be either "Localrec" or "Set".
+----------------------------------------------------------------------
+named_match_function_builder = |tag| function (x)                      
    local func_name, _, cases = unpack(x)
    local arity = #cases[1][1][1]
    if arity==0 then 
@@ -17,6 +21,9 @@ end
 -- Get rid of the former parser, it will be blended in a multiseq:
 mlp.stat:del 'match'
 
+----------------------------------------------------------------------
+-- "match function", "match ... with"
+----------------------------------------------------------------------
 mlp.stat:add{ 'match', 
    gg.multisequence{
 
@@ -46,6 +53,9 @@ mlp.stat:get'local'[2]:add{
    match_cases_list_parser, 'end',
    builder = match_function_builder 'Localrec' }
 
+----------------------------------------------------------------------
+-- "match...with" expressions and "match function..."
+----------------------------------------------------------------------
 mlp.expr:add{ 'match', builder = |x| x[1], gg.multisequence{
 
       ----------------------------------------------------------------
@@ -78,10 +88,9 @@ mlp.expr:add{ 'match', builder = |x| x[1], gg.multisequence{
                   terminators = { "->", "if" } },
                gg.onkeyword{ "if", mlp.expr, consume = true },
                "->",
-               mlp.expr },
-            separators  = "|",
-            terminators = "end" },
-         'end',
+               mlp.expr }, -- Notice: expression, not block!
+            separators  = "|" },
+         -- Notice: no "end" keyword!
          builder = function (x)
             local tested_term_seq, _, cases = unpack(x)
             local v = mlp.gensym 'match_expr'

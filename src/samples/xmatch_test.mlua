@@ -5,7 +5,7 @@ function p(msg) io.write(msg..' ':rep(WIDTH-#msg)) end
 
 ----------------------------------------------------------------------
 p"match as an expression"
-print(match 1 with 1 -> 'ok' | 2 -> 'KO' end)
+print(match 1 with 1 -> 'ok' | 2 -> 'KO')
 
 ----------------------------------------------------------------------
 p "global match function"
