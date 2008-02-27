@@ -27,12 +27,13 @@ local mkpcall = |block| +{pcall(function() -{block} end)}
 function trycatch_builder(x)
    --$log ("trycatch_builder", x, 'nohash', 60)
    local try_code, catch_cases, finally_code = unpack(x)
-   local insert_return_catcher = false
+   local insert_return_catcher = false   
 
    -- Can't be hygienize automatically by the current version of H, as
    -- it must bridge from inside user code (hacjed return statements)
    -- to outside macro code.
    local caught_return = !mlp.gensym 'caught_return'
+   local saved_args
 
    !try_code; !(finally_code or { })
    -- FIXME: Am I sure there's no need to hygienize inside?
@@ -68,7 +69,7 @@ function trycatch_builder(x)
    -- allows to avoid inserting return-handling code in the result
    -- when not needed.
    ----------------------------------------------------------------
-   local replace_returns do
+   local replace_returns_and_dots do
       local function f(x)
          match x with 
          | `Return{...} -> 
@@ -80,15 +81,18 @@ function trycatch_builder(x)
             return 'break'
          | `Function{...} -> return 'break' 
             -- inside this, returns would be the nested function's, not ours.
+         | `Dots ->
+            if not saved_args then saved_args = mlp.gensym 'args' end
+            x <- `Call{ `Id 'unpack', saved_args }               
          | _ -> -- pass
          end
       end
       local cfg = { stat = {down=f}, expr = {down=f} }
-      replace_returns = |x| walk.block(cfg, x)
+      replace_returns_and_dots = |x| walk.block(cfg, x)
    end
 
    -- parse returns in the try-block:
-   replace_returns (try_code)
+   replace_returns_and_dots (try_code)
 
    -- code handling the error catching process:
    local catch_result do
@@ -101,7 +105,7 @@ function trycatch_builder(x)
          for x in ivalues (catch_cases) do
             local case_code = x[3]
             -- handle rogue returns:
-            replace_returns (case_code)
+            replace_returns_and_dots (case_code)
             -- in case of error in the catch, we still need to run "finally":
             x[3] = +{block: catch_success, catch_error = -{mkpcall(case_code)}}
          end
@@ -129,6 +133,9 @@ function trycatch_builder(x)
          caught_return_init, caught_return_rethrow = { }, { }
       end
    end
+   
+   local saved_args_init =
+      saved_args and `Local{ {saved_args}, { `Table{`Dots} } } or { }
 
    -- The finally code, to execute no matter what:
    local finally_result = finally_code or { }
@@ -136,6 +143,7 @@ function trycatch_builder(x)
    -- And the whole statement, gluing all taht together:
    local result = +{stat: 
       do
+         -{ saved_args_init }
          -{ caught_return_init }
          local user_success,  user_error  = -{mkpcall(try_code)}
          local catch_success, catch_error = false, user_error

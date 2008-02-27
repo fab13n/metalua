@@ -15,12 +15,12 @@ function withdo_builder (x)
    local names, vals, body = unpack(x)
    for i = #names, 1, -1 do
       local name, val = names[i], vals[i]
-      body = trycatch_builder{
-         { `Set{ {name}, {val} }, body }, -- try-block
-         { }, -- catch-block
-         {  +{ print ("closing "..-{`String{name[1]}}) },
-            `Invoke{ name, `String "close" } } }
+      body = trycatch_builder{ { `Set{ {name}, {val} }, body }, -- try-block
+                               { }, -- catch-block
+                               { +{ print ("closing "..-{`String{name[1]}}) },
+                                 `Invoke{ name, `String "close" } } } }
    end
+   table.insert(body, 1, `Local{ names })
    return body
 end
 
