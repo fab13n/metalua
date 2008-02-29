@@ -68,6 +68,8 @@
 ----------------------------------------------------------------------
 
 -- TODO: hygiene wrt type()
+-- TODO: cfg.ntmp isn't reset as often as it could. I'm not even sure
+--       the corresponding locals are declared.
 
 module ('spmatch', package.seeall)
 
@@ -122,11 +124,21 @@ function pattern_element_builder (pattern, term, cfg)
       id_pattern_element_builder (pattern, term, cfg)
    elseif "Op" == pattern.tag and "div" == pattern[1] then
       regexp_pattern_element_builder (pattern, term, cfg)
+   elseif "Op" == pattern.tag and "eq" == pattern[1] then
+      eq_pattern_element_builder (pattern, term, cfg)
    elseif "Table" == pattern.tag then
       table_pattern_element_builder (pattern, term, cfg)
    else 
       error ("Invalid pattern: "..table.tostring(pattern, "nohash"))
    end
+end
+
+function eq_pattern_element_builder (pattern, term, cfg)
+   local _, pat1, pat2 = unpack (pattern)
+   local ntmp_save = cfg.ntmp
+   pattern_element_builder (pat1, term, cfg)
+   cfg.ntmp = ntmp_save
+   pattern_element_builder (pat2, term, cfg)
 end
 
 -- pattern :: `Op{ 'div', string, list{`Id string} or `Id{ string }}
@@ -192,6 +204,7 @@ function table_pattern_element_builder (pattern, term, cfg)
          local v2 = next_tmpvar(cfg)
          acc_assign (v2, `Index{ term, key }, cfg)
          pattern_element_builder (sub_pattern, v2, cfg)
+         -- TODO: restore ntmp?
       end
    end
    if not seen_dots then -- Check arity

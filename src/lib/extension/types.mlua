@@ -233,6 +233,10 @@ function process_type (type_term)
          | 'Op'     -> name = '__'..x[1]
          end
          x <- `Call{ `Index{ `Id "types", `String{ name } }, xcopy }
+      | `Function{ params, { results } } if results.tag=='Return' ->
+         results.tag = nil    
+         x <- `Call{ +{types.__function}, params, results }
+      | `Function{...} -> error "malformed function type"
       | _ -> -- pass
       end
    end
