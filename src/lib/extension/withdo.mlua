@@ -18,7 +18,7 @@ function withdo_builder (x)
       body = trycatch_builder{ { `Set{ {name}, {val} }, body }, -- try-block
                                { }, -- catch-block
                                { +{ print ("closing "..-{`String{name[1]}}) },
-                                 `Invoke{ name, `String "close" } } } }
+                                 `Invoke{ name, `String "close" } } }
    end
    table.insert(body, 1, `Local{ names })
    return body

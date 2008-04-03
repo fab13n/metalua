@@ -202,6 +202,7 @@ local function main (...)
    -- Insert #!... command
    if cfg.sharpbang then
       verb_print ("Adding sharp-bang directive %q", cfg.sharpbang)
+      if not cfg.sharpbang:strmatch'^#!' then cfg.sharpbang='#!'..cfg.sharpbang end
       if not cfg.sharpbang:strmatch'\n$' then cfg.sharpbang=cfg.sharpbang..'\n' end
       bytecode = cfg.sharpbang..bytecode
    end
@@ -228,6 +229,8 @@ local function main (...)
       bytecode = nil
       -- FIXME: isolate execution in a ring
       -- FIXME: check for failures
+
+      runargs = table.icat(cfg.params or { }, runargs)
       local st, msg = pcall(f, unpack (runargs))
       if not st then
          io.stderr:write(msg)

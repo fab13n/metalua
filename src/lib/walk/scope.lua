@@ -45,9 +45,9 @@ end
 
 function scope:add (vars, val)
    val = val or true
-   for id in ivalues (vars) do
-      assert(id.tag=='Id')
-      self.current[id[1]] = val
+   for i, id in ipairs (vars) do
+      assert(id.tag=='Id' or id.tag=='Dots' and i==#vars)
+      if id.tag=='Id' then self.current[id[1]] = val end
    end
 end
 
