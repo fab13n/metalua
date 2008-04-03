@@ -1,0 +1,404 @@
+--[[ Announce: I'm happy to annouce Metalint 0.1.
+
+README
+
+Metalint is a utility that checks Lua and Metalua source files for global
+variables usage. Beyond checking toplevel global variables, it also checks
+fields in modules: for instance, it will catch typos such as taable.insert(),
+both also table.iinsert().
+
+Metalint works with declaration files, which list which globals are declared,
+and what can be done with them. The syntax is:
+
+DECL      ::= (DECL_ELEM ";"?) *
+DECL_ELEM ::= NAME | "module" NAME DECL "end" | "free" NAME | "private" DECL_ELEM
+NAME      ::= <identifier> | <string>
+
+Identifiers and strings are the same as in Lua, except that the only reserved
+keywords are "free", "module", "end" and "private". A variable name can be
+equivalently specified as a string or as an identifier. Lua comments are allowed
+in declaration files, short and long. Check for *.dlua files in the distribution
+for examples.
+
+Meaning of declaration elements:
+
+- Standalone names declare the existence of a variable. This variable is not a
+  module, i.e. people must not extract fields from it. For instance, the
+  function ipairs() will simply be declared as: "ipairs". With this declaration, 
+  it's an error to write, for instance, "ipairs.some_field".
+
+- Names preceded with "free" can be used as you want, including arbitrary
+  sub-indexing. This is useful for global tables not used as modules, and for
+  modules you're too lazy to fully declare. For instance, the declaration "free
+  _G" allows you to bypass all checkings, as long as you access stuff through _G
+  rather than directly (i.e. "table.iinsert" will fail, but "_G.table.iinsert"
+  will be accepted).
+
+- modules contain field declarations. For instance, the contents of the standard
+  "os" module will be declared as "module os exit ; setlocale; date; [...]
+  execute end".
+
+Declaration files are loaded:
+
+- manually, by passing "-f filename", "-l libname" or "-e
+  decl_literal_expression" as options to the checking program. Options are
+  processed in order, i.e. if you load a library after a file name to check,
+  this library won't be accessible while checking the dource file.
+
+- automatically, when a call to "require()" is found in the code.
+
+- declaration library "base" is automatically loaded.
+
+Declaration library files are retrieved with the same algorithm as for Lua
+libraries, except that the pattern string is taken from environment variable
+LUA_DPATH rather than LUA_PATH or LUA_CPATH. For instance, if
+LUA_DPATH="./?.dlua" and a "require 'walk.id'" is found, the checker will
+attempt to load "./walk/id.dlua". It won't fail if it can't find it, but then,
+attempts to use globals declared by walk.id are likely to fail.
+
+The metalua base libraries, which include Lua base libraries, can be found in
+base.dlua. They're automatically loaded when you run metalint.
+
+Limitations: if you try to affect custom names to modules, e.g. "local
+wi=require 'walk.id'", the checker won't be able to check your usage of
+subfields of "wi". Similarly, if you redefine require() or module(), or create
+custom versions of these, metalint will be lost. Finally, computed access to
+modules are obviously not checked, i.e. "local x, y = 'iinsert', { };
+table[x](y, 1)" will be accepted.
+
+Future: Metalint is intended to support richer static type checkings, including
+function argument types. The idea is not to formally prove type soundness, but
+to accelerate the discovery of many silly bugs when using a (possibly third
+party) library. However, to perform interesting checks, the type declaration
+system must support a couple of non-trivial stuff like union types and higher
+order functions. Moreover, runtime checking code could optionally be inserted to
+check that a function API is respected when it's called (check the types
+extension in Metalua). Stay tuned.
+
+Notice that metalint can easily be turned into a smarter variable localizer,
+which would change references to module elements into local variables.
+For instance, it would add "local _table_insert = table.insert" at the beginning
+of the file, and change every instance of "table.insert" into a reference to the
+local variable. This would be much more efficient than simply adding a "local
+table=table".
+
+Finally, to accelerate the migration of existing codebases, a decl_dump()
+function is provided with metalint, which attempts to generate a declaration for
+a module currently loaded in RAM. The result is not always perfect, but remains
+a serious time saver:
+
+~/src/metalua/src/sandbox$ metalua
+Metalua, interactive REPLoop.
+(c) 2006-2008 <metalua@gmail.com>
+M> require    "metalint"
+M> require    "walk"
+M> decl_dump ("walk", "decl/walk.dlua")
+M> ^D
+~/src/metalua/src/sandbox$ cat decl/walk.dlua
+module walk
+  debug;
+  module tags
+    module stat
+      Forin;
+      Do;
+      Set;
+      Fornum;
+      Invoke;
+      While;
+      Break;
+      Call;
+      Label;
+      Goto;
+      Local;
+      If;
+      Repeat;
+      Localrec;
+      Return;
+    end;
+    module expr
+      True;
+      String;
+      Index;
+      Paren;
+      Id;
+      False;
+      Invoke;
+      Function;
+      Op;
+      Number;
+      Table;
+      Dots;
+      Nil;
+      Stat;
+      Call;
+    end;
+  end;
+  expr_list;
+  binder_list;
+  guess;
+  expr;
+  block;
+  module traverse
+    expr;
+    block;
+    stat;
+    expr_list;
+  end;
+  stat;
+end;
+
+INSTALL
+
+Metalint is a regular Metalua program, and relies on Metalua compilation
+libraries. You must therefore have a working Metalua installation on your
+system. You can run it with: "metalua metalint.mlua -- <metalint arguments>".
+For instance, to check metalint itself:
+
+    ~/src/metalua/src/sandbox$ metalua metalint.mlua -- metalint.mlua
+    File metalint.mlua checked successfully
+    ~/src/metalua/src/sandbox$
+
+You can also precompile it:
+
+    ~/src/metalua/src/sandbox$ metalua metalint.mlua -s '#!/usr/bin/env lua' -o metalint
+    ~/src/metalua/src/sandbox$ ./metalint lint.mlua 
+    File lint.mlua checked successfully
+    ~/src/metalua/src/sandbox$
+
+Beware that even when precompiled, it still requires the Metalua runtime libs in LUA_PATH.
+
+']]
+
+-{ extension 'match' }
+-{ extension 'log' }
+
+require 'strict'
+require 'metalua.compiler'
+
+local VERBOSE      = false
+local KEEP_PRIVATE = false
+
+local function debug_print(...)
+   if VERBOSE then return printf(...) end
+end
+
+-- Lexer --
+require 'lexer'
+
+decl_lexer = lexer.lexer:clone()
+decl_lexer:add{ 'module', 'free', 'end', 'private' }
+
+-- Parser --
+require 'gg'
+
+-- Merge two decl together
+local function merge (x, y)
+   --$log('merge', x, y)
+   for k, v in pairs (y) do
+      match x[k], v with
+      | `Free, _ | `Atom{x}, `Atom{x} -> -- pass
+      | _, `Free | nil, _ -> x[k] = v
+      | `Module{ _, mod_x }, `Module{ _, mod_y } -> merge (mod_x, mod_y)
+
+      | _, _ ->
+        $log("Merge failure", x[k], v)
+        error ("Can't merge type elements")
+      end
+   end
+end
+
+-- break mutual dependency between decl_elem_parser and decl_parser
+local _decl_elem_parser = |...| decl_elem_parser(...)
+
+-- Parse a name, presented as an `Id or a `String
+local function name(lx)
+   local a = lx:next()
+   if a.tag=='String' or a.tag=='Id' then return a[1]
+   else error("Name expected, got "..table.tostring(a,'nohash')) end
+end
+
+function decl_builder(x)
+   --$log('decl_builder', x)
+   local r = { }
+   for y in ivalues(x) do
+      if y.tag ~= 'Private' then merge (r, {[y[1]]=y}) end
+   end
+   return r
+end
+
+decl_parser = gg.list{
+   gg.sequence{ _decl_elem_parser, gg.optkeyword ';', builder = |x|x[1] },
+   terminators = 'end', builder = decl_builder }
+
+decl_elem_parser = gg.multisequence{
+   { 'module', name, decl_parser, 'end', builder = |x| `Module{x[1], x[2]} },
+   { 'free', name, builder = |x| `Free{x[1]} },
+   { 'private', _decl_elem_parser, builder = |x| KEEP_PRIVATE and x[1] or `Private },
+   default = gg.sequence{ name, builder = |x| `Atom{x[1]} } }
+
+function parse_decl_lib (libname)
+   debug_print ("Loading decl lib "..libname)
+   local fd, msg = package.findfile (libname, os.getenv 'LUA_DPATH' or "?.dlua")
+   if not fd then error ("Can't find declaration file for "..libname) end
+   local src = fd:read '*a'
+   fd:close()
+   return parse_decl_expr (src)
+end
+
+function parse_decl_expr (src)
+   local lx = decl_lexer:newstream (src)
+   local r  = decl_parser (lx)
+   --$log('result of parse_decl', r)
+   merge(DECLARATIONS, r)
+   return r
+end
+
+function parse_decl_file (filename)
+   debug_print ("Loading decl file "..filename)
+   local src = mlc.luastring_of_luafile (filename)
+   return parse_decl_expr (src)
+end
+
+-- AST checker --
+
+require 'walk.id'
+
+DECLARATIONS = { }
+
+local cfg = { id = { }, stat = { }, expr = { } }
+
+local function dummy()
+   table.insert()
+end
+
+function cfg.id.free(x, ...)
+   --$log('in free id walker', x)
+   local parents = {...}
+   local dic = DECLARATIONS
+   local name = x[1]
+   for p in ivalues (parents) do
+      local decl = dic[name]
+      if not decl then error("Not declared: "..name) end
+      match p with
+      | `Index{ _x, `String{n} } | `Invoke{ _x, `String{n}, ...} if _x==x ->
+         match decl with
+         | `Free{...} -> break
+         | `Atom{...} -> error (name.." is not a module")
+         | `Module{ _, dic2 } -> dic, name, x = dic2, n, p
+         end
+      | _ -> -- x == last checked variable
+         debug_print("Checked "..table.tostring(x, 'nohash'))
+         break
+      end
+   end
+end
+
+--[[
+function cfg.id.free(x, ...)
+   --$log('in free id walker', x)
+   local parents = {...}
+   local dic = DECLARATIONS
+   local name = x[1]
+   for p in ivalues (parents) do
+      match p with
+      | `Index{ _x, `String{n} } | `Invoke{ _x, `String{n}, ...} if _x==x ->
+         if not dic then error ("No field declared in "..name) end
+         local decl = dic[name]
+         x=p
+         match decl with
+         | nil -> error ("Undeclared global "..name)
+         | `Free{...} -> break
+         | `Atom{...} -> dic=nil
+         | `Module{ _, dic2 } -> dic=dic2
+         end
+      | _ -> -- x == last checked variable
+         debug_print("Checked ", table.tostring(x, 'nohash'))
+         break
+      end
+   end
+end
+--]]
+
+local function try_load_decl (kind, mod_name)
+   local success, msg = pcall(_G['parse_decl_'..kind], mod_name) 
+   if not success then 
+      debug_print("Warning, error when trying to load %s:\n%s", mod_name, msg)
+   end
+end
+
+local function call_walker(x)
+   --$log('in call walker', x)
+   match x with
+   | `Call{ `Id 'require', `String{ mod_name } } ->
+      if not DECLARATIONS[mod_name] then try_load_decl('lib', mod_name) end
+   | `Module{ `Id 'module', _ } -> -- no package.seeall
+      DECLARATIONS = { }           -- reset declarations
+   | _ -> -- pass
+   end
+end
+   
+cfg.expr.down = call_walker
+cfg.stat.down = call_walker
+
+function check_src_file(name)
+   debug_print ("Checking file "..name)
+   local ast = mlc.ast_of_luafile (name)
+   --$log(ast,'nohash')
+   KEEP_PRIVATE = true
+   try_load_decl('lib', name:gsub("%.m?lua$", ""))
+   KEEP_PRIVATE = false
+   walk_id.block(cfg, ast)
+   printf("File %s checked successfully", name)
+end
+
+-- RAM dumper --
+
+function decl_dump(name, f)
+   match type(f) with
+   | 'nil'      -> f=io.stdout
+   | 'string'   -> f=io.open(f, 'w') or error ("Can't open file "..f)
+   | 'userdata' -> -- pass
+   | t          -> error ("Invalid target file type "..t)
+   end
+   local indentation, acc, seen = 0, { }, { }
+   local function esc(n)
+      if n:gmatch "[%a_][%w_]*" and not decl_lexer.alpha[n] then return n else return '"'..n..'"' end
+   end
+   local function add_line(...) table.insert(acc, table.concat{'  ':rep(indentation), ...}) end
+   local function rec(n, v)
+      if seen[v] then add_line ('free ', esc(n), ";")
+      elseif type(v)=='table' then
+         seen[v] = true
+         add_line ('module ', esc(n))
+         indentation += 1
+         for n2, v2 in pairs(v) do
+            if type(n2)=='string' then rec (n2, v2) end
+         end
+         indentation -= 1
+         add_line 'end;'
+      else
+         add_line (esc(n), ';')
+      end
+   end
+   rec(name, _G[name])
+   for line in ivalues (acc) do
+      f:write(line, '\n')
+   end
+   if f~=io.stdout then f:close() end
+end
+
+-- options handling --
+require 'clopts'
+local cl_parser = clopts {
+   { short = 'd', long = 'debug', type = 'boolean', 
+     usage = 'print debug traces', action = function(x) VERBOSE=x end },
+   { short = 'l', long = 'decl_lib', type = 'string*', 
+     usage = 'load decl lib', action = parse_decl_lib },
+   { short = 'f', long = 'decl_file', type = 'string*', 
+     usage = 'load decl file', action = parse_decl_file },
+   { short = 'x', long = 'decl_expr', type = 'string*', 
+     usage = 'decl expression to eval', action = parse_decl_expr},
+   check_src_file }
+
+try_load_decl('lib', 'base')
+cl_parser (...)
