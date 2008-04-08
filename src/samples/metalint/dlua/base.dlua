@@ -127,7 +127,6 @@ next;
 ipairs;
 parser;
 rawequal;
-clopts;
 collectgarbage;
 arg;
 newproxy;

@@ -1,4 +1,4 @@
-Metalint 0.1 - README.TXT
+Metalint 0.2 - README.TXT
 =========================
 
 Metalint is a utility that checks Lua and Metalua source files for global
@@ -147,3 +147,13 @@ module walk
   end;
   stat;
 end;
+
+NEW SINCE 0.1:
+==============
+
+Feature-wise, option -a replaces all references to declared fields with locals
+and stores the compiled result in a .luac compiled file
+
+Architecture-wise, the system now remembers where (i.e. by which require()
+statement, if applicable) a given field has been declared. This is necessary for
+the autolocal feature to work correctly.

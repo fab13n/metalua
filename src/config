@@ -4,7 +4,7 @@
 # Platforms currently supported: mingw, macosx.
 # Feel welcome to contribute additional ones! :)
 
-PLATFORM  = none
+PLATFORM  = macosx
 PLATFORMS = macosx mingw linux bsd
 
 
