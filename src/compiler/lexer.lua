@@ -368,8 +368,9 @@ function lexer:sync()
    local p1 = self.peeked[1]
    if p1 then 
       li = p1.lineinfo.first
-      self.line, self.column_offset, self.i, self.peeked =
-         li[1], li[2], li[3], { }
+      self.line, self.i = li[1], li[3]
+      self.column_offset = self.i - li[2]
+      self.peeked = { }
    end
 end
 
