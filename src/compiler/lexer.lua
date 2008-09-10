@@ -54,6 +54,7 @@ lexer.patterns = {
       "^%d+%.?%d*()",
       "^%d*%d%.%d+()" },
    number_exponant = "^[eE][%+%-]?%d+()",
+   number_hex      = "^0[xX]%x+()",
    word            = "^([%a_][%w_]*)()"
 }
 
@@ -79,7 +80,7 @@ local function unescape_string (s)
       local t = { 
          a = "\a", b = "\b", f = "\f",
          n = "\n", r = "\r", t = "\t", v = "\v",
-         ["\\"] = "\\", ["'"] = "'", ['"'] = '"' }
+         ["\\"] = "\\", ["'"] = "'", ['"'] = '"', ["\n"] = "\n" }
       return t[x] or error("Unknown escape sequence \\"..x)
    end
 
@@ -217,7 +218,7 @@ function lexer:extract_short_string()
       -- j = position after interesting char
       -- y = char just after x
       local x, y
-      x, j, y = self.src :match ("([\\\r\n"..k.."])()(.)", j)
+      x, j, y = self.src :match ("([\\\r\n"..k.."])()(.?)", j)
       if x == '\\' then j=j+1 -- don't parse escaped char
       elseif x == k then break -- unescaped end of string
       else -- end of source or \r/\n before end of string
@@ -248,14 +249,19 @@ end
 ----------------------------------------------------------------------
 function lexer:extract_number()
    -- Number
-   local j = self.src:match (self.patterns.number_mantissa[1], self.i) or
-             self.src:match (self.patterns.number_mantissa[2], self.i)
-   if j then 
-      j = self.src:match (self.patterns.number_exponant, j) or j;
-      local n = tonumber (self.src:sub (self.i, j-1))
-      self.i = j
-      return "Number", n
+   local j = self.src:match(self.patterns.number_hex, self.i)
+   if not j then
+      j = self.src:match (self.patterns.number_mantissa[1], self.i) or
+          self.src:match (self.patterns.number_mantissa[2], self.i)
+      if j then
+         j = self.src:match (self.patterns.number_exponant, j) or j;
+      end
    end
+   if not j then return end
+   -- Number found, interpret with tonumber() and return it
+   local n = tonumber (self.src:sub (self.i, j-1))
+   self.i = j
+   return "Number", n
 end
 
 ----------------------------------------------------------------------
