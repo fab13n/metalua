@@ -163,9 +163,17 @@ end
 --------------------------------------------------------------------------------
 -- Chunk reader: block + Eof
 --------------------------------------------------------------------------------
+function skip_initial_sharp_comment (lx)
+   -- Dirty hack: I'm happily fondling lexer's private parts
+   lx :sync()
+   local i = lx.src:match ("^#.-\n()", lx.i)
+   if i then lx.i, lx.column_offset, lx.line = i, i, lx.line+1 end
+end
+
 function chunk (lx)
-   if lx:peek().tag == 'Eof' then return { }
+   if lx:peek().tag == 'Eof' then return { } -- handle empty files
    else 
+      skip_initial_sharp_comment (lx)
       local chunk = block (lx)
       if lx:peek().tag ~= "Eof" then error "End-of-file expected" end
       return chunk
