@@ -54,6 +54,7 @@ block = gg.list {
    name        = "statements block",
    terminators = block_terminators,
    primary     = function (lx)
+      -- FIXME use gg.optkeyword()
       local x = stat (lx)
       if lx:is_keyword (lx:peek(), ";") then lx:next() end
       return x

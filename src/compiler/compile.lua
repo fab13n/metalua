@@ -393,7 +393,7 @@ local function funcargs (fs, ast, v, idx_from)
   end
   init_exp(v, "VCALL", luaK:codeABC(fs, "OP_CALL", base, nparams + 1, 2))
   if ast.lineinfo then
-    luaK:fixline(fs, ast.lineinfo.first)
+     luaK:fixline(fs, ast.lineinfo.first[1])
   else 
     luaK:fixline(fs, ast.line)
   end
@@ -673,7 +673,7 @@ end
 ------------------------------------------------------------------------
 
 function stat.stat (fs, ast)
-   if ast.lineinfo then fs.lastline = ast.line or ast.lineinfo.last end
+   if ast.lineinfo then fs.lastline = ast.lineinfo.last[1] end
    -- debugf (" - Statement %s", disp.ast (ast) )
 
    if not ast.tag then chunk (fs, ast) else
@@ -694,8 +694,7 @@ stat.Do = block
 ------------------------------------------------------------------------
 
 function stat.Break (fs, ast)
---   if ast.lineinfo then fs.lastline = ast.line or ast.lineinfo.last end
-
+   --   if ast.lineinfo then fs.lastline = ast.lineinfo.last[1]
    local bl, upval = fs.bl, false
    while bl and not bl.isbreakable do
       if bl.upval then upval = true end
@@ -1046,7 +1045,7 @@ function expr.expr (fs, ast, v)
    if type(ast) ~= "table" then 
       error ("Expr AST expected, got "..table.tostring(ast)) end
 
-   if ast.lineinfo then fs.lastline = ast.line or ast.lineinfo.last end
+   if ast.lineinfo then fs.lastline = ast.lineinfo.last[1] end
 
    --debugf (" - Expression %s", tostringv (ast))
    local parser = expr[ast.tag]
@@ -1108,11 +1107,12 @@ end
 ------------------------------------------------------------------------
 
 function expr.Function (fs, ast, v)
-  if ast.lineinfo then fs.lastline = ast.line or ast.lineinfo.last end
+   if ast.lineinfo then fs.lastline = ast.lineinfo.last[1] end
 
   local new_fs = open_func(fs)
   if ast.lineinfo then 
-    new_fs.f.lineDefined, new_fs.f.lastLineDefined = ast.lineinfo.first, ast.lineinfo.last
+    new_fs.f.lineDefined, new_fs.f.lastLineDefined = 
+        ast.lineinfo.first[1], ast.lineinfo.last[1]
   end
   parlist (new_fs, ast[1])
   chunk (new_fs, ast[2])
@@ -1123,7 +1123,7 @@ end
 ------------------------------------------------------------------------
 
 function expr.Op (fs, ast, v)
-   if ast.lineinfo then fs.lastline = ast.line or ast.lineinfo.last end
+   if ast.lineinfo then fs.lastline = ast.lineinfo.last[1] end
    local op = ast[1]
 
    if #ast == 2 then
@@ -1168,9 +1168,7 @@ function expr.Index (fs, ast, v)
       table.print(ast)
       error "generalized indexes not implemented" end
 
-   if ast.lineinfo then     
-     fs.lastline = ast.line or ast.lineinfo.last           
-   end
+   if ast.lineinfo then fs.lastline = ast.lineinfo.last[1] end
 
    --assert(fs.lastline ~= 0, ast.tag)
 

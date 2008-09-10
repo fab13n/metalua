@@ -198,5 +198,5 @@ expr = gg.expr { name = "expression",
          return {tag="Invoke", obj, id2string(post[1]), unpack(post[2])} end},
       { "+{", quote_content, "}", builder = function (f, arg) 
          return {tag="Call", f,  arg[1] } end },
-      default = { parse=mlp.opt_string, builder = function(f, arg) 
+      default = { name="opt_string_arg", parse = mlp.opt_string, builder = function(f, arg) 
          return {tag="Call", f, arg } end } } }

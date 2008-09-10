@@ -63,7 +63,7 @@ mlc.order = table.transpose{
          }
    end
    mlp.lexer:add 'POINT'
-   mlp.stat:add{ 'POINT', mlp.string, ',', mlp.string, builder = point_builder } 
+   mlp.stat:add{ 'POINT', mlp.string, ',', mlp.string, builder = point_builder }
 } -- end of meta-block
 
 function mlc.convert (x, src_fmt, dst_fmt, name)
@@ -102,8 +102,9 @@ function mlc.convert (x, src_fmt, dst_fmt, name)
    if not status and x then 
       -- x = error msg; get rid of ???
       x = x:strmatch "[^:]+:[0-9]+: (.*)" or x
+      local lxline = lx:lineinfo().first[1] or "?"
       error(string.format("Parsing error in %s line %s, char %s: \n%s",
-                          name or "?", lx.line, lx.i, x))
+                          name or "?", lxline, lx.i, x))
       return nil
    end
    

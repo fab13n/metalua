@@ -17,6 +17,9 @@
 --     which capture holds the content of the string-like token
 --   + a token tag
 --   + or a string->string transformer function.
+--
+-- * There are some _G.table to prevent a namespace clash which has
+--   now disappered. remove them.
 ----------------------------------------------------------------------
 --
 -- Copyright (c) 2006, Fabien Fleutot <metalua@gmail.com>.
@@ -54,34 +57,35 @@ lexer.patterns = {
    word            = "^([%a_][%w_]*)()"
 }
 
-----------------------------------------------------------------------
--- Take a letter [x], and returns the character represented by the 
--- sequence ['\\'..x], e.g. [unesc_letter "n" == "\n"].
-----------------------------------------------------------------------
-local function unesc_letter(x)
-   local t = { 
-      a = "\a", b = "\b", f = "\f",
-      n = "\n", r = "\r", t = "\t", v = "\v",
-      ["\\"] = "\\", ["'"] = "'", ['"'] = '"' }
-   return t[x] or error("Unknown escape sequence \\"..x)
-end
+
 
 ----------------------------------------------------------------------
--- Turn the digits of an escape sequence into the corresponding
--- character, e.g. [unesc_digits("123") == string.char(123)].
-----------------------------------------------------------------------
-local function unesc_digits (x)
-   local k, j, i = x:reverse():byte(1, 3)
-   local z = _G.string.byte "0"
-   return _G.string.char ((k or z) + 10*(j or z) + 100*(i or z) - 111*z)
-end
-
-----------------------------------------------------------------------
--- unescape a whole string, applying [unesc_digits] and [unesc_letter]
--- as many times as required.
+-- unescape a whole string, applying [unesc_digits] and
+-- [unesc_letter] as many times as required.
 ----------------------------------------------------------------------
 local function unescape_string (s)
-   return s:gsub("\\([0-9]+)", unesc_digits):gsub("\\(.)",unesc_letter)
+
+   -- Turn the digits of an escape sequence into the corresponding
+   -- character, e.g. [unesc_digits("123") == string.char(123)].
+   local function unesc_digits (x)
+      local k, j, i = x:reverse():byte(1, 3)
+      local z = _G.string.byte "0"
+      return _G.string.char ((k or z) + 10*(j or z) + 100*(i or z) - 111*z)
+   end
+
+   -- Take a letter [x], and returns the character represented by the 
+   -- sequence ['\\'..x], e.g. [unesc_letter "n" == "\n"].
+   local function unesc_letter(x)
+      local t = { 
+         a = "\a", b = "\b", f = "\f",
+         n = "\n", r = "\r", t = "\t", v = "\v",
+         ["\\"] = "\\", ["'"] = "'", ['"'] = '"' }
+      return t[x] or error("Unknown escape sequence \\"..x)
+   end
+
+   return s
+      :gsub ("\\([0-9]+)", unesc_digits)
+      :gsub ("\\(.)",unesc_letter)
 end
 
 lexer.extractors = {
@@ -98,78 +102,91 @@ lexer.token_metatable = {
 ----------------------------------------------------------------------
 -- Really extract next token fron the raw string 
 -- (and update the index).
+-- loc: offset of the position just after spaces and comments
+-- previous_i: offset in src before extraction began
 ----------------------------------------------------------------------
 function lexer:extract ()
    local previous_i = self.i
-   local loc, eof, token = self.i
+   local loc = self.i
+   local eof, token
 
-   local function tk (tag, content)
+   -- Put line info, comments and metatable arount the tag and content
+   -- provided by extractors, thus returning a complete lexer token.
+   local function build_token (tag, content)
       assert (tag and content)
-      local i, ln = previous_i, self.line
-      -- update line numbers
+      local i, first_line, first_column_offset =
+         previous_i, self.line, self.column_offset
+      -- update self.line and first_line. i := indexes of '\n' chars
       while true do
-         i = self.src:find("\n", i+1, true)
+         i = self.src :find ("\n", i+1, true)
          if not i then break end
-         if loc and i <= loc then ln = ln+1 end
-         if i <= self.i then self.line = self.line+1 else break end
+         if loc and i <= loc then 
+            first_column_offset = i
+            first_line = first_line+1 
+         end
+         if i <= self.i then
+            self.line   = self.line+1 
+            self.column_offset = i 
+         else break end
       end
-      local a = { tag      = tag, 
-                  char     = loc,
-                  lineinfo = { first = ln, last = self.line },
-                  line     = self.line,
-                  content } 
-      -- FIXME [EVE] make lineinfo passing less memory consuming
-      -- FIXME [Fabien] suppress line/lineinfo.line redundancy.
+      local a = { --char = loc, line = self.line,
+         tag      = tag, 
+         lineinfo = { 
+            first = { first_line, loc - first_column_offset, loc }, 
+            last  = { self.line,  self.i - self.column_offset, self.i } },
+         content } 
       if #self.attached_comments > 0 then 
-         a.comments = self.attached_comments 
+         a.lineinfo.comments = self.attached_comments 
          self.attached_comments = nil
       end
       return setmetatable (a, self.token_metatable)
-   end
+   end --</function build_token>
 
    self.attached_comments = { }
    
    for ext_idx, extractor in ipairs(self.extractors) do
       -- printf("method = %s", method)
-      local tag, content = self[extractor](self)
-      -- [loc] is placed just after the leading whitespaces and comments,
-      -- and the whitespace extractor is at index 1.
+      local tag, content = self [extractor] (self)
+      -- [loc] is placed just after the leading whitespaces and comments;
+      -- for this to work, the whitespace extractor *must be* at index 1.
       if ext_idx==1 then loc = self.i end
 
       if tag then 
          --printf("`%s{ %q }\t%i", tag, content, loc);
-         return tk (tag, content) 
+         return build_token (tag, content) 
       end
    end
 
-   error "Cant extract anything!"
+   error "None of the lexer extractors returned anything!"
 end   
 
 ----------------------------------------------------------------------
 -- skip whites and comments
 -- FIXME: doesn't take into account:
 -- - unterminated long comments
--- - short comments without a final \n
+-- - short comments at last line without a final \n
 ----------------------------------------------------------------------
 function lexer:skip_whitespaces_and_comments()
+   local table_insert = _G.table.insert
    local attached_comments = { }
-   repeat
+   repeat -- loop as long as a space or comment chunk is found
       local _, j
       local again = false
       local last_comment_content = nil
       -- skip spaces
       self.i = self.src:match (self.patterns.spaces, self.i)
       -- skip a long comment if any
-      _, last_comment_content, j = self.src:match (self.patterns.long_comment, self.i)
+      _, last_comment_content, j = 
+         self.src :match (self.patterns.long_comment, self.i)
       if j then 
-         _G.table.insert(self.attached_comments, 
+         table_insert(self.attached_comments, 
                          {last_comment_content, self.i, j, "long"})
          self.i=j; again=true 
       end
       -- skip a short comment if any
       last_comment_content, j = self.src:match (self.patterns.short_comment, self.i)
       if j then
-         _G.table.insert(attached_comments, 
+         table_insert(attached_comments, 
                          {last_comment_content, self.i, j, "short"})
          self.i=j; again=true 
       end
@@ -185,28 +202,32 @@ function lexer:skip_whitespaces_and_comments()
 end
 
 ----------------------------------------------------------------------
---
+-- extract a '...' or "..." short string
 ----------------------------------------------------------------------
 function lexer:extract_short_string()
    -- [k] is the first unread char, [self.i] points to [k] in [self.src]
-   local j, k = self.i, self.src:sub (self.i,self.i)
-   if k=="'" or k=='"' then
-      -- short string
-      repeat
-         self.i=self.i+1; 
-         local kk = self.src:sub (self.i, self.i)
-         if kk=="\\" then 
-            self.i=self.i+1; 
-            kk = self.src:sub (self.i, self.i)
-         end
-         if self.i > #self.src then error "Unterminated string" end
-         if self.i == "\r" or self.i == "\n" then error "no \\n in short strings!" end
-      until self.src:sub (self.i, self.i) == k 
-         and ( self.src:sub (self.i-1, self.i-1) ~= '\\' 
-         or self.src:sub (self.i-2, self.i-2) == '\\')
-      self.i=self.i+1
-      return "String", unescape_string (self.src:sub (j+1,self.i-2))
-   end   
+   local j, k = self.i, self.src :sub (self.i,self.i)
+   if k~="'" and k~='"' then return end
+   local i = self.i + 1
+   local j = i
+   while true do
+      -- k = opening char: either simple-quote or double-quote
+      -- i = index of beginning-of-string
+      -- x = next "interesting" character
+      -- j = position after interesting char
+      -- y = char just after x
+      local x, y
+      x, j, y = self.src :match ("([\\\r\n"..k.."])()(.)", j)
+      if x == '\\' then j=j+1 -- don't parse escaped char
+      elseif x == k then break -- unescaped end of string
+      else -- end of source or \r/\n before end of string
+         assert (not x or x=="\r" or x=="\n")
+         error "Unterminated string"
+      end
+   end
+   self.i = j
+
+   return "String", unescape_string (self.src:sub (i,j-2))
 end
 
 ----------------------------------------------------------------------
@@ -315,10 +336,10 @@ function lexer:next (n)
    for i=1,n do 
       a = _G.table.remove (self.peeked, 1) 
       if a then 
-         debugf ("[L:%i K:%i T:%s %q]", a.line or -1, a.char or -1, 
-                 a.tag or '<none>', a[1])
+         debugf ("lexer:next() ==> %s",
+                 table.tostring(a))
       end
-      self.lastline = a.lineinfo.last
+      self.lastline = a.lineinfo.last[1]
    end
    return a or eof_token
 end
@@ -334,22 +355,31 @@ function lexer:save () return { self.i; _G.table.cat(self.peeked) } end
 function lexer:restore (s) self.i=s[1]; self.peeked=s[2] end
 
 ----------------------------------------------------------------------
---
+-- Resynchronize: cancel any token in self.peeked, by emptying the
+-- list and resetting the indexes
 ----------------------------------------------------------------------
 function lexer:sync()
    local p1 = self.peeked[1]
    if p1 then 
-      self.i, self.line, self.peeked = p1.char, p1.line, { }
+      li = p1.lineinfo.first
+      self.line, self.column_offset, self.i, self.peeked =
+         li[1], li[2], li[3], { }
    end
 end
 
 ----------------------------------------------------------------------
--- Take over an old lexer.
+-- Take the source and offset of an old lexer.
 ----------------------------------------------------------------------
 function lexer:takeover(old)
    self:sync()
-   self.i, self.line, self.src = old.i, old.line, old.src
+   self.line, self.column_offset, self.i, self.src =
+      old.line, old.column_offset, old.i, old.src
    return self
+end
+
+function lexer:lineinfo()
+	if self.peeked[1] then return self.peeked[1].lineinfo.first
+    else return { self.line, self.i-self.column_offset, self.i } end
 end
 
 ----------------------------------------------------------------------
@@ -357,19 +387,20 @@ end
 ----------------------------------------------------------------------
 function lexer:newstream (src_or_stream)
    if type(src_or_stream)=='table' then -- it's a stream
-      return setmetatable({ }, self):takeover(src_or_stream)
+      return setmetatable ({ }, self) :takeover (src_or_stream)
    elseif type(src_or_stream)=='string' then -- it's a source string
       local src = src_or_stream
       local stream = { 
-         src    = src; -- The source, as a single string
-         peeked = { }; -- Already peeked, but not discarded yet, tokens
-         i      = 1;   -- Character offset in src
-         line   = 1;   -- Current line number
+         src           = src; -- The source, as a single string
+         peeked        = { }; -- Already peeked, but not discarded yet, tokens
+         i             = 1;   -- Character offset in src
+         line          = 1;   -- Current line number
+         column_offset = 0;   -- distance from beginning of file to last '\n'
       }
       setmetatable (stream, self)
 
       -- skip initial sharp-bang for unix scripts
-      if src and src:match "^#!" then stream.i = src:find "\n" + 1 end
+      if src and src :match "^#!" then stream.i = src :find "\n" + 1 end
       return stream
    else
       assert(false, ":newstream() takes a source string or a stream, not a "..

@@ -163,11 +163,11 @@ end
 --------------------------------------------------------------------------------
 -- Chunk reader: block + Eof
 --------------------------------------------------------------------------------
-local function _block(...) return block(...) end
-local function mandatory_eof (lx)
-   local eof = lx:peek()
-   if eof.tag ~= "Eof" then error "End-of-file expected" end
-   return true
+function chunk (lx)
+   if lx:peek().tag == 'Eof' then return { }
+   else 
+      local chunk = block (lx)
+      if lx:peek().tag ~= "Eof" then error "End-of-file expected" end
+      return chunk
+   end
 end
-
-chunk = gg.sequence{ _block, mandatory_eof, builder = fget(1) }

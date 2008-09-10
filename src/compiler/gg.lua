@@ -41,19 +41,21 @@ module("gg", package.seeall)
 -------------------------------------------------------------------------------
 local parser_metatable = { }
 function parser_metatable.__call (parser, lx, ...)
-   --printf ("Call parser %s/%s", parser.kind, parser.name or "?")
-   if mlc.metabugs then 
-      --return parser:parse (lx, ...) 
-      local x = parser:parse (lx, ...) 
-      --printf ("Result: %s", _G.table.tostring(x, "nohash", 60))
-      return x
+   --printf ("Call parser %q of type %q", parser.name or "?", parser.kind)
+   if true or mlc.metabugs then 
+      return parser:parse (lx, ...) 
+      --local x = parser:parse (lx, ...) 
+      --printf ("Result of parser %q: %s", 
+      --        parser.name or "?",
+      --        _G.table.tostring(x, "nohash", 80))
+      --return x
    else
-      local char = lx:peek().char
+      local li = lx:lineinfo().first or { "?", "?", "?" }
       local status, ast = pcall (parser.parse, parser, lx, ...)      
       if status then return ast else
-         local msg = ast:strmatch "gg.lua:%d+: (.*)" or ast
-         msg=msg..string.format("\n - (%i) in parser %s", char, parser.name or parser.kind)
-         error(msg)
+         error (string.format ("%s\n - (l.%s, c.%s, k.%s) in parser %s", 
+                               ast:strmatch "gg.lua:%d+: (.*)" or ast,
+                               li[1], li[2], li[3], parser.name or parser.kind))
       end
    end
 end
@@ -84,9 +86,6 @@ end
 -------------------------------------------------------------------------------
 local function raw_parse_sequence (lx, p)
    local r = { }
-
-   local lineinfo = { first = lx:peek().lineinfo.first }
-   
    for i=1, #p do
       e=p[i]
       if type(e) == "string" then 
@@ -94,18 +93,12 @@ local function raw_parse_sequence (lx, p)
             parse_error (lx, "Keyword '%s' expected", e) end
       elseif is_parser (e) then
          table.insert (r, e (lx)) 
-         
-         lineinfo.last = lx.lastline
       else 
          gg.parse_error (lx,"Sequence `%s': element #%i is not a string "..
                          "nor a parser: %s", 
                          p.name, i, table.tostring(e))
       end
    end
-   lineinfo.last = lx.lastline
-
-   r.lineinfo = lineinfo
-
    return r
 end
 
@@ -123,27 +116,29 @@ end
 -------------------------------------------------------------------------------
 -- Applies all transformers listed in parser on ast.
 -------------------------------------------------------------------------------
-local function transform (ast, parser)
+local function transform (ast, parser, fli, lli)
    if parser.transformers then
       for _, t in ipairs (parser.transformers) do ast = t(ast) or ast end
    end
+   assert (fli)
+   assert (lli)
+   if type(ast) == 'table' then ast.lineinfo = { first=fli, last=lli } end
    return ast
 end
 
 -------------------------------------------------------------------------------
 -- Generate a tracable parsing error (not implemented yet)
 -------------------------------------------------------------------------------
-function parse_error(lx, fmt, ...)   
-   local line = lx:peek().lineinfo.first or -1
-   local char = lx:peek().char or -1
-   local msg  = string.format("line %i, char %i: "..fmt, line, char, ...)   
+function parse_error(lx, fmt, ...)
+   local li = lx:peek().lineinfo.first or {-1,-1,-1}
+   local msg  = string.format("line %i, char %i: "..fmt, li[1], li[2], ...)   
    local src = lx.src
-   if char>0 and src then
-      local i, j = char, char
+   if li[3]>0 and src then
+      local i, j = li[3], li[3]
       while src:sub(i,i) ~= '\n' and i>=0    do i=i-1 end
       while src:sub(j,j) ~= '\n' and j<=#src do j=j+1 end      
       local srcline = src:sub (i+1, j-1)
-      local idx  = string.rep (" ", char-i-1).."^"
+      local idx  = string.rep (" ", li[2]).."^"
       msg = string.format("%s\n>>> %s\n>>> %s", msg, srcline, idx)
    end
    error(msg)
@@ -184,20 +179,18 @@ function sequence (p)
    -------------------------------------------------------------------
    function p:parse (lx)
       -- Raw parsing:
-      local x = raw_parse_sequence (lx, self)
-      local lineinfo = x.lineinfo
-      
+      local fli = lx:lineinfo()
+      local seq = raw_parse_sequence (lx, self)
+      local lli = lx:lineinfo()
+
       -- Builder application:
       local builder, tb = self.builder, type (self.builder)
-      if tb == "string" then x.tag = builder
-      elseif tb == "function" or builder and builder.__call then x = builder(x)
+      if tb == "string" then seq.tag = builder
+      elseif tb == "function" or builder and builder.__call then seq = builder(seq)
       elseif builder == nil then -- nothing
       else error("Invalid builder of type "..tb.." in sequence") end
-      
-      x = transform (x, self)
-      if x then x.lineinfo = lineinfo end
-
-      return x     
+      seq = transform (seq, self, fli, lli)
+      return seq
    end
 
    -------------------------------------------------------------------
@@ -273,7 +266,7 @@ function multisequence (p)
    -------------------------------------------------------------------
    -- Get the sequence starting with this keyword. [kw :: string]
    -------------------------------------------------------------------
-   function p:get (kw) return self.sequences[kw] end
+   function p:get (kw) return self.sequences [kw] end
 
    -------------------------------------------------------------------
    -- Remove the sequence starting with keyword [kw :: string]
@@ -288,27 +281,22 @@ function multisequence (p)
       return removed
    end
 
-   -- DEPRECATED
-   function p:remove (kw) 
-      print "WARNING, YOU'RE USING THE DEPRECATED METHOD MULTISEQUENCE:REMOVE"
-      local x = self.sequences[kw]
-      self.sequences[kw] = nil 
-      return x
-   end
-
    -------------------------------------------------------------------
    -- Parsing method
    -------------------------------------------------------------------
    function p:parse (lx)
+      local fli = lx:lineinfo()
       local x = raw_parse_multisequence (lx, self.sequences, self.default)
-      return transform (x, self) end
+      local lli = lx:lineinfo()
+      return transform (x, self, fli, lli)
+   end
 
    -------------------------------------------------------------------
    -- Construction
    -------------------------------------------------------------------
    -- Register the sequences passed to the constructor. They're going
    -- from the array part of the parser to the hash part of field
-   -- [sequence]
+   -- [sequences]
    p.sequences = { }
    for i=1, #p do p:add (p[i]); p[i] = nil end
 
@@ -373,11 +361,11 @@ function expr (p)
    -- to [prec].
    -------------------------------------------------------------------
    function p:parse (lx, prec)
-      if not prec then prec = 0 end
+      prec = prec or 0
 
       ------------------------------------------------------
       -- Extract the right parser and the corresponding
-      -- options table, for (pre|in|post)fix operators.
+      -- options table, for (pre|in|suff)fix operators.
       -- Options include prec, assoc, transformers.
       ------------------------------------------------------
       local function get_parser_info (tab)
@@ -399,13 +387,18 @@ function expr (p)
       -- expr, and one for the one with the prefix op.
       ------------------------------------------------------
       local function handle_prefix ()
+         local fli = lx:lineinfo()
          local p2_func, p2 = get_parser_info (self.prefix)
-         local op = p2_func and p2_func(lx)
+         local op = p2_func and p2_func (lx)
          if op then -- Keyword-based sequence found
+            local ili = lx:lineinfo() -- Intermediate LineInfo
             local e = p2.builder (op, self:parse (lx, p2.prec))
-            return transform (transform (e, p2), self)
-         else -- No prefix found, get a primary expression
-            return transform (self.primary (lx), self)
+            local lli = lx:lineinfo()
+            return transform (transform (e, p2, ili, lli), self, fli, lli)
+         else -- No prefix found, get a primary expression         
+            local e = self.primary(lx)
+            local lli = lx:lineinfo()
+            return transform (e, self, fli, lli)
          end
       end --</expr.parse.handle_prefix>
 
@@ -425,26 +418,33 @@ function expr (p)
          -- return.
          -----------------------------------------
          if (not p2.prec or p2.prec>prec) and p2.assoc=="flat" then
+            local fli = lx:lineinfo()
             local pflat, list = p2, { e }
             repeat
                local op = p2_func(lx)
                if not op then break end
                table.insert (list, self:parse (lx, p2.prec))
-               local _
+               local _ -- We only care about checking that p2==pflat
                _, p2 = get_parser_info (self.infix)
             until p2 ~= pflat
-            return transform (transform (pflat.builder (list), pflat), self)
+            local e2 = pflat.builder (list)
+            local lli = lx:lineinfo()
+            return transform (transform (e2, pflat, fli, lli), self, fli, lli)
  
          -----------------------------------------
          -- Handle regular infix operators: [e] the LHS is known,
          -- just gather the operator and [e2] the RHS.
+         -- Result goes in [e3].
          -----------------------------------------
          elseif p2.prec and p2.prec>prec or 
                 p2.prec==prec and p2.assoc=="right" then
+            local fli = lx:lineinfo()
             local op = p2_func(lx)
             if not op then return false end
             local e2 = self:parse (lx, p2.prec)
-            return transform (transform (p2.builder (e, op, e2), p2), self)
+            local e3 = p2.builder (e, op, e2)
+            local lli = lx:lineinfo()
+            return transform (transform (e3, p2, fli, lli), self, fli, lli)
 
          -----------------------------------------
          -- Check for non-associative operators, and complain if applicable. 
@@ -465,18 +465,16 @@ function expr (p)
       -- or false if no operator was found.
       ------------------------------------------------------
       local function handle_suffix (e)
-         local lineinfo = { first = e.lineinfo and e.lineinfo.first or 0 }
+         -- FIXME bad fli, must take e.lineinfo.first
          local p2_func, p2 = get_parser_info (self.suffix)
          if not p2 then return false end
          if not p2.prec or p2.prec>=prec then
+            local fli = lx:lineinfo()
             local op = p2_func(lx)
             if not op then return false end
-            if op.lineinfo then 
-              lineinfo.last = op.lineinfo.last 
-            end
+            local lli = lx:lineinfo()
             e = p2.builder (e, op)
-            e = transform (transform (e, p2), self)
-            e.lineinfo = lineinfo
+            e = transform (transform (e, p2, fli, lli), self, fli, lli)
             return e
          end
          return false
@@ -556,6 +554,7 @@ function list (p)
          return keywords and lx:is_keyword(lx:peek(), unpack(keywords)) end
 
       local x = { }
+      local fli = lx:lineinfo()
 
       -- if there's a terminator to start with, don't bother trying
       if not peek_is_in (self.terminators) then 
@@ -570,6 +569,8 @@ function list (p)
             lx:peek().tag=="Eof"
       end
 
+      local lli = lx:lineinfo()
+      
       -- Apply the builder. It can be a string, or a callable value, 
       -- or simply nothing.
       local b = self.builder
@@ -581,7 +582,7 @@ function list (p)
             if bmt and bmt.__call then x=b(x) end
          end
       end
-      return transform (x, self)
+      return transform (x, self, fli, lli)
    end --</list.parse>
 
    -------------------------------------------------------------------
@@ -639,8 +640,10 @@ function onkeyword (p)
    -------------------------------------------------------------------
    function p:parse(lx)
       if lx:is_keyword (lx:peek(), unpack(self.keywords)) then
+         local fli = lx:lineinfo()
          if not self.peek then lx:next() end
-         return transform (self.primary(lx), p)
+         local lli = lx:lineinfo()
+         return transform (self.primary(lx), p, fli, lli)
       else return false end
    end
 
@@ -667,6 +670,8 @@ end --</onkeyword>
 -- one of the keywords passed as parameters, and returns it. It returns 
 -- [false] if no matching keyword is found.
 --
+-- Notice that tokens returned by lexer already carry lineinfo, therefore
+-- there's no need to add them, as done usually through transform() calls.
 -------------------------------------------------------------------------------
 function optkeyword (...)
    local args = {...}
