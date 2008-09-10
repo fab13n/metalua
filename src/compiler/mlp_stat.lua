@@ -62,10 +62,17 @@ block = gg.list {
 
 --------------------------------------------------------------------------------
 -- Helper function for "return <expr_list>" parsing.
--- Called when parsing return statements
+-- Called when parsing return statements.
+-- The specific test for initial ";" is because it's not a block terminator,
+-- so without itgg.list would choke on "return ;" statements.
+-- We don't make a modified copy of block_terminators because this list
+-- is sometimes modified at runtime, and the return parser would get out of
+-- sync if it was relying on a copy.
 --------------------------------------------------------------------------------
-local return_expr_list_parser = gg.list { 
-   expr, separators = ",", terminators = block_terminators }
+local return_expr_list_parser = gg.multisequence{
+   { ";" , builder = function() return { } end }, 
+   default = gg.list { 
+      expr, separators = ",", terminators = block_terminators } }
 
 --------------------------------------------------------------------------------
 -- for header, between [for] and [do] (exclusive).
