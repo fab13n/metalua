@@ -58,8 +58,6 @@ lexer.patterns = {
    word            = "^([%a_][%w_]*)()"
 }
 
-
-
 ----------------------------------------------------------------------
 -- unescape a whole string, applying [unesc_digits] and
 -- [unesc_letter] as many times as required.
@@ -81,7 +79,7 @@ local function unescape_string (s)
          a = "\a", b = "\b", f = "\f",
          n = "\n", r = "\r", t = "\t", v = "\v",
          ["\\"] = "\\", ["'"] = "'", ['"'] = '"', ["\n"] = "\n" }
-      return t[x] or error("Unknown escape sequence \\"..x)
+      return t[x] or error([[Unknown escape sequence '\]]..x..[[']])
    end
 
    return s
@@ -132,7 +130,8 @@ function lexer:extract ()
       end
       local a = { --char = loc, line = self.line,
          tag      = tag, 
-         lineinfo = { 
+         lineinfo = {
+            name  = self.src_name,
             first = { first_line, loc - first_column_offset, loc }, 
             last  = { self.line,  self.i - self.column_offset, self.i } },
          content } 
@@ -140,11 +139,10 @@ function lexer:extract ()
          a.lineinfo.comments = self.attached_comments 
          self.attached_comments = nil
       end
+      self.attached_comments = { }
       return setmetatable (a, self.token_metatable)
    end --</function build_token>
 
-   self.attached_comments = { }
-   
    for ext_idx, extractor in ipairs(self.extractors) do
       -- printf("method = %s", method)
       local tag, content = self [extractor] (self)
@@ -169,7 +167,6 @@ end
 ----------------------------------------------------------------------
 function lexer:skip_whitespaces_and_comments()
    local table_insert = _G.table.insert
-   local attached_comments = { }
    repeat -- loop as long as a space or comment chunk is found
       local _, j
       local again = false
@@ -187,7 +184,7 @@ function lexer:skip_whitespaces_and_comments()
       -- skip a short comment if any
       last_comment_content, j = self.src:match (self.patterns.short_comment, self.i)
       if j then
-         table_insert(attached_comments, 
+         table_insert(self.attached_comments, 
                          {last_comment_content, self.i, j, "short"})
          self.i=j; again=true 
       end
@@ -219,9 +216,9 @@ function lexer:extract_short_string()
       -- y = char just after x
       local x, y
       x, j, y = self.src :match ("([\\\r\n"..k.."])()(.?)", j)
-      if x == '\\' then j=j+1 -- don't parse escaped char
+      if x == '\\' then j=j+1  -- don't parse escaped char
       elseif x == k then break -- unescaped end of string
-      else -- end of source or \r/\n before end of string
+      else -- eof or '\r' or '\n' reached before end of string
          assert (not x or x=="\r" or x=="\n")
          error "Unterminated string"
       end
@@ -320,7 +317,6 @@ end
 -- token is returned.
 ----------------------------------------------------------------------
 function lexer:peek (n)
-   assert(self)
    if not n then n=1 end
    if n > #self.peeked then
       for i = #self.peeked+1, n do
@@ -336,14 +332,14 @@ end
 -- stream, an EOF token is returned.
 ----------------------------------------------------------------------
 function lexer:next (n)
-   if not n then n=1 end
+   n = n or 1
    self:peek (n)
    local a
    for i=1,n do 
       a = _G.table.remove (self.peeked, 1) 
       if a then 
-         debugf ("lexer:next() ==> %s",
-                 table.tostring(a))
+         --debugf ("lexer:next() ==> %s %s",
+         --        table.tostring(a), tostring(a))
       end
       self.lastline = a.lineinfo.last[1]
    end
@@ -353,11 +349,13 @@ end
 ----------------------------------------------------------------------
 -- Returns an object which saves the stream's current state.
 ----------------------------------------------------------------------
+-- FIXME there are more fields than that to save
 function lexer:save () return { self.i; _G.table.cat(self.peeked) } end
 
 ----------------------------------------------------------------------
 -- Restore the stream's state, as saved by method [save].
 ----------------------------------------------------------------------
+-- FIXME there are more fields than that to restore
 function lexer:restore (s) self.i=s[1]; self.peeked=s[2] end
 
 ----------------------------------------------------------------------
@@ -371,6 +369,7 @@ function lexer:sync()
       self.line, self.i = li[1], li[3]
       self.column_offset = self.i - li[2]
       self.peeked = { }
+      self.attached_comments = p1.lineinfo.comments or { }
    end
 end
 
@@ -379,8 +378,8 @@ end
 ----------------------------------------------------------------------
 function lexer:takeover(old)
    self:sync()
-   self.line, self.column_offset, self.i, self.src =
-      old.line, old.column_offset, old.i, old.src
+   self.line, self.column_offset, self.i, self.src, self.attached_comments =
+      old.line, old.column_offset, old.i, old.src, old.attached_comments
    return self
 end
 
@@ -392,22 +391,26 @@ end
 ----------------------------------------------------------------------
 -- Create a new lexstream.
 ----------------------------------------------------------------------
-function lexer:newstream (src_or_stream)
+function lexer:newstream (src_or_stream, name)
+   name = name or "?"
    if type(src_or_stream)=='table' then -- it's a stream
       return setmetatable ({ }, self) :takeover (src_or_stream)
    elseif type(src_or_stream)=='string' then -- it's a source string
       local src = src_or_stream
       local stream = { 
-         src           = src; -- The source, as a single string
-         peeked        = { }; -- Already peeked, but not discarded yet, tokens
-         i             = 1;   -- Character offset in src
-         line          = 1;   -- Current line number
-         column_offset = 0;   -- distance from beginning of file to last '\n'
+         src_name      = name;   -- Name of the file
+         src           = src;    -- The source, as a single string
+         peeked        = { };    -- Already peeked, but not discarded yet, tokens
+         i             = 1;      -- Character offset in src
+         line          = 1;      -- Current line number
+         column_offset = 0;      -- distance from beginning of file to last '\n'
+         attached_comments = { } -- comments accumulator
       }
       setmetatable (stream, self)
 
       -- skip initial sharp-bang for unix scripts
-      if src and src :match "^#!" then stream.i = src :find "\n" + 1 end
+      -- FIXME: redundant with mlp.chunk()
+      if src and src :match "^#" then stream.i = src :find "\n" + 1 end
       return stream
    else
       assert(false, ":newstream() takes a source string or a stream, not a "..

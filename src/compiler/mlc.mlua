@@ -83,7 +83,7 @@ function mlc.convert (x, src_fmt, dst_fmt, name)
    
    POINT 'luastring', 'string' -- x is the source
 
-   x = mlp.lexer:newstream(x)      
+   x = mlp.lexer:newstream(x, name)      
    
    POINT 'lexstream', 'table' -- x is the lexeme stream
 
@@ -94,7 +94,7 @@ function mlc.convert (x, src_fmt, dst_fmt, name)
    then status, x = true, mlp.chunk (lx)
    -- If SHOW_METABUGS is false, errors should be attributed to an invalid entry.
    else status, x = pcall (mlp.chunk, lx) end
-   -- FIXME: this test seems wrong ???
+   -- FIXME: this test seems wrong ??? Or is it the message?
    if status and lx:peek().tag ~= "Eof"
    then status, x = false, "Premature Eof" 
    elseif status and lx:peek().tag == "End"

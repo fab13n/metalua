@@ -120,9 +120,14 @@ local function transform (ast, parser, fli, lli)
    if parser.transformers then
       for _, t in ipairs (parser.transformers) do ast = t(ast) or ast end
    end
-   assert (fli)
-   assert (lli)
-   if type(ast) == 'table' then ast.lineinfo = { first=fli, last=lli } end
+   -- FIXME: add source info in lineinfo
+   if type(ast) == 'table' and not ast.lineinfo then
+      ast.lineinfo = { first=fli, last=lli }
+      if ast[1] and ast[1].lineinfo and ast[1].lineinfo.comments then
+         ast.lineinfo.comments = ast[1].lineinfo.comments
+         table.print (ast.lineinfo.comments)
+      end
+   end
    return ast
 end
 
@@ -397,7 +402,7 @@ function expr (p)
             return transform (transform (e, p2, ili, lli), self, fli, lli)
          else -- No prefix found, get a primary expression         
             local e = self.primary(lx)
-            local lli = lx:lineinfo()
+            local lli = lx:lineinfo()            
             return transform (e, self, fli, lli)
          end
       end --</expr.parse.handle_prefix>

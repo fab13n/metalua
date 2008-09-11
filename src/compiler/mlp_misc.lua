@@ -165,6 +165,7 @@ end
 --------------------------------------------------------------------------------
 function skip_initial_sharp_comment (lx)
    -- Dirty hack: I'm happily fondling lexer's private parts
+   -- FIXME: redundant with lexer:newstream()
    lx :sync()
    local i = lx.src:match ("^#.-\n()", lx.i)
    if i then lx.i, lx.column_offset, lx.line = i, i, lx.line+1 end
