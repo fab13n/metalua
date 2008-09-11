@@ -65,6 +65,9 @@ parser = clopts {
    {  short = 'a', long = 'print-ast',  type = 'boolean',
       usage = 'print the AST resulting from file compilation'  
    },
+   {  short = 'A', long = 'print-ast-lineinfo',  type = 'boolean',
+      usage = 'print the AST resulting from file compilation, including lineinfo data'  
+   },
    {  short = 'b', long = 'metabugs', type = 'boolean',
       usage = 'show syntax errors as compile-time execution errors' 
    },
@@ -176,12 +179,13 @@ local function main (...)
 
    -------------------------------------------------------------------
    -- AST printing
-   if cfg['print-ast'] then 
+   if cfg['print-ast'] or cfg['print-ast-lineinfo'] then 
       verb_print "Resulting AST:"
       for x in ivalues(code) do
          printf("--- AST From %s: ---", table.tostring(x.source, 'nohash'))
          if x.origin and x.origin.tag=='File' then x=x[1][1][2][1] end
-         table.print(x, 80, 'nohash')
+         if cfg['print-ast-lineinfo'] then table.print(x, 80)
+         else table.print(x, 80, 'nohash') end
       end 
    end
 
