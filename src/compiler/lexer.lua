@@ -85,8 +85,8 @@ local function unescape_string (s)
    end
 
    return s
+      :gsub ("\\(%D)",unesc_letter)
       :gsub ("\\([0-9]+)", unesc_digits)
-      :gsub ("\\(.)",unesc_letter)
 end
 
 lexer.extractors = {
