@@ -85,7 +85,7 @@
 
       local v = mlp.gensym 'ife' -- the selected expr will be stored in this var.
       local ifstat = `If{ }
-      for y in values(elseifthen_list) do
+      for y in ivalues (elseifthen_list) do
          local cond, val = unpack (y)
          table.insert (ifstat, cond)
          table.insert (ifstat, { `Set{ {v}, {val} } }) -- change expr into stat.
