@@ -111,30 +111,32 @@ function lexer:extract ()
 
    -- Put line info, comments and metatable arount the tag and content
    -- provided by extractors, thus returning a complete lexer token.
+   -- first_line: line # at the beginning of token
+   -- first_column_offset: char # of the last '\n' before beginning of token
+   -- i: scans from beginning of prefix spaces/comments to end of token.
    local function build_token (tag, content)
       assert (tag and content)
-      local i, first_line, first_column_offset =
-         previous_i, self.line, self.column_offset
+      local i, first_line, first_column_offset, previous_line_length =
+         previous_i, self.line, self.column_offset, nil
+
       -- update self.line and first_line. i := indexes of '\n' chars
       while true do
          i = self.src :find ("\n", i+1, true)
-         if not i then break end
-         if loc and i <= loc then 
+         if not i or i>self.i then break end -- no more '\n' until end of token
+         previous_line_length = i - self.column_offset
+         if loc and i <= loc then -- '\n' before beginning of token
             first_column_offset = i
             first_line = first_line+1 
          end
-         if i <= self.i then
-            self.line   = self.line+1 
-            self.column_offset = i 
-         else break end
+         self.line   = self.line+1 
+         self.column_offset = i 
       end
-      local a = { --char = loc, line = self.line,
-         tag      = tag, 
-         lineinfo = {
-            name  = self.src_name,
-            first = { first_line, loc - first_column_offset, loc }, 
-            last  = { self.line,  self.i - self.column_offset, self.i } },
-         content } 
+
+      -- lineinfo entries: [1]=line, [2]=column, [3]=char, [4]=filename
+      local fli = { first_line, loc-first_column_offset, loc, self.src_name }
+      local lli = { self.line, self.i-self.column_offset-1, self.i-1, self.src_name }
+      local a = { tag = tag, lineinfo = { first=fli, last=lli }, content } 
+      if lli[2]==-1 then lli[1], lli[2] = lli[1]-1, previous_line_length-1 end
       if #self.attached_comments > 0 then 
          a.lineinfo.comments = self.attached_comments 
          self.attached_comments = nil
@@ -343,6 +345,7 @@ function lexer:next (n)
       end
       self.lastline = a.lineinfo.last[1]
    end
+   self.lineinfo_last = a.lineinfo.last
    return a or eof_token
 end
 
@@ -383,9 +386,30 @@ function lexer:takeover(old)
    return self
 end
 
-function lexer:lineinfo()
-	if self.peeked[1] then return self.peeked[1].lineinfo.first
-    else return { self.line, self.i-self.column_offset, self.i } end
+-- function lexer:lineinfo()
+-- 	if self.peeked[1] then return self.peeked[1].lineinfo.first
+--     else return { self.line, self.i-self.column_offset, self.i } end
+-- end
+
+
+----------------------------------------------------------------------
+-- Return the current position in the sources. This position is between
+-- two tokens, and can be within a space / comment area, and therefore
+-- have a non-null width. :lineinfo_left() returns the beginning of the
+-- separation area, :lineinfo_right() returns the end of that area.
+--
+--    ____ last consummed token    ____ first unconsummed token
+--   /                            /
+-- XXXXX  <spaces and comments> YYYYY
+--      \____                    \____
+--           :lineinfo_left()         :lineinfo_right()
+----------------------------------------------------------------------
+function lexer:lineinfo_right()
+   return self:peek(1).lineinfo.first
+end
+
+function lexer:lineinfo_left()
+   return self.lineinfo_last
 end
 
 ----------------------------------------------------------------------
@@ -404,7 +428,8 @@ function lexer:newstream (src_or_stream, name)
          i             = 1;      -- Character offset in src
          line          = 1;      -- Current line number
          column_offset = 0;      -- distance from beginning of file to last '\n'
-         attached_comments = { } -- comments accumulator
+         attached_comments = { },-- comments accumulator
+         lineinfo_last = { 1, 1, 1, name }
       }
       setmetatable (stream, self)
 

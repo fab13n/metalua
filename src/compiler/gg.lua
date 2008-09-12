@@ -42,7 +42,7 @@ module("gg", package.seeall)
 local parser_metatable = { }
 function parser_metatable.__call (parser, lx, ...)
    --printf ("Call parser %q of type %q", parser.name or "?", parser.kind)
-   if true or mlc.metabugs then 
+   if mlc.metabugs then 
       return parser:parse (lx, ...) 
       --local x = parser:parse (lx, ...) 
       --printf ("Result of parser %q: %s", 
@@ -50,7 +50,7 @@ function parser_metatable.__call (parser, lx, ...)
       --        _G.table.tostring(x, "nohash", 80))
       --return x
    else
-      local li = lx:lineinfo().first or { "?", "?", "?" }
+      local li = lx:lineinfo_right() or { "?", "?", "?", "?" }
       local status, ast = pcall (parser.parse, parser, lx, ...)      
       if status then return ast else
          error (string.format ("%s\n - (l.%s, c.%s, k.%s) in parser %s", 
@@ -120,10 +120,9 @@ local function transform (ast, parser, fli, lli)
    if parser.transformers then
       for _, t in ipairs (parser.transformers) do ast = t(ast) or ast end
    end
-   -- FIXME: add source info in lineinfo
-   if type(ast) == 'table' and not ast.lineinfo then
+   if type(ast) == 'table'then
       ast.lineinfo = { first=fli, last=lli }
-      if ast[1] and ast[1].lineinfo and ast[1].lineinfo.comments then
+      if type(ast[1]) == 'table' and ast[1].lineinfo and ast[1].lineinfo.comments then
          ast.lineinfo.comments = ast[1].lineinfo.comments
          table.print (ast.lineinfo.comments)
       end
@@ -135,7 +134,7 @@ end
 -- Generate a tracable parsing error (not implemented yet)
 -------------------------------------------------------------------------------
 function parse_error(lx, fmt, ...)
-   local li = lx:peek().lineinfo.first or {-1,-1,-1}
+   local li = lx:lineinfo_left() or {-1,-1,-1, "<unknown file>"}
    local msg  = string.format("line %i, char %i: "..fmt, li[1], li[2], ...)   
    local src = lx.src
    if li[3]>0 and src then
@@ -184,9 +183,9 @@ function sequence (p)
    -------------------------------------------------------------------
    function p:parse (lx)
       -- Raw parsing:
-      local fli = lx:lineinfo()
+      local fli = lx:lineinfo_right()
       local seq = raw_parse_sequence (lx, self)
-      local lli = lx:lineinfo()
+      local lli = lx:lineinfo_left()
 
       -- Builder application:
       local builder, tb = self.builder, type (self.builder)
@@ -290,9 +289,9 @@ function multisequence (p)
    -- Parsing method
    -------------------------------------------------------------------
    function p:parse (lx)
-      local fli = lx:lineinfo()
+      local fli = lx:lineinfo_right()
       local x = raw_parse_multisequence (lx, self.sequences, self.default)
-      local lli = lx:lineinfo()
+      local lli = lx:lineinfo_left()
       return transform (x, self, fli, lli)
    end
 
@@ -392,17 +391,17 @@ function expr (p)
       -- expr, and one for the one with the prefix op.
       ------------------------------------------------------
       local function handle_prefix ()
-         local fli = lx:lineinfo()
+         local fli = lx:lineinfo_right()
          local p2_func, p2 = get_parser_info (self.prefix)
          local op = p2_func and p2_func (lx)
          if op then -- Keyword-based sequence found
-            local ili = lx:lineinfo() -- Intermediate LineInfo
+            local ili = lx:lineinfo_right() -- Intermediate LineInfo
             local e = p2.builder (op, self:parse (lx, p2.prec))
-            local lli = lx:lineinfo()
+            local lli = lx:lineinfo_left()
             return transform (transform (e, p2, ili, lli), self, fli, lli)
          else -- No prefix found, get a primary expression         
             local e = self.primary(lx)
-            local lli = lx:lineinfo()            
+            local lli = lx:lineinfo_left()
             return transform (e, self, fli, lli)
          end
       end --</expr.parse.handle_prefix>
@@ -423,7 +422,7 @@ function expr (p)
          -- return.
          -----------------------------------------
          if (not p2.prec or p2.prec>prec) and p2.assoc=="flat" then
-            local fli = lx:lineinfo()
+            local fli = lx:lineinfo_right()
             local pflat, list = p2, { e }
             repeat
                local op = p2_func(lx)
@@ -433,7 +432,7 @@ function expr (p)
                _, p2 = get_parser_info (self.infix)
             until p2 ~= pflat
             local e2 = pflat.builder (list)
-            local lli = lx:lineinfo()
+            local lli = lx:lineinfo_left()
             return transform (transform (e2, pflat, fli, lli), self, fli, lli)
  
          -----------------------------------------
@@ -443,12 +442,12 @@ function expr (p)
          -----------------------------------------
          elseif p2.prec and p2.prec>prec or 
                 p2.prec==prec and p2.assoc=="right" then
-            local fli = lx:lineinfo()
+            local fli = lx:lineinfo_right()
             local op = p2_func(lx)
             if not op then return false end
             local e2 = self:parse (lx, p2.prec)
             local e3 = p2.builder (e, op, e2)
-            local lli = lx:lineinfo()
+            local lli = lx:lineinfo_left()
             return transform (transform (e3, p2, fli, lli), self, fli, lli)
 
          -----------------------------------------
@@ -474,10 +473,10 @@ function expr (p)
          local p2_func, p2 = get_parser_info (self.suffix)
          if not p2 then return false end
          if not p2.prec or p2.prec>=prec then
-            local fli = lx:lineinfo()
+            local fli = lx:lineinfo_right()
             local op = p2_func(lx)
             if not op then return false end
-            local lli = lx:lineinfo()
+            local lli = lx:lineinfo_left()
             e = p2.builder (e, op)
             e = transform (transform (e, p2, fli, lli), self, fli, lli)
             return e
@@ -559,7 +558,7 @@ function list (p)
          return keywords and lx:is_keyword(lx:peek(), unpack(keywords)) end
 
       local x = { }
-      local fli = lx:lineinfo()
+      local fli = lx:lineinfo_right()
 
       -- if there's a terminator to start with, don't bother trying
       if not peek_is_in (self.terminators) then 
@@ -574,7 +573,7 @@ function list (p)
             lx:peek().tag=="Eof"
       end
 
-      local lli = lx:lineinfo()
+      local lli = lx:lineinfo_left()
       
       -- Apply the builder. It can be a string, or a callable value, 
       -- or simply nothing.
@@ -645,9 +644,9 @@ function onkeyword (p)
    -------------------------------------------------------------------
    function p:parse(lx)
       if lx:is_keyword (lx:peek(), unpack(self.keywords)) then
-         local fli = lx:lineinfo()
+         local fli = lx:lineinfo_right()
          if not self.peek then lx:next() end
-         local lli = lx:lineinfo()
+         local lli = lx:lineinfo_left()
          return transform (self.primary(lx), p, fli, lli)
       else return false end
    end
