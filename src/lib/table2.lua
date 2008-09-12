@@ -166,6 +166,7 @@ function table.range(a,b,c)
    return result
 end
 
+-- FIXME: new_indent seems to be always nil?!
 function table.tostring(t, ...)
    local PRINT_HASH, LINE_MAX, INITIAL_INDENT = true
    for _, x in ipairs {...} do
