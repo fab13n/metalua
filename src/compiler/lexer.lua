@@ -52,7 +52,7 @@ lexer.patterns = {
    long_string         = "^%[(=*)%[\n?(.-)%]%1%]()",
    number_mantissa     = {
       "^%d+%.?%d*()",
-      "^%d*%d%.%d+()" },
+      "^%d*%.%d+()" },
    number_exponant = "^[eE][%+%-]?%d+()",
    number_hex      = "^0[xX]%x+()",
    word            = "^([%a_][%w_]*)()"
@@ -84,7 +84,7 @@ local function unescape_string (s)
 
    return s
       :gsub ("\\(%D)",unesc_letter)
-      :gsub ("\\([0-9]+)", unesc_digits)
+      :gsub ("\\([0-9][0-9]?[0-9]?)", unesc_digits)
 end
 
 lexer.extractors = {

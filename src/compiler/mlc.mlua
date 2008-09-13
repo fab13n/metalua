@@ -102,7 +102,7 @@ function mlc.convert (x, src_fmt, dst_fmt, name)
    if not status and x then 
       -- x = error msg; get rid of ???
       x = x:strmatch "[^:]+:[0-9]+: (.*)" or x
-      local li = lx:lineinfo()
+      local li = lx:lineinfo_left()
       error(string.format("Parsing error in %s line %s, column %i, char %s: \n%s",
                           name or "<nofilename>", li[1], li[2], li[3], x))
       return nil
