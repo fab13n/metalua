@@ -139,7 +139,10 @@ function lexer:extract ()
       if lli[2]==-1 then lli[1], lli[2] = lli[1]-1, previous_line_length-1 end
       if #self.attached_comments > 0 then 
          a.lineinfo.comments = self.attached_comments 
-         self.attached_comments = nil
+         fli.comments = self.attached_comments
+         if self.lineinfo_last then
+            self.lineinfo_last.comments = self.attached_comments
+         end
       end
       self.attached_comments = { }
       return setmetatable (a, self.token_metatable)
@@ -372,7 +375,7 @@ function lexer:sync()
       self.line, self.i = li[1], li[3]
       self.column_offset = self.i - li[2]
       self.peeked = { }
-      self.attached_comments = p1.lineinfo.comments or { }
+      self.attached_comments = p1.lineinfo.first.comments or { }
    end
 end
 

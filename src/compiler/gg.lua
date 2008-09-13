@@ -122,11 +122,8 @@ local function transform (ast, parser, fli, lli)
    end
    if type(ast) == 'table'then
       local ali = ast.lineinfo
-      local a1  = ast[1]
-      local comments = ali and ali.comments or 
-         type(a1)=='table' and a1.lineinfo and a1.lineinfo.comments
-      if not ali or ali.first~=fli or ali.last~=lli or ali.comments~=comments then
-         ast.lineinfo = { first=fli, last=lli, comments = comments }
+      if not ali or ali.first~=fli or ali.last~=lli then
+         ast.lineinfo = { first = fli, last = lli }
       end
    end
    return ast
