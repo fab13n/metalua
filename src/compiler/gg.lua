@@ -121,10 +121,12 @@ local function transform (ast, parser, fli, lli)
       for _, t in ipairs (parser.transformers) do ast = t(ast) or ast end
    end
    if type(ast) == 'table'then
-      ast.lineinfo = { first=fli, last=lli }
-      if type(ast[1]) == 'table' and ast[1].lineinfo and ast[1].lineinfo.comments then
-         ast.lineinfo.comments = ast[1].lineinfo.comments
-         table.print (ast.lineinfo.comments)
+      local ali = ast.lineinfo
+      local a1  = ast[1]
+      local comments = ali and ali.comments or 
+         type(a1)=='table' and a1.lineinfo and a1.lineinfo.comments
+      if not ali or ali.first~=fli or ali.last~=lli or ali.comments~=comments then
+         ast.lineinfo = { first=fli, last=lli, comments = comments }
       end
    end
    return ast
