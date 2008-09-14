@@ -137,7 +137,8 @@ local function op_ne(a, _, b)
    -- suppressed from the official AST grammar (although still supported
    -- in practice by the compiler).
    -- return { tag="Op", "ne", a, b }
-   return { tag="Op", "not", { tag="Op", "eq", a, b } }
+   return { tag="Op", "not", { tag="Op", "eq", a, b, lineinfo= {
+            first = a.lineinfo.first, last = b.lineinfo.last } } }
 end
    
 

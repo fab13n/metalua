@@ -182,7 +182,11 @@ end
 local local_stat_parser = gg.multisequence{
    -- local function <name> <func_val>
    { "function", id, func_val, builder = 
-      function(x) return { tag="Localrec", { x[1] }, { x[2] } } end },
+      function(x) 
+         local vars = { x[1], lineinfo = x[1].lineinfo }
+         local vals = { x[2], lineinfo = x[2].lineinfo }
+         return { tag="Localrec", vars, vals } 
+      end },
    -- local <id_list> ( = <expr_list> )?
    default = gg.sequence{ id_list, gg.onkeyword{ "=", expr_list },
       builder = function(x) return {tag="Local", x[1], x[2] or { } } end } }
