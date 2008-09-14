@@ -441,7 +441,7 @@ function expr (p)
          -----------------------------------------
          elseif p2.prec and p2.prec>prec or 
                 p2.prec==prec and p2.assoc=="right" then
-            local fli = lx:lineinfo_right()
+            local fli = e.lineinfo.first -- lx:lineinfo_right()
             local op = p2_func(lx)
             if not op then return false end
             local e2 = self:parse (lx, p2.prec)
