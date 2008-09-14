@@ -123,10 +123,15 @@ local method_name = gg.onkeyword{ name = "method invocation", ":", id,
 local function funcdef_builder(x)
    local name, method, func = x[1], x[2], x[3]
    if method then 
-      name = { tag="Index", name, method }
+      name = { tag="Index", name, method, lineinfo = {
+         first = name.lineinfo.first,
+         last  = method.lineinfo.last } }
       _G.table.insert (func[1], 1, {tag="Id", "self"}) 
    end
-   return { tag="Set", {name}, {func} } 
+   local r = { tag="Set", {name}, {func} } 
+   r[1].lineinfo = name.lineinfo
+   r[2].lineinfo = func.lineinfo
+   return r
 end 
 
 

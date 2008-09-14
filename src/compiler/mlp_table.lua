@@ -65,9 +65,12 @@ function table_field (lx)
    if lx:is_keyword (lx:peek(), "[") then return bracket_field (lx) end
    local e = _expr (lx)
    if lx:is_keyword (lx:peek(), "=") then 
-      if e.tag ~= 'Id' then _G.table.print(e,80) end
-      assert (e.tag == "Id", "Identifier required on the left of = in table")
-      lx:next(); return {tag="Pair", {tag="String", e[1]}, _expr(lx)} 
+      lx:next(); -- skip the "="
+      local key = id2string(e)
+      local val = _expr(lx)
+      local r = { tag="Pair", key, val } 
+      r.lineinfo = { first = key.lineinfo.first, last = val.lineinfo.last }
+      return r
    else return e end
 end
 
