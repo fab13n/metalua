@@ -1,4 +1,4 @@
-----------------------------------------------------------------------
+---------------------------------------------------------------------
 ----------------------------------------------------------------------
 --
 -- Table module extension
@@ -195,8 +195,9 @@ function table.tostring(t, ...)
       table.insert(acc_list, x) 
    end
    local function valid_id(x)
-      -- FIXME: we should also reject keywords.
-      return type(x) == "string" and x:strmatch "[a-zA-Z_][a-zA-Z0-9_]*"
+      -- FIXME: we should also reject keywords; but the list of
+      -- current keywords is not fixed in metalua...
+      return type(x) == "string" and x:strmatch "^[a-zA-Z_][a-zA-Z0-9_]*$"
    end
    
    -- Compute the number of chars it would require to display the table
