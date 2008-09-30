@@ -96,7 +96,25 @@ lexer.token_metatable = {
 --         __tostring = function(a) 
 --            return string.format ("`%s{'%s'}",a.tag, a[1]) 
 --         end 
-      } 
+} 
+      
+lexer.lineinfo_metatable = { }
+--[[ 
+-- The presence of this function prevents serialization by Pluto, 
+-- I can't figure out why :(
+function lexer.lineinfo_metatable:__tostring()
+   local txt = string.format("%s:%i(%i,%i)", self[4], self[3], self[1], self[2])
+   if self.comments then 
+      acc = { }
+      for comment in ivalues(self.comments) do
+	 local content, loc1, loc2, kind = unpack(comment)
+	 table.insert (acc, string.format ("%s@%i..%i:%q", kind, loc1, loc2, content))
+      end
+      txt = txt.."["..table.concat(acc,"; ").."]"
+   end
+   return txt
+end
+--]]
 
 ----------------------------------------------------------------------
 -- Really extract next token fron the raw string 
@@ -135,6 +153,9 @@ function lexer:extract ()
       -- lineinfo entries: [1]=line, [2]=column, [3]=char, [4]=filename
       local fli = { first_line, loc-first_column_offset, loc, self.src_name }
       local lli = { self.line, self.i-self.column_offset-1, self.i-1, self.src_name }
+      --Pluto barfes when the metatable is set:(
+      setmetatable(fli, lexer.lineinfo_metatable)
+      setmetatable(lli, lexer.lineinfo_metatable)
       local a = { tag = tag, lineinfo = { first=fli, last=lli }, content } 
       if lli[2]==-1 then lli[1], lli[2] = lli[1]-1, previous_line_length-1 end
       if #self.attached_comments > 0 then 
