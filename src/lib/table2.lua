@@ -167,18 +167,24 @@ function table.range(a,b,c)
 end
 
 -- FIXME: new_indent seems to be always nil?!
+-- FIXME: accumulator function should be configurable,
+-- so that print() doesn't need to bufferize the whole string
+-- before starting to print.
 function table.tostring(t, ...)
-   local PRINT_HASH, LINE_MAX, INITIAL_INDENT = true
+   local PRINT_HASH, HANDLE_TAG, FIX_INDENT, LINE_MAX, INITIAL_INDENT = true, true
    for _, x in ipairs {...} do
       if type(x) == "number" then
          if not LINE_MAX then LINE_MAX = x
          else INITIAL_INDENT = x end
       elseif x=="nohash" then PRINT_HASH = false
+      elseif x=="notag"  then HANDLE_TAG = false
+      else
+         local n = x :strmatch "^indent%s*(%d*)$"
+         if n then FIX_INDENT = tonumber(n) or 3 end
       end
    end
    LINE_MAX       = LINE_MAX or math.huge
    INITIAL_INDENT = INITIAL_INDENT or 1
-
    
    local current_offset =  0  -- indentation level
    local xlen_cache     = { } -- cached results for xlen()
@@ -194,12 +200,11 @@ function table.tostring(t, ...)
    end
    
    -- Compute the number of chars it would require to display the table
-   -- as a single line. Helps to decide whether some carriage returns are
+   -- on a single line. Helps to decide whether some carriage returns are
    -- required. Since the size of each sub-table is required many times,
    -- it's cached in [xlen_cache].
    local xlen_type = { }
-   local function xlen(x, tracker, nested)
-      tracker = tracker or { }
+   local function xlen(x, nested)
       nested = nested or { }
       if x==nil then return #"nil" end
       --if nested[x] then return #tostring(x) end -- already done in table
@@ -207,7 +212,7 @@ function table.tostring(t, ...)
       if len then return len end
       local f = xlen_type[type(x)]
       if not f then return #tostring(x) end
-      len = f (x, tracker, nested) 
+      len = f (x, nested) 
       xlen_cache[x] = len
       return len
    end
@@ -216,19 +221,17 @@ function table.tostring(t, ...)
    -- anyway.
    if LINE_MAX == math.huge then xlen = function() return 0 end end
 
-   xlen_type["nil"] = function() return 3 end
-   function xlen_type.number(x)  return #tostring(x) end
-   function xlen_type.boolean(x) return x and 4 or 5 end
-   function xlen_type.string(x)  return #string.format("%q",x) end
-   function xlen_type.table (adt, tracker, nested)
+   xlen_type["nil"] = function () return 3 end
+   function xlen_type.number  (x) return #tostring(x) end
+   function xlen_type.boolean (x) return x and 4 or 5 end
+   function xlen_type.string  (x) return #string.format("%q",x) end
+   function xlen_type.table   (adt, nested)
 
       -- Circular references detection
-      if nested[adt] then return #tostring(adt) end
-      tracker = table.shallow_copy(tracker)
-      tracker [adt]  = true
-      nested[adt] = true
+      if nested [adt] then return #tostring(adt) end
+      nested [adt] = true
 
-      local has_tag  = valid_id(adt.tag)
+      local has_tag  = HANDLE_TAG and valid_id(adt.tag)
       local alen     = #adt
       local has_arr  = alen>0
       local has_hash = false
@@ -244,13 +247,13 @@ function table.tostring(t, ...)
             else
                has_hash = true
                if valid_id(k) then x=x+#k
-               else x = x + xlen (k, tracker, nested) + 2 end -- count surrounding barckets
-               x = x + xlen (v, tracker, nested) + 5          -- count " = " and ", "
+               else x = x + xlen (k, nested) + 2 end -- count surrounding brackets
+               x = x + xlen (v, nested) + 5          -- count " = " and ", "
             end
          end
       end
 
-      for i = 1, alen do x = x + xlen (adt[i], tracker, nested) + 2 end -- count ", "
+      for i = 1, alen do x = x + xlen (adt[i], nested) + 2 end -- count ", "
       
       nested[adt] = false -- No more nested calls
 
@@ -265,7 +268,8 @@ function table.tostring(t, ...)
    
    -- Recursively print a (sub) table at given indentation level.
    -- [newline] indicates whether newlines should be inserted.
-   local function rec (adt, indent, tracker, nested)
+   local function rec (adt, nested, indent)
+      if not FIX_INDENT then indent = current_offset end
       local function acc_newline()
          acc ("\n"); acc (string.rep (" ", indent)) 
          current_offset = indent
@@ -277,15 +281,14 @@ function table.tostring(t, ...)
       function x.boolean()  acc (adt and "true" or "false") end
       function x.table()
          if nested[adt] then acc(tostring(adt)); return end
-         tracker[adt] = true
          nested[adt]  = true
 
 
-         local has_tag  = valid_id(adt.tag)
+         local has_tag  = HANDLE_TAG and valid_id(adt.tag)
          local alen     = #adt
          local has_arr  = alen>0
          local has_hash = false
-         local new_indent
+
          if has_tag then acc("`"); acc(adt.tag) end
 
          -- First pass: handle hash-part
@@ -297,52 +300,56 @@ function table.tostring(t, ...)
                else  -- hash-part pair
 
                   -- Is it the first time we parse a hash pair?
-                  if not has_hash then acc "{ "; indent = current_offset
+                  if not has_hash then 
+                     acc "{ "
+                     if not FIX_INDENT then indent = current_offset end
                   else acc ", " end
 
                   -- Determine whether a newline is required
                   local is_id, expected_len = valid_id(k)
-                  if is_id then expected_len = #k + xlen (v, tracker, nested) + #" = , "
-                  else expected_len = xlen (k, tracker, nested) + 
-                                      xlen (v, tracker, nested) + #"[] = , " end
+                  if is_id then expected_len = #k + xlen (v, nested) + #" = , "
+                  else expected_len = xlen (k, nested) + 
+                                      xlen (v, nested) + #"[] = , " end
                   if has_hash and expected_len + current_offset > LINE_MAX
                   then acc_newline() end
                   
                   -- Print the key
                   if is_id then acc(k); acc " = " 
-                  else  acc "["; rec (k, current_offset, tracker, nested); acc "] = " end
+                  else  acc "["; rec (k, nested, indent+(FIX_INDENT or 0)); acc "] = " end
 
                   -- Print the value
-                  rec (v, current_offset, tracker, nested)
+                  rec (v, nested, indent+(FIX_INDENT or 0))
                   has_hash = true
                end
             end
          end
 
-         -- now we know whether there's a hash-part, an array-part, and a tag.
+         -- Now we know whether there's a hash-part, an array-part, and a tag.
          -- Tag and hash-part are already printed if they're present.
          if not has_tag and not has_hash and not has_arr then acc "{ }"; 
          elseif has_tag and not has_hash and not has_arr then -- nothing, tag already in acc
-         else -- has_hash or has_arr
+         else 
+            assert (has_hash or has_arr)
             local no_brace = false
             if has_hash and has_arr then acc ", " 
             elseif has_tag and not has_hash and alen==1 and type(adt[1])~="table" then
                -- No brace required; don't print "{", remember not to print "}"
-               acc (" "); rec (adt[1], new_indent, tracker, nested)
+               acc (" "); rec (adt[1], nested, indent+(FIX_INDENT or 0))
                no_brace = true
             elseif not has_hash then
                -- Braces required, but not opened by hash-part handler yet
-               acc "{ "; indent = current_offset 
+               acc "{ "
+               if not FIX_INDENT then indent = current_offset end
             end
 
             -- 2nd pass: array-part
             if not no_brace and has_arr then 
-               rec (adt[1], new_indent, tracker, nested)
+               rec (adt[1], nested, indent+(FIX_INDENT or 0))
                for i=2, alen do 
                   acc ", ";                   
                   if   current_offset + xlen (adt[i], { }) > LINE_MAX
                   then acc_newline() end
-                  rec (adt[i], new_indent, tracker, nested) 
+                  rec (adt[i], nested, indent+(FIX_INDENT or 0)) 
                end
             end
             if not no_brace then acc " }" end
@@ -353,7 +360,8 @@ function table.tostring(t, ...)
       if y then y() else acc(tostring(adt)) end
    end
    --printf("INITIAL_INDENT = %i", INITIAL_INDENT)
-   rec(t, INITIAL_INDENT, { }, { })
+   current_offset = INITIAL_INDENT or 0
+   rec(t, { }, 0)
    return table.concat (acc_list)
 end
 
