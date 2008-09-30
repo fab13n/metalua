@@ -184,7 +184,7 @@ local function main (...)
       for x in ivalues(code) do
          printf("--- AST From %s: ---", table.tostring(x.source, 'nohash'))
          if x.origin and x.origin.tag=='File' then x=x[1][1][2][1] end
-         if cfg['print-ast-lineinfo'] then table.print(x, 80)
+         if cfg['print-ast-lineinfo'] then table.print(x, 80, "indent1")
          else table.print(x, 80, 'nohash') end
       end 
    end
