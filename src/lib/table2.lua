@@ -179,7 +179,7 @@ function table.tostring(t, ...)
       elseif x=="nohash" then PRINT_HASH = false
       elseif x=="notag"  then HANDLE_TAG = false
       else
-         local n = x :strmatch "^indent%s*(%d*)$"
+         local n = string['match'](x, "^indent%s*(%d*)$")
          if n then FIX_INDENT = tonumber(n) or 3 end
       end
    end
@@ -197,7 +197,8 @@ function table.tostring(t, ...)
    local function valid_id(x)
       -- FIXME: we should also reject keywords; but the list of
       -- current keywords is not fixed in metalua...
-      return type(x) == "string" and x:strmatch "^[a-zA-Z_][a-zA-Z0-9_]*$"
+      return type(x) == "string" 
+         and string['match'](x, "^[a-zA-Z_][a-zA-Z0-9_]*$")
    end
    
    -- Compute the number of chars it would require to display the table
@@ -295,10 +296,9 @@ function table.tostring(t, ...)
          -- First pass: handle hash-part
          if PRINT_HASH then
             for k, v in pairs(adt) do
-               if k=="tag" and has_tag then -- this is the tag -> do nothing!
-               elseif type(k)=="number" and k<=alen and math.fmod(k,1)==0 then
-                  -- nothing: this an array-part pair, parsed later
-               else  -- hash-part pair
+               -- pass if the key belongs to the array-part or is the "tag" field
+               if not (k=="tag" and HANDLE_TAG) and 
+                  not (type(k)=="number" and k<=alen and math.fmod(k,1)==0) then
 
                   -- Is it the first time we parse a hash pair?
                   if not has_hash then 
