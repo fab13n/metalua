@@ -191,8 +191,9 @@ function sequence (p)
       if tb == "string" then seq.tag = builder
       elseif tb == "function" or builder and builder.__call then seq = builder(seq)
       elseif builder == nil then -- nothing
-      else error("Invalid builder of type "..tb.." in sequence") end
+      else error ("Invalid builder of type "..tb.." in sequence") end
       seq = transform (seq, self, fli, lli)
+      assert (not seq or seq.lineinfo)
       return seq
    end
 
@@ -612,6 +613,11 @@ end --</list>
 -- [gg.onkeyword] parser is the result of the subparser (modulo
 -- [transformers] applications).
 --
+-- lineinfo: the keyword is *not* included in the boundaries of the
+-- resulting lineinfo. A review of all usages of gg.onkeyword() in the
+-- implementation of metalua has shown that it was the appropriate choice
+-- in every case.
+--
 -- Input fields:
 --
 -- * [name]: as usual
@@ -644,10 +650,12 @@ function onkeyword (p)
    -------------------------------------------------------------------
    function p:parse(lx)
       if lx:is_keyword (lx:peek(), unpack(self.keywords)) then
-         local fli = lx:lineinfo_right()
+         --local fli = lx:lineinfo_right()
          if not self.peek then lx:next() end
-         local lli = lx:lineinfo_left()
-         return transform (self.primary(lx), p, fli, lli)
+         local content = self.primary (lx)
+         --local lli = lx:lineinfo_left()
+         local fli, lli = content.lineinfo.first, content.lineinfo.last
+         return transform (content, p, fli, lli)
       else return false end
    end
 

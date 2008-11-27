@@ -29,7 +29,10 @@ expr:add{ "`", adt, builder = fget(1) }
 local lambda_expr = gg.sequence{ 
    "|", func_params_content, "|", expr,
    builder= function (x) 
-      return {tag="Function", x[1], { {tag="Return", x[2] } } } end }
+      local li = x[2].lineinfo
+      return { tag="Function", x[1], 
+               { {tag="Return", x[2], lineinfo=li }, lineinfo=li } }
+   end }
 
 -- In an earlier version, lambda_expr took an expr_list rather than an expr
 -- after the 2nd bar. However, it happened to be much more of a burden than an
