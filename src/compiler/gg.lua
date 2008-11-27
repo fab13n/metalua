@@ -472,7 +472,8 @@ function expr (p)
          local p2_func, p2 = get_parser_info (self.suffix)
          if not p2 then return false end
          if not p2.prec or p2.prec>=prec then
-            local fli = lx:lineinfo_right()
+            --local fli = lx:lineinfo_right()
+            local fli = e.lineinfo.first
             local op = p2_func(lx)
             if not op then return false end
             local lli = lx:lineinfo_left()
