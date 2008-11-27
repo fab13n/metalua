@@ -89,7 +89,7 @@ function for_header (lx)
    else
       -- Forin: there might be several vars
       local a = lx:is_keyword (lx:next(), ",", "in")
-      if a=="in" then var_list = { var } else
+      if a=="in" then var_list = { var, lineinfo = var.lineinfo } else
          -- several vars; first "," skipped, read other vars
          var_list = gg.list{ 
             primary = id, separators = ",", terminators = "in" } (lx)
