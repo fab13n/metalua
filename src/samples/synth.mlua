@@ -1,0 +1,495 @@
+require 'strict'
+
+-{ extension 'match' }
+
+synth = { }
+synth.__index = synth
+
+function synth.new ()
+   local self = {
+      _acc           = { },
+      current_indent = 0,
+      indent_step    = "   "
+   }
+   return setmetatable (self, synth)
+end
+
+function synth:run (ast)
+   --if getmetatable (self) ~= synth and not ast then
+   if not ast then
+      self, ast = synth.new(), self
+   end
+   self._acc = { }
+   self:node (ast)
+   return table.concat (self._acc)
+end
+
+function synth:acc (x)
+   if x then table.insert (self._acc, x) end
+end
+
+function synth:nl ()
+   if self.current_indent == 0 then
+      self:acc "\n"
+   end
+   self:acc ("\n" .. self.indent_step:rep (self.current_indent))
+end
+
+function synth:nlindent ()
+   self.current_indent = self.current_indent + 1
+   self:nl ()
+end
+
+function synth:nldedent ()
+   self.current_indent = self.current_indent - 1
+   self:acc ("\n" .. self.indent_step:rep (self.current_indent))
+end
+
+local keywords = table.transpose {
+   "and",
+   "break",
+   "do",
+   "else",
+   "elseif",
+   "end",
+   "false",
+   "for",
+   "function",
+   "if",
+   "in",
+   "local",
+   "nil",
+   "not",
+   "or",
+   "repeat",
+   "return",
+   "then",
+   "true",
+   "until",
+   "while"
+}
+
+local function is_ident (id)
+   return id:strmatch "^[%a_][%w_]*$" and not keywords[id]
+end
+
+local function is_idx_stack (ast)
+   match ast with
+   | `Id{ _ } -> return true
+   | `Index{ left, `String{ _ } } -> return is_idx_stack (left)
+   | _ -> return false
+   end
+end
+
+local op_preprec = {
+   { "or", "and" },
+   { "lt", "le", "eq", "ne" },
+   { "concat" }, 
+   { "add", "sub" },
+   { "mul", "div", "mod" },
+   { "unary", "not", "len" },
+   { "pow" },
+   { "index" } }
+
+local op_prec = { }
+
+for prec, ops in ipairs (op_preprec) do
+   for op in ivalues (ops) do
+      op_prec[op] = prec
+   end
+end
+
+local op_symbol = {
+   add = " + ",
+   sub = " - ",
+   mul = " * ",
+   div = " / ",
+   mod = " % ",
+   pow = " ^ ",
+   concat = " .. ",
+   eq = " == ",
+   ne = " ~= ",
+   lt = " < ",
+   le = " <= ",
+   ["and"] = " and ",
+   ["or"] = " or ",
+   ["not"] = "not ",
+   len = "# "
+}
+
+function synth:node (node)
+   assert (self~=synth and self._acc)
+   if not node.tag then
+      self:list (node, self.nl)
+   else
+      local f = synth[node.tag]
+      if type (f) == "function" then
+         f (self, node, unpack (node))
+      elseif type (f) == "string" then
+         self:acc (f)
+      else
+         self:acc " -{ "
+         self:acc (table.tostring (node, "nohash"))
+         self:acc " }"
+      end
+   end
+end
+
+function synth:list (list, sep, start)
+   for i = start or 1, # list do
+      self:node (list[i])
+      if list[i + 1] then
+         if not sep then            
+         elseif type (sep) == "function" then sep (self)
+         elseif type (sep) == "string"   then self:acc (sep)
+         else   error "Invalid list separator" end
+      end
+   end
+end
+
+function synth:Do (node)
+   self:acc "do"
+   self:nlindent ()
+   self:list (node, self.nl)
+   self:nldedent ()
+   self:acc "end"
+end
+
+function synth:Set (node)
+   match node with
+   | `Set{ { `Index{ lhs, `String{ method } } }, 
+           { `Function{ { `Id "self", ... } == params, body } } } 
+      if is_idx_stack (lhs) and is_ident (method) ->
+      -- function foo:bar(...) ... end
+      self:acc      "function "
+      self:node     (lhs)
+      self:acc      ":"
+      self:acc      (method)
+      self:acc      " ("
+      self:list    (params, ", ", 2)
+      self:acc      ")"
+      self:nlindent ()
+      self:list    (body, self.nl)
+      self:nldedent ()
+      self:acc      "end"
+
+   | `Set{ { lhs }, { `Function{ params, body } } } if is_idx_stack (lhs) ->
+      -- function foo(...) ... end
+      self:acc      "function "
+      self:node    (lhs)
+      self:acc      " ("
+      self:list    (params, ", ")
+      self:acc      ")"
+      self:nlindent ()
+      self:list    (body, self.nl)
+      self:nldedent ()
+      self:acc      "end"
+
+   | `Set{ { `Id{ lhs1name } == lhs1, ... } == lhs, rhs } if not is_ident (lhs1name) ->
+      -- foo, ... = ... when foo isn't a valid identifier
+      self:acc      "("
+      self:node    (lhs1)
+      self:acc      ")"
+      if lhs[2] then 
+         self:acc   ", "
+         self:list (lhs, ", ", 2)
+      end
+      self:acc      " = "
+      self:list    (rhs, ", ")
+
+   | `Set{ lhs, rhs } ->
+      -- ... = ...
+      self:list (lhs, ", ")
+      self:acc   " = "
+      self:list (rhs, ", ")
+   end
+end
+
+function synth:While (node, cond, body)
+   self:acc      "while "
+   self:node     (cond)
+   self:acc      " do"
+   self:nlindent ()
+   self:list     (body, self.nl)
+   self:nldedent ()
+   self:acc      "end"
+end
+
+function synth:Repeat (node, body, cond)
+   self:acc      "repeat"
+   self:nlindent ()
+   self:list     (body, self.nl)
+   self:nldedent ()
+   self:acc      "until "
+   self:node     (cond)
+end
+
+function synth:If (node)
+   for i = 1, #node-1, 2 do
+      local cond, body = node[i], node[i+1]
+      self:acc      (i==1 and "if " or "elseif ")
+      self:node     (cond)
+      self:acc      " then"
+      self:nlindent ()
+      self:list     (body, self.nl)
+      self:nldedent ()
+   end
+   if #node%2 == 1 then
+      self:acc      "else"
+      self:nlindent ()
+      self:list     (node[#node], self.nl)
+      self:nldedent ()
+   end
+   self:acc "end"
+end
+
+function synth:Fornum (node, var, first, last)
+   local body = node[#node]
+   self:acc      "for "
+   self:node     (var)
+   self:acc      " = "
+   self:node     (first)
+   self:acc      ", "
+   self:node     (last)
+   if #node==5 then
+      self:acc   ", "
+      self:node  (node[4]) -- step increment
+   end
+   self:acc      " do"
+   self:nlindent ()
+   self:list     (body, self.nl)
+   self:nldedent ()
+   self:acc      "end"
+end
+
+function synth:Forin (node, vars, generators, body)
+   self:acc      "for "
+   self:list     (vars, ", ")
+   self:acc      " in "
+   self:list     (generators, ", ")
+   self:acc      " do"
+   self:nlindent ()
+   self:list     (body, self.nl)
+   self:nldedent ()
+   self:acc      "end"
+end
+
+function synth:Local (node, lhs, rhs)
+   self:acc     "local "
+   self:list    (lhs, ", ")
+   if rhs[1] then
+      self:acc  " = "
+      self:list (rhs, ", ")
+   end
+end
+
+function synth:Localrec (node, lhs, rhs)
+   match node with
+   | `Localrec{ { `Id{name} }, { `Function{ params, body } } } if is_ident (name) ->
+      self:acc      "local function "
+      self:acc      (name)
+      self:acc      " ("
+      self:list     (params, ", ")
+      self:acc      ")"
+      self:nlindent ()
+      self:list     (body, self.nl)
+      self:nldedent ()
+      self:acc      "end"
+
+   | _ -> 
+      self:acc "-{ "
+      self:acc (table.tostring (node, 'nohash', 80))
+      self:acc " }"
+   end
+end
+
+
+function synth:Call (node, f)
+   local parens
+   match node with
+   | `Call{ _, `String{_} }
+   | `Call{ _, `Table{...}} -> parens = false
+   | _ -> parens = true
+   end
+   self:node (f)
+   if parens then
+      self:acc " ("
+   else
+      self:acc " "
+   end
+   self:list (node, ", ", 2)
+   if parens then
+      self:acc ")"
+   end
+end
+
+function synth:Invoke (node, f, method)
+   local parens
+   match node with
+   | `Invoke{ _, _, `String{_} }
+   | `Invoke{ _, _, `Table{...}} -> parens = false
+   | _ -> parens = true
+   end
+   self:node   (f)
+   self:acc    ":"
+   self:acc    (method[1])
+   self:acc    (parens and " (" or " ")
+   self:list   (node, ", ", 3)
+   if parens then
+      self:acc ")"
+   end
+end
+
+function synth:Return (node)
+   self:acc  "return "
+   self:list (node, ", ")
+end
+
+synth.Break = "break"
+synth.Nil = "nil"
+synth.False = "false"
+synth.True = "true"
+synth.Dots = "..."
+
+function synth:Number (node, n)
+   self:acc (tostring (n))
+end
+
+function synth:String (node, str)
+   self:acc (string.format ("%q", str):gsub ("\\\n", "\\n"))
+end
+
+function synth:Function (node, params, body)
+   self:acc "function "
+   self:acc " ("
+   self:list (params, ", ")
+   self:acc ")"
+   self:nlindent ()
+   self:list (body, self.nl)
+   self:nldedent ()
+   self:acc "end"
+end
+
+function synth:Table (node)
+   if not node[1] then self:acc "{ }" else
+      self:acc "{"
+      self:nlindent ()
+      for i, elem in ipairs (node) do
+         match elem with
+         | `Pair{ `String{ key }, value } if is_ident (key) ->
+            self:acc  (key)
+            self:acc  " = "
+            self:node (value)
+
+         | `Pair{ key, value } ->
+            self:acc  "["
+            self:node (key)
+            self:acc  "] = "
+            self:node (value)
+
+         | _ -> 
+            self:node (elem)
+         end
+         if node[i + 1] then
+            self:acc ","
+            self:nl  ()
+         end
+      end
+      self:nldedent  ()
+      self:acc       "}"
+   end
+end
+
+function synth:Op (node, op, a, b)
+   -- Transform not (a == b) into a ~= b
+   match node with
+   | `Op{ "not", `Op{ "eq", _a, _b } } 
+   | `Op{ "not", `Paren{ `Op{ "eq", _a, _b } } } ->  
+      op, a, b = "ne", _a, _b
+   | _ ->
+   end
+
+   if b then -- binary
+      local left_paren, right_paren
+      match a with
+      | `Op{ op_a, ...} if op_prec[op] >= op_prec[op_a] -> left_paren = true
+      | _ -> left_paren = false
+      end
+
+      match b with -- FIXME: might not work with right assoc operators
+      | `Op{ op_b, ...} if op_prec[op] >= op_prec[op_b] -> right_paren = true
+      | _ -> right_paren = false
+      end
+
+      self:acc   (left_paren and "(")
+      self:node (a)
+      self:acc   (left_paren and ")")
+
+      self:acc   (op_symbol [op])
+
+      self:acc   (right_paren and "(")
+      self:node (b)
+      self:acc   (right_paren and ")")
+
+   else -- unary
+      
+      local paren
+      match a with
+      | `Op{ op_a, ... } if op_prec[op] >= op_prec[op_a] -> paren = true
+      | _ -> paren = false
+      end
+      self:acc   (op_symbol[op])
+      self:acc   (paren and "(")
+      self:node (a)
+      self:acc   (paren and ")")
+   end
+end
+
+function synth:Paren (node, content)
+   self:acc  "("
+   self:node (content)
+   self:acc  ")"
+end
+
+function synth:Index (node, table, key)
+   local paren_table
+   match table with
+   | `Op{ op, ... } if op_prec[op] < op_prec.index -> paren_table = true
+   | _ -> paren_table = false
+   end
+
+   self:acc   (paren_table and "(")
+   self:node (table)
+   self:acc   (paren_table and ")")
+
+   match key with
+   | `String{ field } if is_ident (field) -> 
+      self:acc "."
+      self:acc (field)
+   | _ -> 
+      self:acc   "["
+      self:node (key)
+      self:acc   "]"
+   end
+end
+
+function synth:Id (node, name)
+   if is_ident (name) then
+      self:acc (name)
+   else
+      self:acc    "-{`Id "
+      self:String (node, name)
+      self:acc    "}"
+   end 
+end
+
+require 'mlc'
+local filename = (arg[2] or arg[1]) or arg[0]
+local ast = mlc.luafile_to_ast (filename)
+local status, src = xpcall (function () print(synth.run(ast)) end,
+                            function (err)
+                               print (err)
+                               print (debug.traceback())
+                            end)
+
+--print (synth.run (ast))
