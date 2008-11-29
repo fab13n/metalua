@@ -177,6 +177,10 @@ function synth:list (list, sep, start)
 end
 
 --------------------------------------------------------------------------------
+--
+-- Tag methods.
+-- ------------
+--
 -- Specific AST node dumping methods, associated to their node kinds
 -- by their name, which is the corresponding AST tag.
 -- synth:node() is in charge of delegating a node's treatment to the
@@ -187,11 +191,14 @@ end
 --
 -- There are several things that could be refactored into common subroutines
 -- here: statement blocks dumping, function dumping...
--- However, given their small size and linear execution, it seems more
--- readable to avoid multiplication of such tiny functions.
+-- However, given their small size and linear execution
+-- (they basically perform series of :acc(), :node(), :list(), 
+-- :nl(), :nlindent() and :nldedent() calls), it seems more readable
+-- to avoid multiplication of such tiny functions.
 --
 -- To make sense out of these, you need to know metalua's AST syntax, as
 -- found in the reference manual or in metalua/doc/ast.txt.
+--
 --------------------------------------------------------------------------------
 
 function synth:Do (node)
