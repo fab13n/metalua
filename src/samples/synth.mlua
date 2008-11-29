@@ -18,8 +18,8 @@ function synth.new ()
 end
 
 --------------------------------------------------------------------------------
--- Run a synthetizer on the AST parameter and return the source as string.
--- Can also be used as a static method synth.run (ast): in this case,
+-- Run a synthetizer on the `ast' arg and return the source as a string.
+-- Can also be used as a static method `synth.run (ast)'; in this case,
 -- a temporary synthetizer is instanciated on the fly.
 --------------------------------------------------------------------------------
 function synth:run (ast)
@@ -83,7 +83,7 @@ end
 
 --------------------------------------------------------------------------------
 -- Return true iff ast represents a legal function name for
--- syntax sugar function foo.bar.gnat() ... end:
+-- syntax sugar ``function foo.bar.gnat() ... end'':
 -- a series of nested string indexes, with an identifier as
 -- the innermost node.
 --------------------------------------------------------------------------------
@@ -131,11 +131,11 @@ local op_symbol = {
    ["or"] = " or ",  ["not"] = "not ",  len     = "# " }
 
 --------------------------------------------------------------------------------
--- Accumulate the source representation of AST node in
+-- Accumulate the source representation of AST `node' in
 -- the synthetizer. Most of the work is done by delegating to
 -- the method having the name of the AST tag.
 -- If something can't be converted to normal sources, it's
--- instead dumped as a -{ ... } splice in the source accumulator.
+-- instead dumped as a `-{ ... }' splice in the source accumulator.
 --------------------------------------------------------------------------------
 function synth:node (node)
    assert (self~=synth and self._acc)
@@ -148,6 +148,7 @@ function synth:node (node)
       elseif type (f) == "string" then -- tag string.
          self:acc (f)
       else -- No appropriate method, fall back to splice dumping.
+           -- This cannot happen in a plain Lua AST.
          self:acc " -{ "
          self:acc (table.tostring (node, "nohash"), 80)
          self:acc " }"
@@ -188,6 +189,9 @@ end
 -- here: statement blocks dumping, function dumping...
 -- However, given their small size and linear execution, it seems more
 -- readable to avoid multiplication of such tiny functions.
+--
+-- To make sense out of these, you need to know metalua's AST syntax, as
+-- found in the reference manual or in metalua/doc/ast.txt.
 --------------------------------------------------------------------------------
 
 function synth:Do (node)
@@ -202,8 +206,7 @@ function synth:Set (node)
    match node with
    | `Set{ { `Index{ lhs, `String{ method } } }, 
            { `Function{ { `Id "self", ... } == params, body } } } 
-      if is_idx_stack (lhs) and is_ident (method) ->
-
+         if is_idx_stack (lhs) and is_ident (method) ->
       -- ``function foo:bar(...) ... end'' --
       self:acc      "function "
       self:node     (lhs)
@@ -218,8 +221,7 @@ function synth:Set (node)
       self:acc      "end"
 
    | `Set{ { lhs }, { `Function{ params, body } } } if is_idx_stack (lhs) ->
-
-   -- ``function foo(...) ... end'' --
+      -- ``function foo(...) ... end'' --
       self:acc      "function "
       self:node     (lhs)
       self:acc      " ("
@@ -232,10 +234,10 @@ function synth:Set (node)
 
    | `Set{ { `Id{ lhs1name } == lhs1, ... } == lhs, rhs } 
          if not is_ident (lhs1name) ->
-
       -- ``foo, ... = ...'' when foo is *not* a valid identifier.
-      -- In that case, the spliced 1st variable must get parentheses
+      -- In that case, the spliced 1st variable must get parentheses,
       -- to be distinguished from a statement splice.
+      -- This cannot happen in a plain Lua AST.
       self:acc      "("
       self:node     (lhs1)
       self:acc      ")"
@@ -247,7 +249,6 @@ function synth:Set (node)
       self:list     (rhs, ", ")
 
    | `Set{ lhs, rhs } ->
-
       -- ``... = ...'', no syntax sugar --
       self:list  (lhs, ", ")
       self:acc   " = "
@@ -352,6 +353,7 @@ function synth:Localrec (node, lhs, rhs)
 
    | _ -> 
       -- Other localrec are unprintable ==> splice them --
+          -- This cannot happen in a plain Lua AST. --
       self:acc "-{ "
       self:acc (table.tostring (node, 'nohash', 80))
       self:acc " }"
@@ -368,7 +370,7 @@ function synth:Call (node, f)
    end
    self:node (f)
    self:acc  (parens and " (" or  " ")
-   self:list (node, ", ", 2)
+   self:list (node, ", ", 2) -- skip `f'.
    self:acc  (parens and ")")
 end
 
@@ -384,7 +386,7 @@ function synth:Invoke (node, f, method)
    self:acc    ":"
    self:acc    (method[1])
    self:acc    (parens and " (" or  " ")
-   self:list   (node, ", ", 3) -- skip object and method name
+   self:list   (node, ", ", 3) -- Skip args #1 and #2, object and method name.
    self:acc    (parens and ")")
 end
 
@@ -456,7 +458,7 @@ end
 function synth:Op (node, op, a, b)
    -- Transform ``not (a == b)'' into ``a ~= b''. --
    match node with
-   | `Op{ "not", `Op{ "eq", _a, _b } } 
+   | `Op{ "not", `Op{ "eq", _a, _b } }
    | `Op{ "not", `Paren{ `Op{ "eq", _a, _b } } } ->  
       op, a, b = "ne", _a, _b
    | _ ->
@@ -531,7 +533,8 @@ end
 function synth:Id (node, name)
    if is_ident (name) then
       self:acc (name)
-   else -- unprintable identifier, fall back to splice representation
+   else -- Unprintable identifier, fall back to splice representation.
+        -- This cannot happen in a plain Lua AST.
       self:acc    "-{`Id "
       self:String (node, name)
       self:acc    "}"
