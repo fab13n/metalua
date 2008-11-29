@@ -5,17 +5,24 @@ require 'strict'
 synth = { }
 synth.__index = synth
 
+--------------------------------------------------------------------------------
+-- Instanciate a new AST->source synthetizer
+--------------------------------------------------------------------------------
 function synth.new ()
    local self = {
-      _acc           = { },
-      current_indent = 0,
-      indent_step    = "   "
+      _acc           = { },  -- Accumulates pieces of source as strings
+      current_indent = 0,    -- Current level of line indentation
+      indent_step    = "   " -- Indentation symbol, normally spaces or '\t'
    }
    return setmetatable (self, synth)
 end
 
+--------------------------------------------------------------------------------
+-- Run a synthetizer on the AST parameter and return the source as string.
+-- Can also be used as a static method synth.run (ast): in this case,
+-- a temporary synthetizer is instanciated on the fly.
+--------------------------------------------------------------------------------
 function synth:run (ast)
-   --if getmetatable (self) ~= synth and not ast then
    if not ast then
       self, ast = synth.new(), self
    end
@@ -24,63 +31,74 @@ function synth:run (ast)
    return table.concat (self._acc)
 end
 
+--------------------------------------------------------------------------------
+-- Accumulate a piece of source file in the synthetizer.
+--------------------------------------------------------------------------------
 function synth:acc (x)
    if x then table.insert (self._acc, x) end
 end
 
+--------------------------------------------------------------------------------
+-- Accumulate an indented newline.
+-- Jumps an extra line if indentation is 0, so that
+-- toplevel definitions are separated by an extra empty line.
+--------------------------------------------------------------------------------
 function synth:nl ()
-   if self.current_indent == 0 then
-      self:acc "\n"
-   end
+   if self.current_indent == 0 then self:acc "\n"  end
    self:acc ("\n" .. self.indent_step:rep (self.current_indent))
 end
 
+--------------------------------------------------------------------------------
+-- Increase indentation and accumulate a new line.
+--------------------------------------------------------------------------------
 function synth:nlindent ()
    self.current_indent = self.current_indent + 1
    self:nl ()
 end
 
+--------------------------------------------------------------------------------
+-- Decrease indentation and accumulate a new line.
+--------------------------------------------------------------------------------
 function synth:nldedent ()
    self.current_indent = self.current_indent - 1
    self:acc ("\n" .. self.indent_step:rep (self.current_indent))
 end
 
+--------------------------------------------------------------------------------
+-- Keywords, which are illegal as identifiers.
+--------------------------------------------------------------------------------
 local keywords = table.transpose {
-   "and",
-   "break",
-   "do",
-   "else",
-   "elseif",
-   "end",
-   "false",
-   "for",
-   "function",
-   "if",
-   "in",
-   "local",
-   "nil",
-   "not",
-   "or",
-   "repeat",
-   "return",
-   "then",
-   "true",
-   "until",
-   "while"
-}
+   "and",    "break",   "do",    "else",   "elseif",
+   "end",    "false",   "for",   "function", "if",
+   "in",     "local",   "nil",   "not",    "or",
+   "repeat", "return",  "then",  "true",   "until",
+   "while" }
 
+--------------------------------------------------------------------------------
+-- Return true iff string `id' is a legal identifier name.
+--------------------------------------------------------------------------------
 local function is_ident (id)
    return id:strmatch "^[%a_][%w_]*$" and not keywords[id]
 end
 
+--------------------------------------------------------------------------------
+-- Return true iff ast represents a legal function name for
+-- syntax sugar function foo.bar.gnat() ... end:
+-- a series of nested string indexes, with an identifier as
+-- the innermost node.
+--------------------------------------------------------------------------------
 local function is_idx_stack (ast)
    match ast with
-   | `Id{ _ } -> return true
+   | `Id{ _ }                     -> return true
    | `Index{ left, `String{ _ } } -> return is_idx_stack (left)
-   | _ -> return false
+   | _                            -> return false
    end
 end
 
+--------------------------------------------------------------------------------
+-- Operator precedences, in increasing order.
+-- This is not directly used, it's used to generate op_prec below.
+--------------------------------------------------------------------------------
 local op_preprec = {
    { "or", "and" },
    { "lt", "le", "eq", "ne" },
@@ -91,6 +109,9 @@ local op_preprec = {
    { "pow" },
    { "index" } }
 
+--------------------------------------------------------------------------------
+-- operator --> precedence table, generated from op_preprec.
+--------------------------------------------------------------------------------
 local op_prec = { }
 
 for prec, ops in ipairs (op_preprec) do
@@ -99,42 +120,49 @@ for prec, ops in ipairs (op_preprec) do
    end
 end
 
+--------------------------------------------------------------------------------
+-- operator --> source representation.
+--------------------------------------------------------------------------------
 local op_symbol = {
-   add = " + ",
-   sub = " - ",
-   mul = " * ",
-   div = " / ",
-   mod = " % ",
-   pow = " ^ ",
-   concat = " .. ",
-   eq = " == ",
-   ne = " ~= ",
-   lt = " < ",
-   le = " <= ",
-   ["and"] = " and ",
-   ["or"] = " or ",
-   ["not"] = "not ",
-   len = "# "
-}
+   add    = " + ",   sub     = " - ",   mul     = " * ",
+   div    = " / ",   mod     = " % ",   pow     = " ^ ",
+   concat = " .. ",  eq      = " == ",  ne      = " ~= ",
+   lt     = " < ",   le      = " <= ",  ["and"] = " and ",
+   ["or"] = " or ",  ["not"] = "not ",  len     = "# " }
 
+--------------------------------------------------------------------------------
+-- Accumulate the source representation of AST node in
+-- the synthetizer. Most of the work is done by delegating to
+-- the method having the name of the AST tag.
+-- If something can't be converted to normal sources, it's
+-- instead dumped as a -{ ... } splice in the source accumulator.
+--------------------------------------------------------------------------------
 function synth:node (node)
    assert (self~=synth and self._acc)
-   if not node.tag then
+   if not node.tag then -- tagless block.
       self:list (node, self.nl)
    else
       local f = synth[node.tag]
-      if type (f) == "function" then
+      if type (f) == "function" then -- Delegate to tag method.
          f (self, node, unpack (node))
-      elseif type (f) == "string" then
+      elseif type (f) == "string" then -- tag string.
          self:acc (f)
-      else
+      else -- No appropriate method, fall back to splice dumping.
          self:acc " -{ "
-         self:acc (table.tostring (node, "nohash"))
+         self:acc (table.tostring (node, "nohash"), 80)
          self:acc " }"
       end
    end
 end
 
+--------------------------------------------------------------------------------
+-- Convert every node in the AST list `list' passed as 1st arg.
+-- `sep' is an optional separator to be accumulated between each list element,
+-- it can be a string or a synth method.
+-- `start' is an optional number (default == 1), indicating which is the
+-- first element of list to be converted, so that we can skip the begining
+-- of a list. 
+--------------------------------------------------------------------------------
 function synth:list (list, sep, start)
    for i = start or 1, # list do
       self:node (list[i])
@@ -147,12 +175,27 @@ function synth:list (list, sep, start)
    end
 end
 
+--------------------------------------------------------------------------------
+-- Specific AST node dumping methods, associated to their node kinds
+-- by their name, which is the corresponding AST tag.
+-- synth:node() is in charge of delegating a node's treatment to the
+-- appropriate tag method.
+--
+-- Such tag methods are called with the AST node as 1st arg.
+-- As a convenience, the n node's children are passed as args #2 ... n+1.
+--
+-- There are several things that could be refactored into common subroutines
+-- here: statement blocks dumping, function dumping...
+-- However, given their small size and linear execution, it seems more
+-- readable to avoid multiplication of such tiny functions.
+--------------------------------------------------------------------------------
+
 function synth:Do (node)
-   self:acc "do"
+   self:acc      "do"
    self:nlindent ()
-   self:list (node, self.nl)
+   self:list     (node, self.nl)
    self:nldedent ()
-   self:acc "end"
+   self:acc      "end"
 end
 
 function synth:Set (node)
@@ -160,48 +203,55 @@ function synth:Set (node)
    | `Set{ { `Index{ lhs, `String{ method } } }, 
            { `Function{ { `Id "self", ... } == params, body } } } 
       if is_idx_stack (lhs) and is_ident (method) ->
-      -- function foo:bar(...) ... end
+
+      -- ``function foo:bar(...) ... end'' --
       self:acc      "function "
       self:node     (lhs)
       self:acc      ":"
       self:acc      (method)
       self:acc      " ("
-      self:list    (params, ", ", 2)
+      self:list     (params, ", ", 2)
       self:acc      ")"
       self:nlindent ()
-      self:list    (body, self.nl)
+      self:list     (body, self.nl)
       self:nldedent ()
       self:acc      "end"
 
    | `Set{ { lhs }, { `Function{ params, body } } } if is_idx_stack (lhs) ->
-      -- function foo(...) ... end
+
+   -- ``function foo(...) ... end'' --
       self:acc      "function "
-      self:node    (lhs)
+      self:node     (lhs)
       self:acc      " ("
-      self:list    (params, ", ")
+      self:list     (params, ", ")
       self:acc      ")"
       self:nlindent ()
       self:list    (body, self.nl)
       self:nldedent ()
       self:acc      "end"
 
-   | `Set{ { `Id{ lhs1name } == lhs1, ... } == lhs, rhs } if not is_ident (lhs1name) ->
-      -- foo, ... = ... when foo isn't a valid identifier
+   | `Set{ { `Id{ lhs1name } == lhs1, ... } == lhs, rhs } 
+         if not is_ident (lhs1name) ->
+
+      -- ``foo, ... = ...'' when foo is *not* a valid identifier.
+      -- In that case, the spliced 1st variable must get parentheses
+      -- to be distinguished from a statement splice.
       self:acc      "("
-      self:node    (lhs1)
+      self:node     (lhs1)
       self:acc      ")"
-      if lhs[2] then 
+      if lhs[2] then -- more than one lhs variable
          self:acc   ", "
-         self:list (lhs, ", ", 2)
+         self:list  (lhs, ", ", 2)
       end
       self:acc      " = "
-      self:list    (rhs, ", ")
+      self:list     (rhs, ", ")
 
    | `Set{ lhs, rhs } ->
-      -- ... = ...
-      self:list (lhs, ", ")
+
+      -- ``... = ...'', no syntax sugar --
+      self:list  (lhs, ", ")
       self:acc   " = "
-      self:list (rhs, ", ")
+      self:list  (rhs, ", ")
    end
 end
 
@@ -226,6 +276,7 @@ end
 
 function synth:If (node)
    for i = 1, #node-1, 2 do
+      -- for each ``if/then'' and ``elseif/then'' pair --
       local cond, body = node[i], node[i+1]
       self:acc      (i==1 and "if " or "elseif ")
       self:node     (cond)
@@ -234,7 +285,8 @@ function synth:If (node)
       self:list     (body, self.nl)
       self:nldedent ()
    end
-   if #node%2 == 1 then
+   -- odd number of children --> last one is an `else' clause --
+   if #node%2 == 1 then 
       self:acc      "else"
       self:nlindent ()
       self:list     (node[#node], self.nl)
@@ -251,9 +303,9 @@ function synth:Fornum (node, var, first, last)
    self:node     (first)
    self:acc      ", "
    self:node     (last)
-   if #node==5 then
+   if #node==5 then -- 5 children --> child #4 is a step increment.
       self:acc   ", "
-      self:node  (node[4]) -- step increment
+      self:node  (node[4])
    end
    self:acc      " do"
    self:nlindent ()
@@ -285,7 +337,9 @@ end
 
 function synth:Localrec (node, lhs, rhs)
    match node with
-   | `Localrec{ { `Id{name} }, { `Function{ params, body } } } if is_ident (name) ->
+   | `Localrec{ { `Id{name} }, { `Function{ params, body } } }
+         if is_ident (name) ->
+      -- ``local function name() ... end'' --
       self:acc      "local function "
       self:acc      (name)
       self:acc      " ("
@@ -297,14 +351,15 @@ function synth:Localrec (node, lhs, rhs)
       self:acc      "end"
 
    | _ -> 
+      -- Other localrec are unprintable ==> splice them --
       self:acc "-{ "
       self:acc (table.tostring (node, 'nohash', 80))
       self:acc " }"
    end
 end
 
-
 function synth:Call (node, f)
+   -- single string or table literal arg ==> no need for parentheses. --
    local parens
    match node with
    | `Call{ _, `String{_} }
@@ -312,18 +367,13 @@ function synth:Call (node, f)
    | _ -> parens = true
    end
    self:node (f)
-   if parens then
-      self:acc " ("
-   else
-      self:acc " "
-   end
+   self:acc  (parens and " (" or  " ")
    self:list (node, ", ", 2)
-   if parens then
-      self:acc ")"
-   end
+   self:acc  (parens and ")")
 end
 
 function synth:Invoke (node, f, method)
+   -- single string or table literal arg ==> no need for parentheses. --
    local parens
    match node with
    | `Invoke{ _, _, `String{_} }
@@ -333,11 +383,9 @@ function synth:Invoke (node, f, method)
    self:node   (f)
    self:acc    ":"
    self:acc    (method[1])
-   self:acc    (parens and " (" or " ")
-   self:list   (node, ", ", 3)
-   if parens then
-      self:acc ")"
-   end
+   self:acc    (parens and " (" or  " ")
+   self:list   (node, ", ", 3) -- skip object and method name
+   self:acc    (parens and ")")
 end
 
 function synth:Return (node)
@@ -346,28 +394,30 @@ function synth:Return (node)
 end
 
 synth.Break = "break"
-synth.Nil = "nil"
+synth.Nil   = "nil"
 synth.False = "false"
-synth.True = "true"
-synth.Dots = "..."
+synth.True  = "true"
+synth.Dots  = "..."
 
 function synth:Number (node, n)
    self:acc (tostring (n))
 end
 
 function synth:String (node, str)
+   -- format "%q" prints '\n' in an umpractical way IMO,
+   -- so this is fixed with the :gsub( ) call.
    self:acc (string.format ("%q", str):gsub ("\\\n", "\\n"))
 end
 
 function synth:Function (node, params, body)
-   self:acc "function "
-   self:acc " ("
-   self:list (params, ", ")
-   self:acc ")"
+   self:acc      "function "
+   self:acc      " ("
+   self:list     (params, ", ")
+   self:acc      ")"
    self:nlindent ()
-   self:list (body, self.nl)
+   self:list     (body, self.nl)
    self:nldedent ()
-   self:acc "end"
+   self:acc      "end"
 end
 
 function synth:Table (node)
@@ -377,20 +427,23 @@ function synth:Table (node)
       for i, elem in ipairs (node) do
          match elem with
          | `Pair{ `String{ key }, value } if is_ident (key) ->
+            -- ``key = value''. --
             self:acc  (key)
             self:acc  " = "
             self:node (value)
 
          | `Pair{ key, value } ->
+            -- ``[key] = value''. --
             self:acc  "["
             self:node (key)
             self:acc  "] = "
             self:node (value)
 
          | _ -> 
+            -- ``value''. --
             self:node (elem)
          end
-         if node[i + 1] then
+         if node [i+1] then
             self:acc ","
             self:nl  ()
          end
@@ -401,7 +454,7 @@ function synth:Table (node)
 end
 
 function synth:Op (node, op, a, b)
-   -- Transform not (a == b) into a ~= b
+   -- Transform ``not (a == b)'' into ``a ~= b''. --
    match node with
    | `Op{ "not", `Op{ "eq", _a, _b } } 
    | `Op{ "not", `Paren{ `Op{ "eq", _a, _b } } } ->  
@@ -409,39 +462,38 @@ function synth:Op (node, op, a, b)
    | _ ->
    end
 
-   if b then -- binary
+   if b then -- binary operator.
       local left_paren, right_paren
       match a with
       | `Op{ op_a, ...} if op_prec[op] >= op_prec[op_a] -> left_paren = true
       | _ -> left_paren = false
       end
 
-      match b with -- FIXME: might not work with right assoc operators
+      match b with -- FIXME: might not work with right assoc operators ^ and ..
       | `Op{ op_b, ...} if op_prec[op] >= op_prec[op_b] -> right_paren = true
       | _ -> right_paren = false
       end
 
-      self:acc   (left_paren and "(")
+      self:acc  (left_paren and "(")
       self:node (a)
-      self:acc   (left_paren and ")")
+      self:acc  (left_paren and ")")
 
-      self:acc   (op_symbol [op])
+      self:acc  (op_symbol [op])
 
-      self:acc   (right_paren and "(")
+      self:acc  (right_paren and "(")
       self:node (b)
-      self:acc   (right_paren and ")")
+      self:acc  (right_paren and ")")
 
-   else -- unary
-      
+   else -- unary operator.     
       local paren
       match a with
       | `Op{ op_a, ... } if op_prec[op] >= op_prec[op_a] -> paren = true
       | _ -> paren = false
       end
-      self:acc   (op_symbol[op])
-      self:acc   (paren and "(")
+      self:acc  (op_symbol[op])
+      self:acc  (paren and "(")
       self:node (a)
-      self:acc   (paren and ")")
+      self:acc  (paren and ")")
    end
 end
 
@@ -453,20 +505,23 @@ end
 
 function synth:Index (node, table, key)
    local paren_table
+   -- Check precedence, see if parens are needed around the table --
    match table with
    | `Op{ op, ... } if op_prec[op] < op_prec.index -> paren_table = true
    | _ -> paren_table = false
    end
 
-   self:acc   (paren_table and "(")
+   self:acc  (paren_table and "(")
    self:node (table)
-   self:acc   (paren_table and ")")
+   self:acc  (paren_table and ")")
 
    match key with
    | `String{ field } if is_ident (field) -> 
+      -- ``table.key''. --
       self:acc "."
       self:acc (field)
    | _ -> 
+      -- ``table [key]''. --
       self:acc   "["
       self:node (key)
       self:acc   "]"
@@ -476,20 +531,20 @@ end
 function synth:Id (node, name)
    if is_ident (name) then
       self:acc (name)
-   else
+   else -- unprintable identifier, fall back to splice representation
       self:acc    "-{`Id "
       self:String (node, name)
       self:acc    "}"
    end 
 end
 
+
+--------------------------------------------------------------------------------
+-- Read a file, get its AST, use synth to regenerate sources
+-- from that AST
+--------------------------------------------------------------------------------
 require 'mlc'
 local filename = (arg[2] or arg[1]) or arg[0]
 local ast = mlc.luafile_to_ast (filename)
-local status, src = xpcall (function () print(synth.run(ast)) end,
-                            function (err)
-                               print (err)
-                               print (debug.traceback())
-                            end)
 
---print (synth.run (ast))
+print(synth.run(ast)) 
