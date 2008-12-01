@@ -262,14 +262,18 @@ function match_builder (x)
    -- Make sure that all tested terms are variables or literals
    for i=1, #term_seq do
       local t = term_seq[i]
-      if t.tag ~= 'Id' and not literal_tags[t.tag] then
+      -- Capture problem: the following would compile wrongly:
+      --    `match x with x -> end'
+      -- Temporary workaround: suppress the condition, so that
+      -- all external variables are copied into unique names.
+      --if t.tag ~= 'Id' and not literal_tags[t.tag] then
          local v = mlp.gensym 'v'
          if not match_locals then match_locals = `Local{ {v}, {t} } else
             table.insert(match_locals[1], v)
             table.insert(match_locals[2], t)
          end
          term_seq[i] = v
-      end
+      --end
    end
    
    if match_locals then acc_stat(match_locals, cfg) end
