@@ -49,19 +49,17 @@ end
 ----------------------------------------------------------------------
 local function spring_load(filename)
    local env_fast = os.getenv 'LUA_NOSPRINGS'
-
-   if env_fast=='yes' or env_fast=='true' then
-      --print "LUA_NOSPRINGS mode"
-      return mlc.function_of_luafile(filename)
-   else
-      -- run compilation in a separate spring universe:
-      --print "Springs mode"
-      require 'springs'
+   local try_springs = env_fast=='yes' or env_fast=='true'
+   local has_springs = try_springs and pcall(require, 'springs')
+   if has_springs then
       local r = springs.new()
       r:dostring [[require 'metalua.compiler']]
       local f = r:call('mlc.function_of_luafile', filename)
       r:close()
       return f
+   else
+      --print "LUA_NOSPRINGS mode"
+      return mlc.function_of_luafile(filename)
    end
 end
 

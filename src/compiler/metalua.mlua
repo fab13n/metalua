@@ -7,20 +7,20 @@ require 'metalua.clopts'
 
 do
    local mfast = os.getenv 'LUA_NOSPRINGS'
-   if mfast=='yes' or mfast=='true' then
-      function spring_pcall(f, ...)
-	 if type(f)=='string' then f = loadstring("return "..f)() end
-	 return pcall(f, ...)
+   local has_springs = mfast~='yes' and mfast~='true' and pcall(require, 'springs')
+   if has_springs then
+      function spring_pcall(...)
+      	local ring = springs.new()
+      	ring:dostring (INIT_COMPILATION_RING)
+      	st, ast = ring:pcall(...)
+      	ring:close()
+      	return st, ast
       end
    else
-      require 'springs'
-      function spring_pcall(...)
-         local ring = springs.new()
-         ring:dostring (INIT_COMPILATION_RING)
-         st, ast = ring:pcall(...)
-	 ring:close()
-	 return st, ast
-      end
+      function spring_pcall(f, ...)
+         if type(f)=='string' then f = loadstring("return "..f)() end
+		 return pcall(f, ...)
+	  end
    end
 end
 
@@ -50,7 +50,7 @@ parser = clopts {
    },
    -- What to do with chunks
    {  short = 'o', long = 'output', type = 'string',
-      usage = 'set the target name of the next compiled file'  
+      usage = 'set the target name of the next compiled file'
    },
    {  short = 'x', long = 'run', type = 'boolean',
       usage = 'execute the compiled file instead of saving it (unless -o is also used)'
@@ -60,19 +60,19 @@ parser = clopts {
    },
    -- Advanced stuff
    {  short = 'v', long = 'verbose', type = 'boolean',
-      usage = 'verbose mode'  
+      usage = 'verbose mode'
    },
    {  short = 'a', long = 'print-ast',  type = 'boolean',
-      usage = 'print the AST resulting from file compilation'  
+      usage = 'print the AST resulting from file compilation'
    },
    {  short = 'A', long = 'print-ast-lineinfo',  type = 'boolean',
-      usage = 'print the AST resulting from file compilation, including lineinfo data'  
+      usage = 'print the AST resulting from file compilation, including lineinfo data'
    },
    {  short = 'b', long = 'metabugs', type = 'boolean',
-      usage = 'show syntax errors as compile-time execution errors' 
+      usage = 'show syntax errors as compile-time execution errors'
    },
    {  short = 's', long = 'sharpbang', type = 'string',
-      usage = 'set a first line to add to compiled file, typically "#!/bin/env mlr"' 
+      usage = 'set a first line to add to compiled file, typically "#!/bin/env mlr"'
    },
    {  long  = 'no-runtime', type = 'boolean',
       usage = "prevent the automatic requirement of metalua runtime"
@@ -112,16 +112,20 @@ local function main (...)
    -------------------------------------------------------------------
    -- Print messages if in verbose mode
    -------------------------------------------------------------------
-   local function verb_print (fmt, ...) 
-      if cfg.verbose then 
-         return printf ("[ "..fmt.." ]", ...) 
-      end 
+   local function verb_print (fmt, ...)
+      if cfg.verbose then
+         return printf ("[ "..fmt.." ]", ...)
+      end
    end
-   
+
+   if cfg.verbose then
+      verb_print("raw options: %s", table.tostring(cfg))
+   end
+
    -------------------------------------------------------------------
    -- If there's no chunk but there are params, interpret the first
    -- param as a file name.
-   if #chunks==0 and cfg.params then 
+   if #chunks==0 and cfg.params then
       local the_file = table.remove(cfg.params, 1)
       verb_print("Param %q considered as a source file", the_file)
       chunks = { `File{ the_file } }
@@ -154,7 +158,7 @@ local function main (...)
       match x with
       | `Library{ l } -> st, ast = true, `Call{ `Id 'require', `String{ l } }
       | `Literal{ e } -> st, ast = spring_pcall('mlc.ast_of_luastring', e, 'literal')
-      | `File{ f } -> 
+      | `File{ f } ->
          st, ast = spring_pcall('mlc.ast_of_luafile', f, '@'..f)
          -- Isolate each file in a separate fenv
          if st then
@@ -164,7 +168,7 @@ local function main (...)
             last_file = ast
          end
       end
-      if not st then 
+      if not st then
          printf ("Cannot compile %s: %s", table.tostring(x), ast)
          os.exit (AST_COMPILE_ERROR_NUMBER)
       end
@@ -179,19 +183,19 @@ local function main (...)
 
    -------------------------------------------------------------------
    -- AST printing
-   if cfg['print-ast'] or cfg['print-ast-lineinfo'] then 
+   if cfg['print-ast'] or cfg['print-ast-lineinfo'] then
       verb_print "Resulting AST:"
       for x in ivalues(code) do
          printf("--- AST From %s: ---", table.tostring(x.source, 'nohash'))
          if x.origin and x.origin.tag=='File' then x=x[1][1][2][1] end
          if cfg['print-ast-lineinfo'] then table.print(x, 80, "indent1")
          else table.print(x, 80, 'nohash') end
-      end 
+      end
    end
 
    -------------------------------------------------------------------
    -- Insert runtime loader
-   if cfg['no-runtime'] then 
+   if cfg['no-runtime'] then
       verb_print "Prevent insertion of command \"require 'metalua.runtime'\""
    else
       table.insert(code, 1, +{require'metalua.runtime'})
