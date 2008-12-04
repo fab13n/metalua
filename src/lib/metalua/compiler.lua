@@ -1,3 +1,3 @@
 require 'metalua.runtime'
-require 'mlc'
-require 'package2'
+require 'metalua.mlc'
+require 'metalua.package2'

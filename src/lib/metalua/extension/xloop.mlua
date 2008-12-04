@@ -1,7 +1,7 @@
 -{ extension 'match' }
 -{ extension 'log' }
 
-require 'walk'
+require 'metalua.walk'
 
 ----------------------------------------------------------------------
 -- Back-end:
@@ -51,7 +51,7 @@ function xloop_builder(x)
       match e with
       | `If{ cond }    ->
          body = `If{ cond, {body} }
-      | `Until{ cond } -> 
+      | `Until{ cond } ->
          body = +{stat: if -{cond} then -{exit()} else -{body} end }
       | `Forin{ ... } | `Fornum{ ... } ->
          table.insert (e, {body}); body=e
@@ -65,7 +65,7 @@ function xloop_builder(x)
    function cfg.stat.down(x)
       match x with
       | `Break -> x <- exit()
-      | `Forin{ ... } | `Fornum{ ... } | `While{ ... } | `Repeat{ ... } -> 
+      | `Forin{ ... } | `Fornum{ ... } | `While{ ... } | `Repeat{ ... } ->
          return 'break'
       | _ -> -- pass
       end
@@ -87,14 +87,14 @@ mlp.stat:del  'while'
 
 loop_element_list = gg.list{ loop_element, terminators='do' }
 
-mlp.stat:add{ 
-   'for', mlp.for_header, loop_element_list, 'do', mlp.block, 'end', 
+mlp.stat:add{
+   'for', mlp.for_header, loop_element_list, 'do', mlp.block, 'end',
    builder = xloop_builder }
 
-mlp.stat:add{ 
-   'while', mlp.expr, loop_element_list, 'do', mlp.block, 'end', 
+mlp.stat:add{
+   'while', mlp.expr, loop_element_list, 'do', mlp.block, 'end',
    builder = |x| xloop_builder{ `While{x[1]}, x[2], x[3] } }
 
 mlp.stat:add{
-   'unless', mlp.expr, 'then', mlp.block, 'end', 
+   'unless', mlp.expr, 'then', mlp.block, 'end',
    builder = |x| +{stat: if not -{x[1]} then -{x[2]} end} }

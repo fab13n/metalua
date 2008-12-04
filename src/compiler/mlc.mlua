@@ -19,8 +19,8 @@
 --
 --------------------------------------------------------------------------------
 
-require 'bytecode'
-require 'mlp'
+require 'metalua.bytecode'
+require 'metalua.mlp'
 
 mlc = { }
 setmetatable(mlc, mlc)

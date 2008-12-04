@@ -1,5 +1,5 @@
-require 'dollar'
-   
+require 'metalua.dollar'
+
 -{ extension 'match' }
 
 function dollar.log(...)
@@ -10,14 +10,14 @@ function dollar.log(...)
    local width  = 80
 
    local i=1
-   if args[i].tag=='String' then 
-      ti(code, +{print(" [LOG] "..-{args[1]})}) 
+   if args[i].tag=='String' then
+      ti(code, +{print(" [LOG] "..-{args[1]})})
       i += 1
    end
 
    local xtra_args, names, vals = { }, { }, { }
    for i=i, #args do
-      match args[i] with 
+      match args[i] with
       | +{ 'nohash' } -> nohash = true
       | `Number{ w }  -> width = w
       --| `String{...} | `Number{...} -> ti (xtra_args, args[i])
@@ -32,7 +32,7 @@ function dollar.log(...)
                               vals[i],
                               `Number{ width },
                               `Number{ #msg  } }
-      if nohash then ti(printer, +{'nohash'}) end                     
+      if nohash then ti(printer, +{'nohash'}) end
       ti (code, `Call{ +{printf}, +{"%s%s"}, `String{ msg }, printer })
    end
    return code

@@ -1,4 +1,4 @@
-require "walk"
+require "metalua.walk"
 
 ----------------------------------------------------------------------
 -- * [loop_tags] are the tags of statements which support continue.
@@ -27,14 +27,14 @@ local function loop_transformer (ast)
 
    function cfg.stat.down (x)
       if loop_tags[x.tag] then return 'break'
-      elseif x.tag=='Continue' then 
+      elseif x.tag=='Continue' then
          if not label then label = mlp.gensym 'continue' end
-         x <- `Goto{ label } 
+         x <- `Goto{ label }
       end
    end
 
-   function cfg.expr.down (x) 
-      return x.tag=='Function' and 'break' 
+   function cfg.expr.down (x)
+      return x.tag=='Function' and 'break'
    end
 
    local loop_body = ast.tag=="Repeat" and ast[1] or ast[#ast]
@@ -45,7 +45,7 @@ end
 ----------------------------------------------------------------------
 -- Register the transformer for each kind of loop:
 ----------------------------------------------------------------------
-for keyword in values (loop_keywords) do 
+for keyword in values (loop_keywords) do
    mlp.stat:get(keyword).transformers:add (loop_transformer)
 end
 

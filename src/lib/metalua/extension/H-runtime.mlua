@@ -1,4 +1,4 @@
-require 'walk.id'
+require 'metalua.walk.id'
 -{ extension 'log' }
 
 --------------------------------------------------------------------------------
@@ -6,7 +6,7 @@ require 'walk.id'
 -- H params:
 -- * H.alpha is the `Local{ } (or `Set{ }) statement which will
 --   receive the alpha-conversions required to restore the free
---   variables of the transformed term. For instance, 
+--   variables of the transformed term. For instance,
 --   H+{print(1)} will be transformed into +{.1.X.print(1)},
 --   and alpha will contain +{local -{`Id '.1.X.print} = print }.
 --   alpha is reused and augmented by successive calls to H().
@@ -54,7 +54,7 @@ function H:__call (ast)
    -----------------------------------------------------------------------------
    -- kind of hygienization(s) to perform: h_inseide and/or h_outside
    -----------------------------------------------------------------------------
-   local h_inside, h_outside do      
+   local h_inside, h_outside do
       local side = self.side or 'both'
       h_inside   = side=='inside'  or side=='both'
       h_outside  = side=='outside' or side=='both'
@@ -64,7 +64,7 @@ function H:__call (ast)
    -- Initialize self.keep:
    -- self.keep is a dictionary of free var names to be protected from capture
    -----------------------------------------------------------------------------
-   do 
+   do
       local k = self.keep
       -- If there's no self.keep, that's an empty dictionary
       if not k then k = { }; self.keep = k
@@ -93,7 +93,7 @@ function H:__call (ast)
       -- FIXME: alpha should only be overridden when there actually are some
       -- globals renamed.
       if #alpha==0 then alpha <- `Local{ { }, { } } end
-      local new, old = unpack(alpha) 
+      local new, old = unpack(alpha)
       local free_vars  = { }
 
       assert (#new==#old, "Invalid alpha list")
@@ -117,7 +117,7 @@ function H:__call (ast)
          id[1] = new_name
       end
    end
-   
+
    -----------------------------------------------------------------------------
    -- Inside hygienization: rename all local variables and their ocurrences.
    -----------------------------------------------------------------------------
@@ -131,7 +131,7 @@ function H:__call (ast)
       -- walked.
       ----------------------------------------------------------------
 
-      local_renames = { }    -- `Id{ old_name } -> new_name 
+      local_renames = { }    -- `Id{ old_name } -> new_name
       local bound_vars = { } -- binding statement -> old_name -> new_name
 
       ----------------------------------------------------------------
@@ -187,18 +187,18 @@ end
 --------------------------------------------------------------------------------
 -- Return H to allow call chainings
 --------------------------------------------------------------------------------
-function H:set(field, val) 
+function H:set(field, val)
    local t = type(field)
    if t=='string' then self[field]=val
    elseif t=='table' then self <- field
    else error("Can't set H, field arg can't be of type "..t) end
-   return self 
+   return self
 end
 
 --------------------------------------------------------------------------------
 -- Return the value before reset
 --------------------------------------------------------------------------------
-function H:reset(field) 
+function H:reset(field)
    if type(field) ~= 'string' then error "Can only reset H string fields" end
    local r = H[field]
    H[field] = nil

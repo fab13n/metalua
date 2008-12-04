@@ -1,8 +1,10 @@
 local package = package
 
-require 'mlc'
+require 'metalua.mlc'
 
-package.mpath = os.getenv 'LUA_MPATH' or 
+package.metalua_extension_prefix = 'metalua.extension.'
+
+package.mpath = os.getenv 'LUA_MPATH' or
    './?.mlua;/usr/local/share/lua/5.1/?.mlua;'..
    '/usr/local/share/lua/5.1/?/init.mlua;'..
    '/usr/local/lib/lua/5.1/?.mlua;'..
@@ -20,12 +22,12 @@ local function resc(k)
 end
 
 ----------------------------------------------------------------------
--- Take a Lua module name, return the open file and its name, 
+-- Take a Lua module name, return the open file and its name,
 -- or <false> and an error message.
 ----------------------------------------------------------------------
 function package.findfile(name, path_string)
    local config_regexp = ("([^\n])\n"):rep(5):sub(1, -2)
-   local dir_sep, path_sep, path_mark, execdir, igmark = 
+   local dir_sep, path_sep, path_mark, execdir, igmark =
       package.config:strmatch (config_regexp)
    name = name:gsub ('%.', dir_sep)
    local errors = { }
@@ -45,12 +47,12 @@ end
 ----------------------------------------------------------------------
 -- Execute a metalua module sources compilation in a separate ring.
 ----------------------------------------------------------------------
-local function spring_load(filename)   
+local function spring_load(filename)
    local env_fast = os.getenv 'LUA_NOSPRINGS'
 
-   if env_fast=='yes' or env_fast=='true' then 
+   if env_fast=='yes' or env_fast=='true' then
       --print "LUA_NOSPRINGS mode"
-      return mlc.function_of_luafile(filename) 
+      return mlc.function_of_luafile(filename)
    else
       -- run compilation in a separate spring universe:
       --print "Springs mode"
@@ -83,10 +85,10 @@ table.insert(package.loaders, package.metalua_loader)
 -- Load an extension.
 ----------------------------------------------------------------------
 function extension (name, noruntime)
-   local complete_name = 'extension.'..name
+   local complete_name = package.metalua_extension_prefix..name
    local x = require (complete_name)
    if x==true then return
-   elseif type(x) ~= 'table' then 
+   elseif type(x) ~= 'table' then
       error ("extension returned %s instead of an AST", type(x))
    else
       return x

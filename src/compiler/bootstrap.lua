@@ -5,9 +5,9 @@
 -- It allows to precompile files such as
 
 
-package.preload.mlc = function() 
+package.preload['metalua.mlc'] = function()
 
-   print "Loading fake mlc module for compiler bootstrapping"
+   print "Loading fake metalua.mlc module for compiler bootstrapping"
 
    mlc = { } 
    mlc.metabugs = false
@@ -40,10 +40,10 @@ package.preload.mlc = function()
 end
 
 require 'verbose_require'
-require 'base'
-require 'bytecode'
-require 'mlp'
-require 'package2'
+require 'metalua.base'
+require 'metalua.bytecode'
+require 'metalua.mlp'
+require 'metalua.package2'
 
 local function compile_file (src_filename)
    print("Compiling "..src_filename.."... ")

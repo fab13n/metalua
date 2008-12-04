@@ -3,7 +3,7 @@
 --require 'verbose_require'
 
 require 'metalua.compiler'
-require 'clopts'
+require 'metalua.clopts'
 
 do
    local mfast = os.getenv 'LUA_NOSPRINGS'
@@ -246,7 +246,7 @@ local function main (...)
    -- Run REPL loop
    if cfg.interactive then
       verb_print "Starting REPL loop"
-      require 'metaloop'
+      require 'metalua.metaloop'
       metaloop.run()
 --       print ("*":rep(70))
 --       print "*** !!! Interactive loop not implemented !!!"

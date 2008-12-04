@@ -9,7 +9,7 @@
 -- no matter what, even if the body causes an error, even if it returns, even
 -- if another :close() call causes an error, etc. No. Matter. What.
 
-require 'extension.trycatch'
+require 'metalua.extension.trycatch'
 
 function withdo_builder (x)
    local names, vals, body = unpack(x)

@@ -26,7 +26,7 @@
 --
 -- Syntax
 -- ======
--- 
+--
 -- Syntax annotations consist of "::" followed by a type
 -- specifier. They can appear after a function parameter name, after
 -- the closing parameter parenthese of a function, or after a local
@@ -60,7 +60,7 @@
 -- It's easy to add global vars type-checking, by declaring :: as an
 -- assignment operator.  It's easy to add arbitrary expr
 -- type-checking, by declaring :: as an infix operator. How to make
--- both cohabit? 
+-- both cohabit?
 
 --------------------------------------------------------------------------------
 --
@@ -95,7 +95,7 @@
 --
 -- What's performed by the walker:
 --
---  * Assignments to a typed variable involve a type checking of the 
+--  * Assignments to a typed variable involve a type checking of the
 --    new value;
 --
 --  * Local declarations are checked for additional type declarations.
@@ -106,14 +106,14 @@
 --    which retains its argument type associations, and stacks another
 --    return type (or [false] if no type constraint is given)
 --
---  * Return statements get the additional type checking statement if 
+--  * Return statements get the additional type checking statement if
 --    applicable.
 --
 --------------------------------------------------------------------------------
 
 -- TODO: unify scopes handling with free variables detector
 
-require "walk" 
+require "metalua.walk"
 
 -{ extension 'match' }
 
@@ -131,7 +131,7 @@ local function chunk_transformer (block)
       | `Local{ lhs, rhs, types = x_types } ->
          -- Add new types declared by lhs in current scope.
          local myscope = scopes [#scopes]
-         for var, type in pairs (x_types) do 
+         for var, type in pairs (x_types) do
             myscope [var] = process_type (type)
          end
          -- Type-check each rhs value with the type of the
@@ -139,8 +139,8 @@ local function chunk_transformer (block)
          -- case a local var name is used more than once.
          for i = 1, max (#lhs, #rhs) do
             local type, new_val = myscope[lhs[i][1]], rhs[i]
-            if type and new_val then 
-               rhs[i] = checktype_builder (type, new_val, 'expr') 
+            if type and new_val then
+               rhs[i] = checktype_builder (type, new_val, 'expr')
             end
          end
       | `Set{ lhs, rhs } ->
@@ -149,7 +149,7 @@ local function chunk_transformer (block)
             | `Id{ v } ->
                -- Retrieve the type associated with the variable, if any:
                local  j, type = #scopes, nil
-               repeat j, type = j-1, scopes[j][v] until type or j==0         
+               repeat j, type = j-1, scopes[j][v] until type or j==0
                -- If a type constraint is found, apply it:
                if type then rhs[i] = checktype_builder(type, rhs[i] or `Nil, 'expr') end
             | _ -> -- assignment to a non-variable, pass
@@ -157,7 +157,7 @@ local function chunk_transformer (block)
          end
       | `Return{ r_val } ->
          local r_type = return_types[#return_types]
-         if r_type then 
+         if r_type then
             x <- `Return{ checktype_builder (r_type, r_val, 'expr') }
          end
       | _ -> -- pass
@@ -191,7 +191,7 @@ local function chunk_transformer (block)
          table.insert(x[2], 1, checktype_builder(t, `Id{v}, 'stat'))
       end
    end
-      
+
    cfg.block.down = || table.insert (scopes, { })
    cfg.block.up   = || table.remove (scopes)
 
@@ -207,7 +207,7 @@ end
 --
 --  * literal tables are embedded into a call to types.__table
 --
--- This transformation is not performed when type checking is disabled: 
+-- This transformation is not performed when type checking is disabled:
 -- types are stored under their raw form in the AST; the transformation is
 -- only performed when they're put in the stacks (scopes and return_types)
 -- of the main walker.
@@ -224,7 +224,7 @@ function process_type (type_term)
    end
    function cfg.expr.up (x)
       match x with
-      | `Id{i} -> x <- `Index{ `Id "types", `String{ i } } 
+      | `Id{i} -> x <- `Index{ `Id "types", `String{ i } }
       | `Table{...} | `String{...} | `Op{...} ->
          local xcopy, name = table.shallow_copy(x)
          match x.tag with
@@ -234,7 +234,7 @@ function process_type (type_term)
          end
          x <- `Call{ `Index{ `Id "types", `String{ name } }, xcopy }
       | `Function{ params, { results } } if results.tag=='Return' ->
-         results.tag = nil    
+         results.tag = nil
          x <- `Call{ +{types.__function}, params, results }
       | `Function{...} -> error "malformed function type"
       | _ -> -- pass
@@ -259,12 +259,12 @@ function checktype_builder(type, term, kind)
    | 'expr' ->
       return `Stat{ { `Call{ type, term } }, term }
    | 'stat' ->
-      return `Call{ type, term } 
+      return `Call{ type, term }
    end
 end
 
 --------------------------------------------------------------------------
--- Parse the typechecking tests in a function definition, and adds the 
+-- Parse the typechecking tests in a function definition, and adds the
 -- corresponding tests at the beginning of the function's body.
 --------------------------------------------------------------------------
 local function func_val_builder (x)
@@ -300,9 +300,9 @@ local id_or_dots = gg.multisequence{ { "...", builder = "Dots" }, default = mlp.
 
 -- Function parsing:
 mlp.func_val = gg.sequence{
-   "(", gg.list{ 
+   "(", gg.list{
       gg.sequence{ id_or_dots, opt_type }, terminators = ")", separators  = "," },
-   ")",  opt_type, mlp.block, "end", 
+   ")",  opt_type, mlp.block, "end",
    builder = func_val_builder }
 
 mlp.lexer:add { "::", "newtype" }
@@ -315,14 +315,14 @@ local_decl_parser[1].primary = gg.sequence{ mlp.id, opt_type }
 
 function local_decl_parser.builder(x)
    local lhs, rhs = unpack(x)
-   local s, stypes = `Local{ { }, rhs or { } }, { } 
+   local s, stypes = `Local{ { }, rhs or { } }, { }
    for i = 1, #lhs do
       local id, type = unpack(lhs[i])
       s[1][i] = id
       if type then stypes[id[1]]=type end
    end
    if next(stypes) then s.types = stypes end
-   return s   
+   return s
 end
 
 function newtype_builder(x)
@@ -331,8 +331,8 @@ function newtype_builder(x)
    | `Id{ x } -> t = process_type (rhs)
    | `Call{ `Id{ x }, ... } ->
       t = `Function{ { }, rhs }
-      for i = 2, #lhs do 
-         if lhs[i].tag ~= "Id" then error "Invalid newtype parameter" end 
+      for i = 2, #lhs do
+         if lhs[i].tag ~= "Id" then error "Invalid newtype parameter" end
          t[1][i-1] = lhs[i]
       end
    | _ -> error "Invalid newtype definition"
@@ -348,4 +348,4 @@ mlp.stat:add{ "newtype", mlp.expr, "=", mlp.expr, builder = newtype_builder }
 --------------------------------------------------------------------------
 --mlp.expr.infix:add{ "::", prec=100, builder = |a, _, b| insert_test(a,b) }
 
-return +{ require 'extension.types-runtime' }
++{ require -{ `String{ package.metalua_extension_prefix .. 'types-runtime' } } }
