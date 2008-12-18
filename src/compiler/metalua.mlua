@@ -233,7 +233,10 @@ local function main (...)
       -- FIXME: check for failures
 
       runargs = table.icat(cfg.params or { }, runargs)
-      local st, msg = pcall(f, unpack (runargs))
+      local function print_traceback (errmsg)
+         return errmsg .. '\n' .. debug.traceback ('',2) .. '\n'
+      end
+      local st, msg = xpcall(|| f(unpack (runargs)), print_traceback)
       if not st then
          io.stderr:write(msg)
          os.exit(RUNTIME_ERROR_NUMBER)
