@@ -4,25 +4,7 @@
 
 require 'metalua.compiler'
 require 'metalua.clopts'
-
-do
-   local mfast = os.getenv 'LUA_NOSPRINGS'
-   local has_springs = mfast~='yes' and mfast~='true' and pcall(require, 'springs')
-   if has_springs then
-      function spring_pcall(...)
-      	local ring = springs.new()
-      	ring:dostring (INIT_COMPILATION_RING)
-      	st, ast = ring:pcall(...)
-      	ring:close()
-      	return st, ast
-      end
-   else
-      function spring_pcall(f, ...)
-         if type(f)=='string' then f = loadstring("return "..f)() end
-		 return pcall(f, ...)
-	  end
-   end
-end
+require 'serialize'
 
 AST_COMPILE_ERROR_NUMBER        = -1
 RUNTIME_ERROR_NUMBER            = -3
@@ -30,12 +12,27 @@ BYTECODE_SYNTHESE_ERROR_NUMBER  = -100
 
 -{ extension 'match' }
 
+function spring_pcall (f, arg, name)
+   -- FIXME: won't work if `arg' or `name' contain a backslash-escaped quot char.
+   arg  = arg  :gsub ("'", "\\'")
+   name = name :gsub ("'", "\\'")
+   local pattern = [[lua -l metalua.mlc -l serialize -e "print(serialize(%s('%s', '%s')))"]]
+   local cmd = string.format (pattern, f, arg, name)
+   --print ("Running the following process: " .. cmd)
+   local fd = io.popen (cmd)
+   local data = fd:read '*a'
+   fd:close()
+   --print (data)
+   local ast_builder, msg = lua_loadstring(data)
+   if not ast_builder then error ("can't compile data: "..msg) end
+   local ast = ast_builder()
+   return true, ast
+end
+
 local chunks  = { }
 local runargs = { }
 
-local acc_chunk = |kind| function (arg)
-   table.insert (chunks, { tag=kind, arg })
-end
+local acc_chunk = |kind| |arg| table.insert (chunks, { tag=kind, arg })
 
 parser = clopts {
    -- Chunk loading
@@ -102,9 +99,6 @@ flags lack, metalua tries to adopt a "Do What I Mean" approach:
   forbids it.
 ]]}
 
-
-INIT_COMPILATION_RING = [[require 'metalua.compiler']]
-
 local function main (...)
 
    local cfg = parser(...)
@@ -169,7 +163,7 @@ local function main (...)
          end
       end
       if not st then
-         printf ("Cannot compile %s: %s", table.tostring(x), ast)
+         printf ("Cannot compile %s: %s", table.tostring(x), ast or "no msg")
          os.exit (AST_COMPILE_ERROR_NUMBER)
       end
       ast.origin = x
@@ -252,9 +246,6 @@ local function main (...)
       verb_print "Starting REPL loop"
       require 'metalua.metaloop'
       metaloop.run()
---       print ("*":rep(70))
---       print "*** !!! Interactive loop not implemented !!!"
---       print ("*":rep(70))
    end
 
    verb_print "Done"

@@ -45,22 +45,17 @@ end
 
 
 ----------------------------------------------------------------------
--- Execute a metalua module sources compilation in a separate ring.
+-- Execute a metalua module sources compilation in a separate process
 ----------------------------------------------------------------------
 local function spring_load(filename)
-   local env_fast = os.getenv 'LUA_NOSPRINGS'
-   local try_springs = env_fast=='yes' or env_fast=='true'
-   local has_springs = try_springs and pcall(require, 'springs')
-   if has_springs then
-      local r = springs.new()
-      r:dostring [[require 'metalua.compiler']]
-      local f = r:call('mlc.function_of_luafile', filename)
-      r:close()
-      return f
-   else
-      --print "LUA_NOSPRINGS mode"
-      return mlc.function_of_luafile(filename)
-   end
+   local pattern = 
+      [[lua -l metalua.mlc -l -e "print(mlc.luacstring_of_luafile('%s', '%s'))"]]
+   local cmd = string.format (pattern, f, filename, filename)
+   print ("running command: ``" .. cmd .. "''")
+   local fd = io.popen (cmd)
+   local bytecode = fd:read '*a'
+   fd:close()
+   return string.undump (bytecode)
 end
 
 ----------------------------------------------------------------------
