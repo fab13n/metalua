@@ -18,7 +18,7 @@ function serialize (x)
    local nested     = { } -- transient, set of elements currently being traversed
 
    local function gensym()
-      gensym_max = gensym_max + 1 ;  return "_" .. gensym_max
+      gensym_max = gensym_max + 1 ;  return gensym_max
    end
 
    -----------------------------------------------------------------------------
@@ -26,9 +26,9 @@ function serialize (x)
    -----------------------------------------------------------------------------
    local function mark_multiple_occurences (x)
       if no_identity [type(x)] then return end
-      if     seen_once [x]    then seen_once [x], multiple [x] = nil, gensym()
-      elseif multiple [x]     then -- pass
-      elseif seen_once [x] = true end
+      if     seen_once [x]     then seen_once [x], multiple [x] = nil, true
+      elseif multiple  [x]     then -- pass
+      else   seen_once [x] = true end
       
       if type (x) == 'table' then
          nested [x] = true
@@ -59,23 +59,33 @@ function serialize (x)
          return string.format ("loadstring(%q,'@serialized')", string.dump (x))
       elseif t=="table" then
          local acc = { }
-         for k, v in pairs(x) do
-            --------------------------------------------------------------------
-            -- if x occurs multiple times, dump the local var rather than the
-            -- value. If it's the first time it's dumped, also dump the content
-            -- in localdefs.
-            --------------------------------------------------------------------            
-            local function check_multiple (x)
-               local var = multiple [x]
-               if not var then return dump_val (x) end            -- Occuring only once              
-               if dumped [var] then return var end  -- multiple occ, but already dumped
-               table.insert (localdefs, "local " .. var .. " = " .. dump_val (x)) -- dump
-               dumped [var] = true
-               return var
-            end
-            table.insert (acc, "[" .. check_multiple(k) .. "] = " .. check_multiple(v))
+         --------------------------------------------------------------------
+         -- if x occurs multiple times, dump the local var rather than the
+         -- value. If it's the first time it's dumped, also dump the content
+         -- in localdefs.
+         --------------------------------------------------------------------            
+         local function check_multiple (x)
+            if not multiple[x] then return dump_val (x) end
+            local var = dumped [x]
+            if var then return "_[" .. var .. "]" end
+            local val = dump_val(x)
+            var = gensym()
+            table.insert(localdefs, "_["..var.."]="..val)
+            dumped [x] = var
+            return "_[" .. var .. "]"
          end
-         return "{ "..table.concat(acc,"; ").." }"
+
+         local idx_dumped = { }
+         for i, v in ipairs(x) do
+            table.insert (acc, check_multiple(v))
+            idx_dumped[i] = true
+         end
+         for k, v in pairs(x) do
+            if not idx_dumped[k] then
+               table.insert (acc, "[" .. check_multiple(k) .. "] = " .. check_multiple(v))
+            end
+         end
+         return "{ "..table.concat(acc,", ").." }"
       else
          error ("Can't serialize data of type "..t)
       end
@@ -83,6 +93,11 @@ function serialize (x)
           
    mark_multiple_occurences (x)
    local toplevel = dump_val (x)
-   return next (localdefs) and table.concat (localdefs, "\n") .. "\nreturn " .. toplevel
-      or "return "..toplevel
+   if next (localdefs) then
+      return "local _={ }\n" ..
+         table.concat (localdefs, "\n") .. 
+         "\nreturn " .. toplevel
+   else
+      return "return " .. toplevel
+   end
 end
