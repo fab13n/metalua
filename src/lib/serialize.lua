@@ -4,11 +4,11 @@
 -- to the original one. The following are currently supported:
 -- * strings, numbers, booleans, nil
 -- * functions without upvalues
--- * tables thereof. Tables cna have shared part, but can't be recursive yet.
+-- * tables thereof. Tables can have shared part, but can't be recursive yet.
 -- Caveat: metatables and environments aren't saved.
 --------------------------------------------------------------------------------
 
-local no_identity = table.transpose { 'number', 'boolean', 'string', 'nil' }
+local no_identity = { number=1, boolean=1, string=1, nil=1 }
 
 function serialize (x)
 
@@ -33,7 +33,8 @@ function serialize (x)
       if type (x) == 'table' then
          nested [x] = true
          for k, v in pairs (x) do
-            if nested [k] then error "Can't serialize recursive tables yet" end
+            if nested [k] or nexted [v] 
+            then error "Can't serialize recursive tables yet" end
             mark_multiple_occurences (k)
             mark_multiple_occurences (v)
          end
