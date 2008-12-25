@@ -73,6 +73,29 @@
 
 module ('spmatch', package.seeall)
 
+----------------------------------------------------------------------
+-- This would have been best done through library 'metalua.walk',
+-- but walk depends on match, so we have to break the dependency.
+-- It replaces all instances of `...' in `ast' with `term', unless
+-- it appears in a function.
+----------------------------------------------------------------------
+function replace_dots (ast, term)
+   local function rec (x)
+      if type(x) == 'table' then
+         if x.tag=='Dots' then 
+            if term=='ambiguous' then
+               error ("You can't use `...' on the right of a match case when it appears "..
+                      "more than once on the left")
+            else 
+               x <- term
+            end
+         elseif x.tag=='Function' then return
+         else for y in ivalues (x) do rec (y) end end
+      end
+   end
+   return rec (ast)
+end
+
 tmpvar_base = mlp.gensym 'submatch.' [1]
 function next_tmpvar(cfg)
    assert (cfg.ntmp, "No cfg.ntmp imbrication level in the match compiler")
@@ -197,7 +220,7 @@ function table_pattern_element_builder (pattern, term, cfg)
             acc_test (+{ -{sub_pattern} == nil }, cfg)
          end
       elseif sub_pattern.tag == "Dots" then
-         -- Remember to suppress arity checking
+         -- Remember where the capture is, and thatt arity checking shouldn't occur
          seen_dots = true
       else
          -- Business as usual:
@@ -207,7 +230,13 @@ function table_pattern_element_builder (pattern, term, cfg)
          -- TODO: restore ntmp?
       end
    end
-   if not seen_dots then -- Check arity
+   if seen_dots then -- remember how to retrieve `...'
+      -- FIXME: check, but there might be cases where the variable -{term} 
+      -- will be overridden in contrieved tables.
+      -- ==> save it now, and clean the setting statement if unused
+      if cfg.dots_replacement then cfg.dots_replacement = 'ambiguous'
+      else cfg.dots_replacement = +{ select (-{`Number{len}}, unpack(-{term})) } end
+   else -- Check arity
       acc_test (+{ #-{term} ~= -{`Number{len}} }, cfg)
    end
 end
@@ -239,6 +268,7 @@ function case_builder (case, term_seq, cfg)
    for i = 1, #patterns_group do
       local pattern_seq = patterns_group[i]
       cfg.on_failure = mlp.gensym 'match_fail' [1]
+      cfg.dots_replacement = false
       pattern_seq_builder (pattern_seq, term_seq, cfg)
       if i<#patterns_group then
          acc_stat (`Goto{on_success}, cfg)
@@ -247,6 +277,10 @@ function case_builder (case, term_seq, cfg)
    end
    acc_stat (`Label{on_success}, cfg)
    if guard then acc_test (+{not -{guard}}, cfg) end
+   if cfg.dots_replacement then
+      eprintf ("Dots replacement required in a match")
+      replace_dots (block, cfg.dots_replacement)
+   end
    block.tag = 'Do'
    acc_stat (block, cfg)
    acc_stat (`Goto{cfg.after_success}, cfg)
@@ -282,9 +316,10 @@ function match_builder (x)
 
    for i=1, #cases do
       local case_cfg = { 
-         after_success = cfg.after_success,
-         code         = `Do{ },
-         locals       = { } }
+         after_success    = cfg.after_success,
+         code             = `Do{ }
+         -- locals    = { } -- unnecessary, done by pattern_seq_builder
+      }
       case_builder (cases[i], term_seq, case_cfg)
       if next (case_cfg.locals) then
          local case_locals = { }

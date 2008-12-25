@@ -85,15 +85,16 @@ local function _walk_id (kind, supercfg, ast, ...)
          local r = supercfg.expr.down(x, ...)
          if r then return r end
       end
+      local parents = {...}
       match x with
       | `Id{ name } ->
          local binder, r = scope.current[name] -- binder :: ast which bound var
          if binder then 
             --$log( 'walk.id found a bound var:', x, binder)
-            r = visit_bound_var(x, binder, ...)
+            r = visit_bound_var(x, binder, unpack(parents))
          else 
             --$log( 'walk.id found a free var:', x, scope.current)
-            r = visit_free_var(x, ...) 
+            r = visit_free_var(x, unpack(parents))
          end
          if r then return r end
       | `Function{ params, _ } -> scope:push (params, x)
@@ -105,7 +106,7 @@ local function _walk_id (kind, supercfg, ast, ...)
          -------------------------------------------------------------
          scope:push()
          for stat in values (block) do walk.stat(cfg, stat, x, ...) end 
-         walk.expr(cfg, expr, x, ...)
+         walk.expr(cfg, expr, x, unpack(parents))
          scope:pop()
          return 'break'
       | _ -> -- pass
