@@ -13,10 +13,9 @@ BYTECODE_SYNTHESE_ERROR_NUMBER  = -100
 -{ extension 'match' }
 
 function spring_pcall (f, arg, name)
-   -- FIXME: won't work if `arg' or `name' contain a backslash-escaped quot char.
-   arg  = arg  :gsub ("'", "\\'")
-   name = name :gsub ("'", "\\'")
-   local pattern = [[lua -l metalua.mlc -l serialize -e "print(serialize(%s('%s', '%s')))"]]
+   local pattern = 
+      [=[lua -l metalua.compiler -l serialize -e ]=]..
+      [=["print (serialize (%s ([[%s]], [[%s]])))"]=]
    local cmd = string.format (pattern, f, arg, name)
    --print ("Running the following process: " .. cmd)
    local fd = io.popen (cmd)

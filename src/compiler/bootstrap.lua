@@ -37,12 +37,17 @@ package.preload['metalua.mlc'] = function()
       f:close()
       return mlc.function_of_luastring (src, "@"..name)
    end
+
+   -- don't let require() fork a separate process for *.mlua compilations.
+   package.metalua_nopopen = true
 end
+
+package.path = '?.luac;?.lua;../lib/?.luac;../lib/?.lua'
 
 require 'verbose_require'
 require 'metalua.base'
-require 'metalua.bytecode'
-require 'metalua.mlp'
+require 'bytecode'
+require 'mlp'
 require 'metalua.package2'
 
 local function compile_file (src_filename)

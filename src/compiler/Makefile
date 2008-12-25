@@ -50,14 +50,16 @@ mlp.luac: $(MLP_LUA)
 	$(LUA_COMPILE) -o $@ bootstrap $<
 
 # Compiler/interpreter
-metalua: metalua.luac $(LIBRARIES)
+metalua: metalua.luac install-lib
 	$(LUA_RUN) metalua.luac --verbose --sharpbang '#!$(TARGET_BIN_PATH)/lua' --output metalua --file metalua.mlua
 
-install: metalua $(LIBRARIES)
+install-lib: $(LIBRARIES)
+	mkdir -p $(TARGET_LUA_PATH)/metalua
+	cp $(LIBRARIES) $(TARGET_LUA_PATH)/metalua/
+
+install: install-lib metalua
 	mkdir -p $(TARGET_BIN_PATH)
 	cp metalua $(TARGET_BIN_PATH)/
-	mkdir -p $(TARGET_LUA_PATH)
-	cp $(LIBRARIES) $(TARGET_LUA_PATH)/
 
 .PHONY: all install
 

@@ -43,19 +43,26 @@ function package.findfile(name, path_string)
    return false, table.concat(errors, "\n")..'\n'
 end
 
-
 ----------------------------------------------------------------------
 -- Execute a metalua module sources compilation in a separate process
+-- Sending back the bytecode directly is difficult, as some shells
+-- (at least MS-Windows') interpret some characters. So rather than
+-- base64-encoding the bytecode, AST is returned from the child
+-- process, and converted to bytecode then function in the calling
+-- process.
 ----------------------------------------------------------------------
 local function spring_load(filename)
+   -- FIXME: handle compilation errors
    local pattern = 
-      [[lua -l metalua.mlc -l -e "print(mlc.luacstring_of_luafile('%s', '%s'))"]]
-   local cmd = string.format (pattern, f, filename, filename)
-   print ("running command: ``" .. cmd .. "''")
+      [=[lua -l metalua.compiler -l serialize -e ]=]..
+      [=["print(serialize(mlc.ast_of_luafile [[%s]]))"]=]
+   local cmd = string.format (pattern, filename)
+   --print ("running command: ``" .. cmd .. "''")
    local fd = io.popen (cmd)
-   local bytecode = fd:read '*a'
+   local ast_src = fd:read '*a'
    fd:close()
-   return string.undump (bytecode)
+   local ast = lua_loadstring (ast_src) () -- much faster than loadstring()
+   return mlc.function_of_ast (ast, filename)
 end
 
 ----------------------------------------------------------------------
@@ -64,8 +71,14 @@ end
 function package.metalua_loader (name)
    local file, filename_or_msg = package.findfile (name, package.mpath)
    if not file then return filename_or_msg end
-   file:close()
-   return spring_load(filename_or_msg)
+   if package.metalua_nopopen then
+      local luastring = file:read '*a'
+      file:close()
+      return mlc.function_of_luastring (luastring, name)
+   else
+      file:close()
+      return spring_load (filename_or_msg)
+   end
 end
 
 ----------------------------------------------------------------------
