@@ -19,11 +19,14 @@ function spring_pcall (f, arg, name)
    local cmd = string.format (pattern, f, arg, name)
    --print ("Running the following process: " .. cmd)
    local fd = io.popen (cmd)
-   local data = fd:read '*a'
+   local ast_src = fd:read '*a'
    fd:close()
    --print (data)
-   local ast_builder, msg = lua_loadstring(data)
-   if not ast_builder then error ("can't compile data: "..msg) end
+   local ast_builder, msg = lua_loadstring(ast_src)
+   if not ast_builder then 
+      error ("can't compile data: "..msg) 
+      print (ast_src)
+   end
    local ast = ast_builder()
    return true, ast
 end
