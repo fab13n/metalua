@@ -46,8 +46,8 @@
 -{ extension 'match' }
 -{ extension 'log' }
 
-require 'walk'
-require 'walk.scope'
+require 'metalua.walk'
+require 'metalua.walk.scope'
 
 -- variable lists auto-create empty list as values by default.
 local varlist_mt = { __index = function (self, key) 

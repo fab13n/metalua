@@ -348,4 +348,4 @@ mlp.stat:add{ "newtype", mlp.expr, "=", mlp.expr, builder = newtype_builder }
 --------------------------------------------------------------------------
 --mlp.expr.infix:add{ "::", prec=100, builder = |a, _, b| insert_test(a,b) }
 
-+{ require -{ `String{ package.metalua_extension_prefix .. 'types-runtime' } } }
++{ require (-{ `String{ package.metalua_extension_prefix .. 'types-runtime' } }) }

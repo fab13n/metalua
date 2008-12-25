@@ -18,7 +18,7 @@ local match_alpha = require 'extension.match'
 local H = H:new{side='inside', alpha = match_alpha }
 
 -- We'll need to track rogue return statements:
-require 'walk'
+require 'metalua.walk'
 
 -- Put a block AST into a pcall():
 local mkpcall = |block| +{pcall(function() -{block} end)}
