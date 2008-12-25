@@ -73,11 +73,11 @@
 
 module ('spmatch', package.seeall)
 
-tmpvar_base = mlp.gensym 'table_submatch.' [1]
+tmpvar_base = mlp.gensym 'submatch.' [1]
 function next_tmpvar(cfg)
-   local n2 = cfg.ntmp
-   if cfg.ntmp then n2=cfg.ntmp+1; cfg.ntmp=n2 else cfg.ntmp, n2 = 1, 1 end
-   return `Id{ tmpvar_base .. n2 }
+   assert (cfg.ntmp, "No cfg.ntmp imbrication level in the match compiler")
+   cfg.ntmp = cfg.ntmp+1
+   return `Id{ tmpvar_base .. cfg.ntmp }
 end
 
 -- Code accumulators
@@ -216,7 +216,9 @@ end
 -- term_seq.
 function pattern_seq_builder (pattern_seq, term_seq, cfg)
    if #pattern_seq ~= #term_seq then error ("Bad seq arity") end
+   cfg.locals = { } -- reset bound variables between alternatives
    for i=1, #pattern_seq do
+      cfg.ntmp = 1 -- reset the tmp var generator
       pattern_element_builder(pattern_seq[i], term_seq[i], cfg)
    end
 end
@@ -237,10 +239,10 @@ function case_builder (case, term_seq, cfg)
    for i = 1, #patterns_group do
       local pattern_seq = patterns_group[i]
       cfg.on_failure = mlp.gensym 'match_fail' [1]
-      pattern_seq_builder(pattern_seq, term_seq, cfg)
+      pattern_seq_builder (pattern_seq, term_seq, cfg)
       if i<#patterns_group then
-         acc_stat(`Goto{on_success}, cfg)
-         acc_stat(`Label{cfg.on_failure}, cfg)
+         acc_stat (`Goto{on_success}, cfg)
+         acc_stat (`Label{cfg.on_failure}, cfg)
       end
    end
    acc_stat (`Label{on_success}, cfg)
