@@ -68,6 +68,9 @@ function id (...) return ... end
 function const (k) return function () return k end end
 
 function printf(...) return print(string.format(...)) end
+function eprintf(...) 
+   io.stderr:write(string.format(...).."\n") 
+end
 
 function ivalues (x)
    assert(type(x)=='table', 'ivalues() expects a table')

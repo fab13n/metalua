@@ -262,7 +262,7 @@ function multisequence (p)
       if type(s[1]) ~= "string" then 
          error "Invalid sequence for multiseq"
       elseif self.sequences[s[1]] then 
-         printf (" *** Warning: keyword %q overloaded in multisequence ***", s[1])
+         eprintf (" *** Warning: keyword %q overloaded in multisequence ***", s[1])
       end
       self.sequences[s[1]] = s
    end -- </multisequence.add>
@@ -277,9 +277,9 @@ function multisequence (p)
    -------------------------------------------------------------------
    function p:del (kw) 
       if not self.sequences[kw] then 
-         printf("*** Warning: trying to delete sequence starting "..
-                "with %q from a multisequence having no such "..
-                "entry ***", kw) end
+         eprintf("*** Warning: trying to delete sequence starting "..
+                 "with %q from a multisequence having no such "..
+                 "entry ***", kw) end
       local removed = self.sequences[kw]
       self.sequences[kw] = nil 
       return removed
