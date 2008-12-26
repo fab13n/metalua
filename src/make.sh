@@ -10,8 +10,10 @@ BUILD_BIN=${BUILD}/bin
 BUILD_LIB=${BUILD}/lib
 
 # Where to place the final results
-INSTALL_BIN=/usr/local/bin
-INSTALL_LIB=/usr/local/lib/lua/5.1
+# INSTALL_BIN=/usr/local/bin
+# INSTALL_LIB=/usr/local/lib/lua/5.1
+INSTALL_BIN=~/local/bin
+INSTALL_LIB=~/local/lib/lua
 
 # Where to find Lua executables.
 # On many Debian-based systems, those can be installed with "sudo apt-get install lua5.1"
@@ -80,9 +82,10 @@ mkdir -p ${INSTALL_LIB}
 
 cat > ${INSTALL_BIN}/metalua <<EOF
 #!/bin/sh
-export LUA_PATH='?.luac;?.lua;${INSTALL_LIB}/?.luac;${INSTALL_LIB}/?.lua'
-export LUA_MPATH='?.mlua;${INSTALL_LIB}/?.mlua'
-${LUA} ${INSTALL_LIB}/metalua.luac \$*
+METALUA_LIB=${INSTALL_LIB}
+export LUA_PATH="?.luac;?.lua;\\\${METALUA_LIB}/?.luac;\\\${METALUA_LIB}/?.lua"
+export LUA_MPATH="?.mlua;\\\${METALUA_LIB}/?.mlua"
+${LUA} \\\${METALUA_LIB}/metalua.luac \\\$*
 EOF
 
 chmod a+x ${INSTALL_BIN}/metalua
