@@ -1,7 +1,0 @@
-#!/bin/bash
-cat <<EOF 
-
-There's no automake/autoconf Rube Goldberg contraption here :) 
-Edit the file 'config', then run GNU Make.
-
-EOF
