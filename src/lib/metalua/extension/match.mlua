@@ -278,7 +278,6 @@ function case_builder (case, term_seq, cfg)
    acc_stat (`Label{on_success}, cfg)
    if guard then acc_test (+{not -{guard}}, cfg) end
    if cfg.dots_replacement then
-      eprintf ("Dots replacement required in a match")
       replace_dots (block, cfg.dots_replacement)
    end
    block.tag = 'Do'

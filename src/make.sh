@@ -33,7 +33,7 @@ echo '*** Create the distribution directories, populate them with lib sources **
 mkdir -p ${BUILD_BIN}
 mkdir -p ${BUILD_LIB}
 cp -R lib/* ${BUILD_LIB}/
-cp -R bin/* ${BUILD_BIN}/
+# cp -R bin/* ${BUILD_BIN}/ # No binaries provided for unix (for now)
 
 echo '*** Generate a callable metalua shell script ***'
 
