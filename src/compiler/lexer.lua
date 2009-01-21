@@ -67,8 +67,13 @@ local function unescape_string (s)
    -- Turn the digits of an escape sequence into the corresponding
    -- character, e.g. [unesc_digits("123") == string.char(123)].
    local function unesc_digits (x)
+      if x:sub(1,1)=="\\" then return x end -- Hack to parse correctly "\\123"
       local k, j, i = x:reverse():byte(1, 3)
       local z = _G.string.byte "0"
+      local code = (k or z) + 10*(j or z) + 100*(i or z) - 111*z
+      if code > 255 then 
+      	 error ("Illegal escape sequence '\\"..x.."' in string: ASCII codes must be in [0..255]") 
+      end
       return _G.string.char ((k or z) + 10*(j or z) + 100*(i or z) - 111*z)
    end
 
@@ -84,7 +89,7 @@ local function unescape_string (s)
 
    return s
       :gsub ("\\(%D)",unesc_letter)
-      :gsub ("\\([0-9][0-9]?[0-9]?)", unesc_digits)
+      :gsub ("\\(\\?[0-9][0-9]?[0-9]?)", unesc_digits)
 end
 
 lexer.extractors = {
