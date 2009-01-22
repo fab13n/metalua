@@ -1,3 +1,5 @@
+#! /bin/sh
+
 # --- BEGINNING OF USER-EDITABLE PART ---
 
 # Metalua sources
