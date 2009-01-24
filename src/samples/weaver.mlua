@@ -82,7 +82,7 @@ end
 
 -- Get the source. If none is given, use itself as an example. --
 local filename = arg[2] or arg[1] or arg[0]
-local f = io.open (filename, 'r')
+local f = assert (io.open (filename, 'r'))
 local src = f:read '*a'
 f:close()
 
