@@ -46,10 +46,12 @@ function weave_ast (src, ast, name)
       local function acc(x) table.insert (_acc, x) end
       
       -- ast Can't be weaved normally, try something else --
-      local function synthetize (ast)         
-         acc "-{expr: "
-         acc (table.tostring (ast, 'nohash', 80, 8))
-         acc " }"
+      local function synthetize (ast)
+         if next(ast) then -- Dumping non-empty nodes only
+            acc "-{expr: "
+            acc (table.tostring (ast, 'nohash', 80, 8))
+            acc " }"
+         end
       end
 
       -- regular weaving of chidren in the parent's sources --
