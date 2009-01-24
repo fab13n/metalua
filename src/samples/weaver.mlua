@@ -22,6 +22,14 @@ function weave_ast (src, ast, name)
    -- the `Local{ } node, although it's not directly included in it.
    -------------------------------------------------------------------
    function node.down(ast, parent)
+      ----------------------------------------------------
+      -- `Do{ } blocks are processed twice:
+      --  * once as a statement
+      --  * once as a block, child of itself
+      -- This prevents them from becoming their own child.
+      ----------------------------------------------------
+      if ast==parent then return end
+
       if not ast.lineinfo then 
          weaveable [ast] = false, false
          if parent then weaveable [parent] = false end
@@ -89,5 +97,10 @@ local src = f:read '*a'
 f:close()
 
 local ast = mlc.luastring_to_ast (src, name)
-
-print (weave_ast (src, ast))
+if not next(ast) then
+   io.write (src) -- Empty ast, probably empty file, or comments only
+else
+   local before = src:sub (1, ast.lineinfo.first[3]-1)
+   local after  = src:sub (ast.lineinfo.last[3]+1, -1)
+   io.write (before .. weave_ast (src, ast) .. after)
+end
