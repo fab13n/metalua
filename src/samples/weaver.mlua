@@ -35,6 +35,12 @@ function weave_ast (src, ast, name)
          if parent then weaveable [parent] = false end
       else
          weaveable [ast] = true
+         
+         -- normalize lineinfo
+         -- TODO: FIXME
+         if ast.lineinfo.first[3] > ast.lineinfo.last[3] then
+           ast.lineinfo.first, ast.lineinfo.last = ast.lineinfo.last, ast.lineinfo.first
+         end
       end
       ast_children [ast] = { }
       ast_parent [ast] = parent
