@@ -59,13 +59,17 @@ function weave_ast (src, ast, name)
       local _acc = { }
       local function acc(x) table.insert (_acc, x) end
       
+      if not next(ast) then -- shadow node, remove from ast_children
+         local x = ast_children[ast_parent[ast]]
+         for i,a in ipairs (x) do if a==ast then table.remove (x, i); break end end
+         return "" -- no need to continue, we know that the node is empty!
+      end
+      
       -- ast Can't be weaved normally, try something else --
       local function synthetize (ast)
-         if next(ast) then -- Dumping non-empty nodes only
-            acc "-{expr: "
-            acc (table.tostring (ast, 'nohash', 80, 8))
-            acc " }"
-         end
+         acc "-{expr: "
+         acc (table.tostring (ast, 'nohash', 80, 8))
+         acc " }"
       end
 
       -- regular weaving of chidren in the parent's sources --
