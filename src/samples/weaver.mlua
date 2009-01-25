@@ -70,15 +70,19 @@ function weave_ast (src, ast, name)
 
       -- regular weaving of chidren in the parent's sources --
       local function weave (ast)
+         -- sort children in appearence order
+         local comp = |a,b| a.lineinfo.first[3] < b.lineinfo.first[3]
+         table.sort (ast_children [ast], comp)
+ 
          local li = ast.lineinfo
          if not li then return synthetize (ast) end
          local a, d = li.first[3], li.last[3]
          for child in ivalues (ast_children [ast]) do
             local li = child.lineinfo
             local b, c = li.first[3], li.last[3]
-            acc (src:sub (a, b-1))
+            acc (src:sub (a, b - 1))
             acc (translation [child])
-            a = c+1
+            a = c + 1
          end
          acc (src:sub (a, d))
       end
