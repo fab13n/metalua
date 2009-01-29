@@ -67,6 +67,9 @@ parser = clopts {
    {  short = 'A', long = 'print-ast-lineinfo',  type = 'boolean',
       usage = 'print the AST resulting from file compilation, including lineinfo data'
    },
+   {  short = 'S', long = 'print-src',  type = 'boolean',
+      usage = 'print the AST resulting from file compilation, as re-gerenerated sources'
+   },
    {  short = 'b', long = 'metabugs', type = 'boolean',
       usage = 'show syntax errors as compile-time execution errors'
    },
@@ -186,6 +189,18 @@ local function main (...)
          if x.origin and x.origin.tag=='File' then x=x[1][1][2][1] end
          if cfg['print-ast-lineinfo'] then table.print(x, 80, "indent1")
          else table.print(x, 80, 'nohash') end
+      end
+   end
+
+   -------------------------------------------------------------------
+   -- Source printing
+   if cfg['print-src'] then
+      verb_print "Resulting sources:"
+      require 'metalua.ast_to_string'
+      for x in ivalues(code) do
+         printf("--- Source From %s: ---", table.tostring(x.source, 'nohash'))
+         if x.origin and x.origin.tag=='File' then x=x[1][1][2][1] end
+         print (ast_to_string (x))
       end
    end
 
