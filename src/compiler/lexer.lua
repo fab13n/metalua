@@ -7,9 +7,6 @@
 --
 -- TODO: 
 --
--- * Make it possible to change lexer on the fly. This implies the
---   ability to easily undo any pre-extracted tokens;
---
 -- * Make it easy to define new flavors of strings. Replacing the
 --   lexer.patterns.long_string regexp by an extensible list, with
 --   customizable token tag, would probably be enough. Maybe add:
@@ -50,12 +47,10 @@ lexer.patterns = {
    final_short_comment = "^%-%-([^\n]*)()$",
    long_comment        = "^%-%-%[(=*)%[\n?(.-)%]%1%]()",
    long_string         = "^%[(=*)%[\n?(.-)%]%1%]()",
-   number_mantissa     = {
-      "^%d+%.?%d*()",
-      "^%d*%.%d+()" },
-   number_exponant = "^[eE][%+%-]?%d+()",
-   number_hex      = "^0[xX]%x+()",
-   word            = "^([%a_][%w_]*)()"
+   number_mantissa     = { "^%d+%.?%d*()", "^%d*%.%d+()" },
+   number_exponant     = "^[eE][%+%-]?%d+()",
+   number_hex          = "^0[xX]%x+()",
+   word                = "^([%a_][%w_]*)()"
 }
 
 ----------------------------------------------------------------------
@@ -99,22 +94,6 @@ lexer.token_metatable = {
 } 
       
 lexer.lineinfo_metatable = { }
---[[ 
--- The presence of this function prevents serialization by Pluto, 
--- I can't figure out why :(
-function lexer.lineinfo_metatable:__tostring()
-   local txt = string.format("%s:%i(%i,%i)", self[4], self[3], self[1], self[2])
-   if self.comments then 
-      acc = { }
-      for comment in ivalues(self.comments) do
-	 local content, loc1, loc2, kind = unpack(comment)
-	 table.insert (acc, string.format ("%s@%i..%i:%q", kind, loc1, loc2, content))
-      end
-      txt = txt.."["..table.concat(acc,"; ").."]"
-   end
-   return txt
-end
---]]
 
 ----------------------------------------------------------------------
 -- Really extract next token fron the raw string 
@@ -127,7 +106,7 @@ function lexer:extract ()
    local loc = self.i
    local eof, token
 
-   -- Put line info, comments and metatable arount the tag and content
+   -- Put line info, comments and metatable around the tag and content
    -- provided by extractors, thus returning a complete lexer token.
    -- first_line: line # at the beginning of token
    -- first_column_offset: char # of the last '\n' before beginning of token
