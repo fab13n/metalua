@@ -260,15 +260,16 @@ function multisequence (p)
       -- compile if necessary:
       if not is_parser(s) then sequence(s) end
       if is_parser(s) ~= 'sequence' or type(s[1]) ~= "string" then 
-         if self.default then
-            error "Invalid sequence for multiseq, there is already a default"
-         else
-            self.default = s
-         end
-      elseif self.sequences[s[1]] then 
+         if self.default then -- two defaults
+            error ("In a multisequence parser, all but one sequences "..
+                   "must start with a keyword")
+         else self.default = s end -- first default
+      elseif self.sequences[s[1]] then -- duplicate keyword
          eprintf (" *** Warning: keyword %q overloaded in multisequence ***", s[1])
+         self.sequences[s[1]] = s
+      else -- newly caught keyword
+         self.sequences[s[1]] = s
       end
-      self.sequences[s[1]] = s
    end -- </multisequence.add>
 
    -------------------------------------------------------------------
@@ -671,6 +672,8 @@ function onkeyword (p)
       if type(x)=="string" then table.insert (p.keywords, x)
       else assert (not p.primary and is_parser (x)); p.primary = x end
    end
+   if not next (p.keywords) then 
+      eprintf("Warning, no keyword to trigger gg.onkeyword") end
    assert (p.primary, 'no primary parser in gg.onkeyword')
    return p
 end --</onkeyword>
