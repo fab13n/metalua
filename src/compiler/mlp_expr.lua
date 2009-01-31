@@ -71,12 +71,12 @@ expr_list = gg.list{ _expr, separators = "," }
 --------------------------------------------------------------------------------
 -- Helpers for function applications / method applications
 --------------------------------------------------------------------------------
-local func_args_content = gg.list { 
+func_args_content = gg.list { 
    name = "function arguments",
    _expr, separators = ",", terminators = ")" } 
 
 -- Used to parse methods
-local method_args = gg.multisequence{
+method_args = gg.multisequence{
    name = "function argument(s)",
    { "{", table_content, "}" },
    { "(", func_args_content, ")", builder = fget(1) },
@@ -105,10 +105,11 @@ local _func_val = function (lx) return func_val(lx) end
 --------------------------------------------------------------------------------
 -- Default parser for primary expressions
 --------------------------------------------------------------------------------
-local function id_or_literal (lx)
+function id_or_literal (lx)
    local a = lx:next()
    if a.tag~="Id" and a.tag~="String" and a.tag~="Number" then
-      gg.parse_error (lx, "Unexpected expr token %s", _G.table.tostring(a))
+      gg.parse_error (lx, "Unexpected expr token %s",
+                      _G.table.tostring (a, 'nohash'))
    end
    return a
 end

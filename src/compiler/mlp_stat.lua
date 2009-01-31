@@ -179,7 +179,7 @@ local function assign_or_call_stat_parser (lx)
    end
 end
 
-local local_stat_parser = gg.multisequence{
+local_stat_parser = gg.multisequence{
    -- local function <name> <func_val>
    { "function", id, func_val, builder = 
       function(x) 

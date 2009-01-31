@@ -11,24 +11,6 @@
 -- for details.
 --
 ----------------------------------------------------------------------
--- History:
--- $Log: mlp_meta.lua,v $
--- Revision 1.4  2006/11/15 09:07:50  fab13n
--- debugged meta operators.
---
--- Revision 1.2  2006/11/09 09:39:57  fab13n
--- some cleanup
---
--- Revision 1.1  2006/11/07 21:29:02  fab13n
--- improved quasi-quoting
---
--- Revision 1.3  2006/11/07 04:38:00  fab13n
--- first bootstrapping version.
---
--- Revision 1.2  2006/11/05 15:08:34  fab13n
--- updated code generation, to be compliant with 5.1
---
-----------------------------------------------------------------------
 
 
 --------------------------------------------------------------------------------
@@ -39,9 +21,6 @@
 --
 --------------------------------------------------------------------------------
 
---require "compile"
---require "ldump"
-
 module ("mlp", package.seeall)
 
 --------------------------------------------------------------------------------
@@ -51,12 +30,7 @@ module ("mlp", package.seeall)
 --------------------------------------------------------------------------------
 
 function splice (ast)
-   --printf(" [SPLICE] Ready to compile:\n%s", _G.table.tostring (ast, "nohash", 60))
    local f = mlc.function_of_ast(ast, '=splice')
-   --printf " [SPLICE] Splice Compiled."
-   --local status, result = pcall(f)
-   --printf " [SPLICE] Splice Evaled."
-   --if not status then print 'ERROR IN SPLICE' end
    local result=f()
    return result
 end
@@ -106,12 +80,6 @@ function splice_content (lx)
       lx:next() -- skip ":"
       assert (a.tag=="Id", "Invalid splice parser name")
       parser_name = a[1]
---       printf("this splice is a %s", parser_name)
---    else
---       printf("no splice specifier:\npeek(1)")
---       _G.table.print(lx:peek(1))
---       printf("peek(2)")
---       _G.table.print(lx:peek(2))
    end
    local ast = mlp[parser_name](lx)
    if in_a_quote then
@@ -132,25 +100,18 @@ end
 --------------------------------------------------------------------------------
 function quote_content (lx)
    local parser 
-   if lx:is_keyword (lx:peek(1), ":") then -- +{:parser: content }
-      lx:next()
-      errory "NOT IMPLEMENTED"
-   elseif lx:is_keyword (lx:peek(2), ":") then -- +{parser: content }
+   if lx:is_keyword (lx:peek(2), ":") then -- +{parser: content }
       parser = mlp[id(lx)[1]]
       lx:next()
    else -- +{ content }
       parser = mlp.expr
    end
 
-   --assert(not in_a_quote, "Nested quotes not handled yet")
    local prev_iq = in_a_quote
    in_a_quote = true
    --print("IN_A_QUOTE")
    local content = parser (lx)
    local q_content = quote (content)
---     printf("/IN_A_QUOTE:\n* content=\n%s\n* q_content=\n%s\n",
---            _G.table.tostring(content, "nohash", 60),
---            _G.table.tostring(q_content, "nohash", 60))
    in_a_quote = prev_iq
    return q_content
 end
