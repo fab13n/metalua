@@ -53,7 +53,7 @@ local function comp_builder(core, list, no_unpack)
       r = +{stat: for -{w} in values( -{x} ) do -{ `Call{ ti, v, w } } end }
    | `Pair{ k, w } ->
       r = `Set{ { `Index{ v, k } }, { w } }
-   |  x -> r = `Call{ ti, v, x }
+   |  _ -> r = `Call{ ti, v, core }
    end
 
    -----------------------------------------------------------------------------
@@ -115,13 +115,18 @@ mlp.stat:add{ "for", gg.expr {
    "do", mlp.block, "end", builder = for_stat_builder }
 --]]
 
+--------------------------------------------------------------------------------
+-- Back-end for improved index operator.
+--------------------------------------------------------------------------------
 local function index_builder(a, suffix)
    match suffix[1] with
+   -- Single index, no range: keep the native semantics
    | { { e, false } } -> return `Index{ a, e }
+   -- Either a range, or multiple indexes, or both
    | ranges ->
       local r = `Call{ +{table.isub}, a }
-      local function acc(x,y) table.insert(r,x); table.insert(r,y) end
-      for seq in values(ranges) do
+      local function acc (x,y) table.insert (r,x); table.insert (r,y) end
+      for seq in ivalues (ranges) do
          match seq with
          | { e, false } -> acc(e,e)
          | { e, f }     -> acc(e,f)
@@ -131,6 +136,11 @@ local function index_builder(a, suffix)
    end
 end
 
+--------------------------------------------------------------------------------
+-- Improved "[...]" index operator:
+--  * support for multi-indexes ("foo[bar, gnat]")
+--  * support for ranges ("foo[bar ... gnat]")
+--------------------------------------------------------------------------------
 mlp.expr.suffix:del '['
 mlp.expr.suffix:add{ name="table index/range",
    "[", gg.list{
