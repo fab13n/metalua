@@ -75,7 +75,7 @@ end
 
 -------------------------------------------------------------------------------
 -- Return true iff [x] is a parser.
--- If it's a gg-generated parser, reutrn the name of its kind.
+-- If it's a gg-generated parser, return the name of its kind.
 -------------------------------------------------------------------------------
 function is_parser (x)
    return type(x)=="function" or getmetatable(x)==parser_metatable and x.kind
@@ -259,8 +259,12 @@ function multisequence (p)
    function p:add (s)
       -- compile if necessary:
       if not is_parser(s) then sequence(s) end
-      if type(s[1]) ~= "string" then 
-         error "Invalid sequence for multiseq"
+      if is_parser(s) ~= 'sequence' or type(s[1]) ~= "string" then 
+         if self.default then
+            error "Invalid sequence for multiseq, there is already a default"
+         else
+            self.default = s
+         end
       elseif self.sequences[s[1]] then 
          eprintf (" *** Warning: keyword %q overloaded in multisequence ***", s[1])
       end

@@ -11,10 +11,8 @@
 -{ extension 'H' }
 -{ extension 'log' }
 
-require 'metalua.extension.match'
-
 -- Get match parsers and builder, for catch cases handling:
-local match_alpha = require 'extension.match'
+local match_alpha = require 'metalua.extension.match'
 local H = H:new{side='inside', alpha = match_alpha }
 
 -- We'll need to track rogue return statements:

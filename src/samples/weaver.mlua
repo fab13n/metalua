@@ -1,5 +1,5 @@
-require 'mlc'
-require 'walk'
+require 'metalua.mlc'
+require 'metalua.walk'
 
 function weave_ast (src, ast, name)
 
@@ -23,7 +23,8 @@ function weave_ast (src, ast, name)
    -------------------------------------------------------------------
    function node.down(ast, parent)
       if not ast.lineinfo then 
-         weaveable [ast], weaveable [parent] = false, false
+         weaveable [ast] = false, false
+         if parent then weaveable [parent] = false end
       else
          weaveable [ast] = true
       end
