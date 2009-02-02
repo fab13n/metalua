@@ -1,3 +1,5 @@
+#! /bin/sh
+
 # --- BEGINNING OF USER-EDITABLE PART ---
 
 # Metalua sources
@@ -5,15 +7,29 @@ BASE=${PWD}
 
 # Temporary building location.
 # Upon installation, everything will be moved to ${INSTALL_LIB} and ${INSTALL_BIN}
-BUILD=/tmp/metalua-build
-BUILD_BIN=${BUILD}/bin
-BUILD_LIB=${BUILD}/lib
+
+if [ -z "${BUILD}" ]; then
+  BUILD=/tmp/metalua-build
+fi
+
+if [ -z "${BUILD_BIN}" ]; then
+  BUILD_BIN=${BUILD}/bin
+fi
+
+if [ -z "${BUILD_LIB}" ]; then
+  BUILD_LIB=${BUILD}/lib
+fi
 
 # Where to place the final results
 # INSTALL_BIN=/usr/local/bin
 # INSTALL_LIB=/usr/local/lib/lua/5.1
-INSTALL_BIN=~/local/bin
-INSTALL_LIB=~/local/lib/lua
+if [ -z "${INSTALL_BIN}" ]; then
+  INSTALL_BIN=~/local/bin
+fi
+
+if [ -z "${INSTALL_LIB}" ]; then
+  INSTALL_LIB=~/local/lib/lua
+fi
 
 # Where to find Lua executables.
 # On many Debian-based systems, those can be installed with "sudo apt-get install lua5.1"
