@@ -75,9 +75,11 @@ function package.metalua_loader (name)
       local luastring = file:read '*a'
       file:close()
       return mlc.function_of_luastring (luastring, name)
-   else
+   else      
       file:close()
-      return spring_load (filename_or_msg)
+      require 'metalua.mlc_xcall'
+      local status, ast = mlc_xcall.client_file (filename_or_msg)
+      return mlc.function_of_ast(ast)
    end
 end
 
