@@ -1,9 +1,15 @@
+
 require 'metalua.extension.match'
+
 module ('spmatch', package.seeall)
+
+require 'metalua.walk.id'
+
 -{extension 'log'}
 
 ----------------------------------------------------------------------
--- Back-end for "match function ..." and "local match function..."
+-- Back-end for statements
+-- "match function ..." and "local match function...".
 -- Tag must be either "Localrec" or "Set".
 ----------------------------------------------------------------------
 named_match_function_builder = |tag| function (x)
@@ -34,7 +40,7 @@ mlp.stat:add{ 'match',
       ----------------------------------------------------------------
       { 'function', mlp.expr, gg.optkeyword '|',
          match_cases_list_parser, 'end',
-         builder = match_function_builder 'Set' },
+         builder = named_match_function_builder 'Set' },
 
       ----------------------------------------------------------------
       -- Reintroduce the original match statement:
@@ -51,7 +57,7 @@ mlp.stat:add{ 'match',
 mlp.stat:get'local'[2]:add{
    'match', 'function', mlp.expr, gg.optkeyword '|',
    match_cases_list_parser, 'end',
-   builder = match_function_builder 'Localrec' }
+   builder = named_match_function_builder 'Localrec' }
 
 ----------------------------------------------------------------------
 -- "match...with" expressions and "match function..."
@@ -102,8 +108,6 @@ mlp.expr:add{ 'match', builder = |x| x[1], gg.multisequence{
             local m = match_builder { tested_term_seq, cases }
             return `Stat{ { `Local{{v}}; m }, v }
          end } } }
-
-require 'walk.id'
 
 function bind (x)
    local patterns, values = unpack(x)
