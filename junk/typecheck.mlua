@@ -77,12 +77,7 @@ match function get_type
    | `Call{`Id 'table', tk, tv }, _ -> return tv
    | `Table{...}==tt, `Id 'string' ->
 
-
-
 local types_rt = require 'extension.types'
-
-
-
 
 function check_function(f, term)
    match get_type(term) with
