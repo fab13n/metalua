@@ -14,13 +14,23 @@ if not cfg.command or not cfg.directory then
    error ("Usage: "..arg[0].." command=<metalua command> directory=<library root>")
 end
 
-local f = io.popen ("dir /S /b " .. cfg.directory)
+-- List all files, recursively, from newest to oldest
+local f = io.popen ("dir /S /b /o-D " .. cfg.directory)
+
+local file_seen = { }
 for src in f:lines() do
+   file_seen[src] = true
    local base = src:match "^(.+)%.mlua$"
    if base then
-      local cmd = cfg.command.." "..src.." -o "..base..".luac"
-      print (cmd)
-      os.execute (cmd)
+      local target = base..".luac"
+      if file_seen[target] then 
+	 -- the target file has been listed before the source ==> it's newer
+	 print ("("..target.." up-to-date)")
+      else
+	 local cmd = cfg.command.." "..src.." -o "..target
+	 print (cmd)
+	 os.execute (cmd)
+      end
    end
 end
 
