@@ -1,6 +1,6 @@
 -{ extension 'match' }
 
-require 'walk.id'
+require 'metalua.walk.id'
 
 ast = +{ block:
          y = type(1)

@@ -61,10 +61,23 @@ local function unescape_string (s)
 
    -- Turn the digits of an escape sequence into the corresponding
    -- character, e.g. [unesc_digits("123") == string.char(123)].
-   local function unesc_digits (x)
-      local k, j, i = x:reverse():byte(1, 3)
+   local function unesc_digits (backslashes, digits)
+      if #backslashes%2==0 then
+         -- Even number of backslashes, they escape each other, not the digits.
+ 	 -- Return them so that unesc_letter() can treaat them
+	 return backslashes..digits
+      else
+         -- Remove the odd backslash, which escapes the number sequence.
+         -- The rest will be returned and parsed by unesc_letter()
+         backslashes = backslashes :sub (1,-2)
+      end
+      local k, j, i = digits:reverse():byte(1, 3)
       local z = _G.string.byte "0"
-      return _G.string.char ((k or z) + 10*(j or z) + 100*(i or z) - 111*z)
+      local code = (k or z) + 10*(j or z) + 100*(i or z) - 111*z
+      if code > 255 then 
+      	 error ("Illegal escape sequence '\\"..digits.."' in string: ASCII codes must be in [0..255]") 
+      end
+      return backslashes .. string.char (code)
    end
 
    -- Take a letter [x], and returns the character represented by the 
@@ -78,8 +91,8 @@ local function unescape_string (s)
    end
 
    return s
+      :gsub ("(\\+)([0-9][0-9]?[0-9]?)", unesc_digits)
       :gsub ("\\(%D)",unesc_letter)
-      :gsub ("\\([0-9][0-9]?[0-9]?)", unesc_digits)
 end
 
 lexer.extractors = {

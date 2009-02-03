@@ -174,13 +174,16 @@ function regexp_pattern_element_builder (pattern, term, cfg)
    assert (regexp.tag=="String", 
            "Left hand side operand for '/' in a pattern must be "..
            "a literal string representing a regular expression")
-   assert (sub_pattern.tag=="Table",
-           "Right hand side operand for '/' in a pattern must be "..
-           "an identifier or a list of identifiers")
-   for x in ivalues(sub_pattern) do
-      assert (x.tag=="Id" or x.tag=='Dots',
-              "Right hand side operand for '/' in a pattern must be "..
-              "a list of identifiers")
+   if sub_pattern.tag=="Table" then
+      for x in ivalues(sub_pattern) do
+	 assert (x.tag=="Id" or x.tag=='Dots',
+		 "Right hand side operand for '/' in a pattern must be "..
+		 "a list of identifiers")
+      end
+   else
+      assert (sub_pattern.tag=="Id",
+	      "Right hand side operand for '/' in a pattern must be "..
+              "an identifier or a list of identifiers")
    end
 
    -- Regexp patterns can only match strings
@@ -278,7 +281,6 @@ function case_builder (case, term_seq, cfg)
    acc_stat (`Label{on_success}, cfg)
    if guard then acc_test (+{not -{guard}}, cfg) end
    if cfg.dots_replacement then
-      eprintf ("Dots replacement required in a match")
       replace_dots (block, cfg.dots_replacement)
    end
    block.tag = 'Do'

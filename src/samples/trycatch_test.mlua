@@ -32,7 +32,7 @@ print "4) error, with a finally"
 try
    print "   Hi"
    error "bang"
-catch "bang"/_ then
+catch "bang"/{_} then
    print "   Bang caught"
 finally
    print "   Finally OK"
@@ -47,7 +47,7 @@ try
    catch "some_other_error" then
       assert (false, "mismatch, this must not happen")
    end
-catch "some_error"/x then
+   catch "some_error"/{x} then
    printf("   Successfully caught %q across a try that didn't catch", x)
 catch x then
    assert (false, "We shouldn't reach this catch-all")

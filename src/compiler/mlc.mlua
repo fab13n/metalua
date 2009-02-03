@@ -77,7 +77,7 @@ function mlc.convert (x, src_fmt, dst_fmt, name)
 
    if not name then name = '@'..x end
    local f, msg = io.open(x, "rb")
-   if not f then error(msg) end
+   if not f then error("While trying to open file '"..x.."': "..msg) end
    x = f:read'*a'
    f:close()
    
@@ -149,6 +149,8 @@ mlc.luacstring_of_function = string.dump
 
 lua_loadstring = loadstring
 local lua_loadstring = loadstring
+lua_loadfile = loadfile
+local lua_loadfile = loadfile
 
 function loadstring(str, name)
    if type(str) ~= 'string' then error 'string expected' end
@@ -190,5 +192,3 @@ function dofile(name)
    if not f then error(msg) end
    return f()
 end
-
-

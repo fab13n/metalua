@@ -553,8 +553,8 @@ end
 -- Read a file, get its AST, use synth to regenerate sources
 -- from that AST
 --------------------------------------------------------------------------------
-require 'mlc'
+require 'metalua.compiler'
 local filename = (arg[2] or arg[1]) or arg[0]
 local ast = mlc.luafile_to_ast (filename)
 
-print(synth.run(ast)) 
+print(synth.run(ast))
