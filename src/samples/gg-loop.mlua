@@ -1,0 +1,12 @@
+-{ block:
+   -{ extension 'gg' }
+   mlp.lexer:add "loop"
+   mlp.stat:add << "loop", b=mlp.block, "end" :: +{stat: while true do -{b} end } >> }
+
+local i=0
+
+loop
+   print(i)
+   i=i+1
+   if i==10 then break end
+end

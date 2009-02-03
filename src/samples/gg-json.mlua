@@ -1,0 +1,36 @@
+-{ block:
+   -{ extension 'gg' }
+   
+   local json = { }
+
+   function json.litteral (lx)
+      local token = lx:next ()
+      assert (token.tag=='String' or token.tag=='Number')
+      return token
+   end
+   
+   forward json.value
+
+   json.pair =
+     << k=mlp.string, ":", v=json.value :: `Pair{ k, v } >>
+   json.object = 
+     << "{", pairs = repeat json.pair while ",", "}" 
+     :: `Table{ unpack (pairs) } >>
+   json.array =
+      << "[",  vals = repeat json.value while ",", "]" 
+      :: `Table{ unpack (vals) } >>
+   json.value  =
+      << "true"  :: `True
+      || "false" :: `False
+      || "null"  :: `Nil
+      || json.array 
+      || json.object 
+      || json.litteral >>
+
+   mlp.lexer:add { "json", "true", "false", "null" }
+   mlp.expr:add << "json", v=json.value :: v >> 
+}
+
+x = json { "x" : false, "numbers" : [1, 2, 3] }
+
+table.print(x)
