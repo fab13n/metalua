@@ -1,6 +1,8 @@
 -{ block:
    -{ extension 'gg' }
    
+   lexer mlp.lexer
+
    local json = { }
 
    function json.litteral (lx)

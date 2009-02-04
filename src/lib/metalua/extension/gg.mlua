@@ -272,7 +272,9 @@ expr_parser = gg.expr{ name = "gg parser",
    }
 }
 
-mlp.lexer:add{ "<<", "::", "=>", ">>" }
+--mlp.lexer:add{ "<<", "::", "=>", ">>" }
+
+mlp.stat:add{ "lexer", mlp.expr, builder = |x| +{stat: gg.default_lexer = -{x[1]} } }
 
 -- parser expression
 mlp.expr.primary:add{ "<<", expr_parser, ">>", builder = |x| x[1] }
@@ -286,7 +288,7 @@ mlp.expr.suffix:add {
 mlp.method_args:add { "<<", expr_parser, ">>", builder = |x| { x[1] } }
 
 -- Declare a forward parser
-mlp.lexer:add{ "forward" }
+--mlp.lexer:add{ "forward" }
 mlp.stat:add { "forward", mlp.expr,
    builder = |x| +{stat: (-{x[1]}) = |...| -{x[1]}(...) } }
 

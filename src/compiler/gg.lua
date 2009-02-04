@@ -36,6 +36,24 @@
 module("gg", package.seeall)
 
 -------------------------------------------------------------------------------
+-- If non-nil, all keywords passed to standard parser generators 
+-- are automatically added to this parser's keyword list.
+-------------------------------------------------------------------------------
+default_lexer = false
+
+-------------------------------------------------------------------------------
+-- Declare keywords in the default lexer. Non-string elements of the list
+-- are ignored.
+-------------------------------------------------------------------------------
+function register_keywords (list)
+   if type(list)=='table' and default_lexer then
+      for t in ivalues (list) do
+	 if type(t)=='string' then default_lexer :add (t) end
+      end
+   end
+end
+
+-------------------------------------------------------------------------------
 -- parser metatable, which maps __call to method parse, and adds some
 -- error tracing boilerplate.
 -------------------------------------------------------------------------------
@@ -207,6 +225,9 @@ function sequence (p)
    else
       p.name = "<anonymous>"
    end
+
+   -- Declare keywords in the lexer
+   register_keywords (p)
 
    return p
 end --</sequence>
@@ -604,6 +625,9 @@ function list (p)
    if type(p.separators) == "string" then p.separators = { p.separators }
    elseif p.separators and #p.separators == 0 then p.separators = nil end
 
+   register_keywords (p.separators)
+   register_keywords (p.terminators)
+
    return p
 end --</list>
 
@@ -675,6 +699,9 @@ function onkeyword (p)
    if not next (p.keywords) then 
       eprintf("Warning, no keyword to trigger gg.onkeyword") end
    assert (p.primary, 'no primary parser in gg.onkeyword')
+
+   register_keywords (p.keywords)
+
    return p
 end --</onkeyword>
 
@@ -699,6 +726,8 @@ function optkeyword (...)
       args = args[1]
    end
    for _, v in ipairs(args) do assert (type(v)=="string") end
+   register_keywords (args)
+
    return function (lx)
       local x = lx:is_keyword (lx:peek(), unpack (args))
       if x then lx:next(); return x
