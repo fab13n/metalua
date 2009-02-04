@@ -2,7 +2,7 @@
    -{ extension 'log' }
    -{ extension 'H' }
 
-   require 'dollar'
+   require 'metalua.dollar'
 
    local H = H:new()
    print("initial H.alpha", H.alpha)

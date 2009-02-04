@@ -295,6 +295,13 @@ function match_builder (x)
       code          = `Do{ },
       after_success = mlp.gensym "_after_success" }
 
+
+   -- Some sharing issues occur when modifying term_seq,
+   -- so it's replaced by a copy new_term_seq.
+   -- TODO: clean that up, and re-suppress the useless copies
+   -- (cf. remarks about capture bug below).
+   local new_term_seq = { }
+
    local match_locals
 
    -- Make sure that all tested terms are variables or literals
@@ -310,9 +317,10 @@ function match_builder (x)
             table.insert(match_locals[1], v)
             table.insert(match_locals[2], t)
          end
-         term_seq[i] = v
+         new_term_seq[i] = v
       --end
    end
+   term_seq = new_term_seq
    
    if match_locals then acc_stat(match_locals, cfg) end
 

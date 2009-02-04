@@ -7,8 +7,10 @@
 *.exe
 *.a
 *.log
+*~
 .#*
 \#*
+Thumbs.db
 .DS_Store
 semantic.cache
 src/compiler/metalua
