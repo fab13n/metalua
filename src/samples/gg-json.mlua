@@ -1,8 +1,6 @@
 -{ block:
    -{ extension 'gg' }
    
-   lexer mlp.lexer
-
    local json = { }
 
    function json.litteral (lx)
@@ -29,7 +27,6 @@
       || json.object 
       || json.litteral >>
 
-   mlp.lexer:add { "json", "true", "false", "null" }
    mlp.expr:add << "json", v=json.value :: v >> 
 }
 

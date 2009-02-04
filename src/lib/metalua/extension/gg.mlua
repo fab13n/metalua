@@ -18,6 +18,7 @@
 
 require 'metalua.ast_to_string'
 
+-- print debug info.
 function pdli (x, ...)
    local function dli (x)
       if type(x)=='table' then
@@ -274,7 +275,7 @@ expr_parser = gg.expr{ name = "gg parser",
 
 --mlp.lexer:add{ "<<", "::", "=>", ">>" }
 
-mlp.stat:add{ "lexer", mlp.expr, builder = |x| +{stat: gg.default_lexer = -{x[1]} } }
+--mlp.stat:add{ "lexer", mlp.expr, builder = |x| +{stat: gg.default_lexer = -{x[1]} } }
 
 -- parser expression
 mlp.expr.primary:add{ "<<", expr_parser, ">>", builder = |x| x[1] }
