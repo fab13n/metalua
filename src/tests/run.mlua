@@ -1,0 +1,15 @@
+-- Run all *.lua and *.mlua files in this directory.
+-- This makes it easy to run all tests in the directory, 
+
+-{ extension 'xloop' }
+
+ls = io.popen (os.getenv "OS" :match "^Windows" and "dir /b" or "ls")
+this_script = arg[1]
+
+for filename in ls :lines() if filename ~= this_script and filename :strmatch  "%.m?lua$" do
+   printf ("*** running %s ***", filename)
+   local ret = os.execute ("metalua "..filename)
+   if ret ~= 0 then error("Test "..filename.." failed, returned "..ret) end
+end
+
+ls :close()
