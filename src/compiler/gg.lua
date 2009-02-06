@@ -39,10 +39,14 @@ module("gg", package.seeall)
 -- If non-nil, all keywords passed to standard parser generators 
 -- are automatically added to this parser's keyword list.
 -------------------------------------------------------------------------------
-default_lexer = false
+local default_lexers = { }
 
 function set_lexer (lx)
-   default_lexer = lx or false
+   table.insert (default_lexers, lx)
+end
+
+function reset_lexer ()
+   return table.remove (default_lexers)
 end
 
 -------------------------------------------------------------------------------
@@ -50,6 +54,7 @@ end
 -- are ignored.
 -------------------------------------------------------------------------------
 function register_keywords (list)
+   local default_lexer = default_lexers [#default_lexers]
    if type(list)=='table' and default_lexer then
       for t in ivalues (list) do
 	 if type(t)=='string' then default_lexer :add (t) end
