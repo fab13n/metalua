@@ -1,24 +1,40 @@
+-- JSON parser.
+-- We use gg to define a new simple parser, here a JSON parser.
+
 -{ block:
    -{ extension 'gg' }
    
+   -- We'll put all the parsers we'll need to define in this table:
    local json = { }
 
+   -- Parsers can still be defined as functions taking a lexer as parameter
    function json.litteral (lx)
       local token = lx:next ()
       assert (token.tag=='String' or token.tag=='Number')
       return token
    end
    
+   -- We promise that json.value will eventually contain a parser.
+   -- This allows us to break mutual dependencies between parsers.
    forward json.value
 
-   json.pair =
+   -- The parsers themselves:
+
+   -- pair within a json object
+   json.pair = 
      << k=mlp.string, ":", v=json.value :: `Pair{ k, v } >>
+
+   -- json object: a set of key/value pairs between braces
    json.object = 
      << "{", pairs = repeat json.pair while ",", "}" 
      :: `Table{ unpack (pairs) } >>
+
+   -- json array: comma-separated values between brackets
    json.array =
       << "[",  vals = repeat json.value while ",", "]" 
       :: `Table{ unpack (vals) } >>
+
+   -- json value: union of above, plus a couple of keywords
    json.value  =
       << "true"  :: `True
       || "false" :: `False
