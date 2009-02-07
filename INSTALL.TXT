@@ -9,94 +9,38 @@ THEM, TO AVOID THEM TO FUTURE USERS. mailto:metalua@gmail.com
 
 Prerequisites
 -------------
-- a 32 bits, little endian CPU 
-  (or the willingness to tweak the bytecode dumper by yourself)
-- a C compiler
-- Under Unix-like OSes, GNU/Make.
-- Under MS-Windows, Microsoft Visual Studio
-- optionally, your own Lua VM
-- optionally, the readline library
+- under MS-Windows, ability to type a couple of commands in a DOS command window
+- under POSIX OSes, lua and luac executables in your path, in versions >=5.1
 
 MS-Windows
 ----------
-You need to:
 
-- edit metalua\src\win32\make-win32-msvc.bat, and set the
-  user configuration:
-  * The directory where you want to put your libs and executables, 
-    MUALIB_TARGET.
-  * The directory where the compiler and linker are,
-    MSVCDIR.
+- get the sources
+- cd metalua\src
+- edit make.bat to set your variables:
+  * DISTRIB_BIN: where you want to put executables metalua.bat, lua.exe, luac.exe.
+    This directory should be referenced in your PATH environment variable.
+  * DISTRIB_LIB: where you want to put your Lua libraries. It shouldn't mess up
+    an existing Lua libraries directory. This folder should be referrenced in your
+    LUA_PATH environment variable.
+- run make.bat
 
-- open a DOS shell in metalua\src, and run the batch file above:
-  d:\fabien\src\metalua\src> win32\make-win32-msvc
-
-- Set your environment variables. A script metalua\src\mlua_setenv.bat
-  must have been generated, which contains the appropriate
-  settings. If you want to commit these setting permanently, you'll
-  have to set them in "My Computer" <right-click> "Properties" <click>
-  "Adanced settings" <click> "Environment variables".
-
-Mingw
------
-There is also a migw port, which hasn't been tested for a while and is
-likely to be broken. I'd be grateful if someone provided a patch for
-this. I've never tried to compile it under cygwin either, patches are
-welcome.
-
-Un*x
+Unix
 ----
-Set your configuration in metalua/src/config:
 
-- PLATFORM is the name of the target platform for the Lua VM. You need
-  a platform which supports dynamic library loading, i.e. posix is not
-  OK. The most likely choices are linux, macosx, mingw, freebsd,
-  openbsd.
-
-- TARGET_LUA_PATH is the place where Lua libraries will be
-  installed. It points to a temporary directory by default.
-
-- TARGET_LUA_CPATH is the target directory for C libraries. Unless
-  you've got a special reason not to, it's a good idea to use the same
-  directory as for TARGET_LUA_PATH
-
-- TARGET_BIN_PATH is the place where binary executables will be put.
-
-Other settings should probably not be touched unless you know what
-you're doing.
-
-After the `make`, the system should be installed; the environment
-variables required to make it work are set in the generated script
-setenv.sh. To install them, either do `. setenv.sh`, or recopy them in
-your .bashrc file.
-
-Troubleshooting:
-----------------
-
-* No Readline *
-Under Linux, if you don't have readline and don't want to install it
-(e.g. you rely on rlwrap or ledit), you'll have to remove -lreadline
-from lua/Makefile, and to remove the #define LUA_USE_READLINE from
-lua/luaconf.h
-
-* Custom VM *
-If you use your own Lua VM, depending on your OS, you might have
-problems with unexported symbols required by Pluto. Pluto requires the
-symbols prefixed with LUAI_FUNC in the VM to be exported, and they
-aren't by default under Linux and Windows. This is set in luaconf.h;
-you'll need to change that setting in your own Lua VM if you want to
-use it.
-
-* Pluto issues *
-Alternatively, you can let metalua run without Pluto by setting the
-environment variable LUA_NOSPRINGS to "true". However, this might
-cause parasitic interactions when several source files are compiled
-simultaneously, so you'd rather precompile each file and library one
-by one.
+- get the sources
+- cd metalua/src
+- set these variables or modify them in make.sh:
+  * BUILD: a directory in which metalua should be built. Must be writable by the user.
+  * INSTALL_BIN: where metalua will be copied
+  * INSTALL_LIB: where (meta)lua libs will be copied. Should be referenced in your LUA_PATH.
+- run ./make.sh, under your UID
+- a ./make-install.sh script should have been generated, run it. If you want to isntall it
+  in a directory that doesn't belong to you, you might want to run it as root.
 
 Test drive
 ----------
-There are some samples in metalua/samples, which can be rn simply by
+There are some samples in metalua/src/samples, which can be run simply by
 typing in the shell `metalua samplename.mlua`. Use `metalua -h` to
 have an overview of interesting options. Among them, "-a" dumps the
 AST resulting from a compilation: that's the perfect learning tool for

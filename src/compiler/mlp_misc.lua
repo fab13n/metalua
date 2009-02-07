@@ -171,7 +171,7 @@ function skip_initial_sharp_comment (lx)
    if i then lx.i, lx.column_offset, lx.line = i, i, lx.line+1 end
 end
 
-function chunk (lx)
+local function _chunk (lx)
    if lx:peek().tag == 'Eof' then return { } -- handle empty files
    else 
       skip_initial_sharp_comment (lx)
@@ -180,3 +180,6 @@ function chunk (lx)
       return chunk
    end
 end
+
+-- chunk is wrapped in a sequence so that it has a "transformer" field.
+chunk = gg.sequence { _chunk, builder = unpack }

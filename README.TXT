@@ -2,8 +2,9 @@ README.TXT
 ==========
 For installation matters, cf. INSTALL.TXT
 
-Metalua 0.4.1
-=============
+Metalua 0.5
+===========
+
 Metalua is a static metaprogramming system for Lua: a set of tools
 that let you alter the compilation process in arbitrary, powerful and
 maintainable ways. For the potential first-time users of such a
@@ -113,8 +114,51 @@ Library-wise, Metalua offers a set of syntax tree manipulation tools:
   extensions.
 
 
-Notworthy changes from 0.4 to 0.4.1
-===================================
+Noteworthy changes from 0.4.1 to 0.5
+====================================
+
+Simplification of the install and structure:
+
+- This release is included in Lua for Windows, so it now couldn't get simpler
+  for MS-Windows users!
+
+- Metalua is written in pure Lua again, thus making it platform-independant. 
+  No more mandatory C libraries. Pluto interface might be back, as an option,
+  in a future version, but it's not worth the install trouble involved by
+  DLL dependencies.
+
+- Simpler build process, just run make.sh or make.bat depending on your OS.
+
+- Metalua libraries are now in a separate metalua/* package. This allows to
+  mix them with other Lua libraries, and to use them from plain Lua programs
+  if you FIXME
+
+
+Other changes:
+
+- new option -S in metalua: prints sources re-generated from AST, after macro
+  expansion.
+
+- compatible with more Lua VMs: 64 bits numbers, integral numbers, big endians...
+
+- some new extensions: xloop, xmatch, improved match.
+
+- ASTs now keep track of the source extract that generated them (API is not 
+  mature though, it will be changed and broken).
+
+- improved table printer: support of a plain-Lua mode, alternative indentation 
+  mode for deeply-nested tables.
+
+- added a generic table serializer, which handles shared and recursive 
+  sub-tables correctly.
+
+- gg API has been made slightly more flexible, as a first step towards a
+  comprehensive syntax support for gg grammar definition. Follow the gg-syntax
+  branch on github for ongoing work.
+
+
+Noteworthy changes from 0.4 to 0.4.1
+====================================
 
 - Proper reporting of runtime errors
 - Interactive REPL loop
@@ -343,9 +387,11 @@ samples and extensions, an adequate test suite, refactored libraries.
 
 Credits
 =======
+
 I'd like to thank the people who wrote the open source code which
 makes Metalua run: the Lua team, the authors of Yueliang, Pluto, Lua
 Rings, Bitlib; and the people whose bug reports, patches and
 insightful discussions dramatically improved the global design,
-including John Belmonte, Olivier Gournet, Vyacheslav Egorov, David
-Manura, Olivier Gournet, Eric Raible, Laurence Tratt...
+including John Belmonte, Vyacheslav Egorov, David Manura, Olivier
+Gournet, Eric Raible, Laurence Tratt, Alexander Gladysh, Ryan
+Pusztai...

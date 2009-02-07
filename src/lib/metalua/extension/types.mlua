@@ -91,7 +91,7 @@
 --    having the biggest index.
 --
 --  * [scopes] is a stack of id name ==> type name scopes, one per
---    currently acive variables scope.
+--    currently active variables scope.
 --
 -- What's performed by the walker:
 --
@@ -112,6 +112,7 @@
 --------------------------------------------------------------------------------
 
 -- TODO: unify scopes handling with free variables detector
+-- FIXME: scopes are currently incorrect anyway, only functions currently define a scope.
 
 require "metalua.walk"
 
@@ -348,4 +349,4 @@ mlp.stat:add{ "newtype", mlp.expr, "=", mlp.expr, builder = newtype_builder }
 --------------------------------------------------------------------------
 --mlp.expr.infix:add{ "::", prec=100, builder = |a, _, b| insert_test(a,b) }
 
-+{ require (-{ `String{ package.metalua_extension_prefix .. 'types-runtime' } }) }
+return +{ require (-{ `String{ package.metalua_extension_prefix .. 'types-runtime' } }) }
