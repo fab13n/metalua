@@ -18,6 +18,7 @@
 
 require 'metalua.ast_to_string'
 
+-- print debug info.
 function pdli (x, ...)
    local function dli (x)
       if type(x)=='table' then
@@ -136,7 +137,7 @@ function multi_builder (x)
    -- Turn single keywords, into trivial sequences
    for i, alt in ipairs (x) do
       if alt.tag=='String' then 
-         eprintf("Make a sequence from string "..alt[1])
+         --eprintf("Make a sequence from string "..alt[1])
          local my_builder = +{nil}
          builders [alt] = my_builder
          alt <- +{ gg.sequence{ -{ `String{ alt[1] } }, builder = -{my_buidler} } }
@@ -156,7 +157,7 @@ function multi_builder (x)
       -- bound vars in the same order.
       for i, alt in ipairs(x) do
          
-         eprintf("MULTIBUILDER ALT #%i: \n%s", i, pdli(alt, 50))
+         --eprintf("MULTIBUILDER ALT #%i: \n%s", i, pdli(alt, 50))
       
          -- Compute the list of missing symbols
          local b, r = binders [alt], `Table{ }
@@ -188,7 +189,7 @@ function multi_builder (x)
    local r = +{ gg.multisequence (-{x}) }
    builders[r] = my_builder
    binders [r] = my_binders
-   eprintf("MULTIBUILDER RESULT: \n%s", pdli(r, 50))
+   --eprintf("MULTIBUILDER RESULT: \n%s", pdli(r, 50))
    return r
 end
 
@@ -272,7 +273,9 @@ expr_parser = gg.expr{ name = "gg parser",
    }
 }
 
-mlp.lexer:add{ "<<", "::", "=>", ">>" }
+--mlp.lexer:add{ "<<", "::", "=>", ">>" }
+
+--mlp.stat:add{ "lexer", mlp.expr, builder = |x| +{stat: gg.default_lexer = -{x[1]} } }
 
 -- parser expression
 mlp.expr.primary:add{ "<<", expr_parser, ">>", builder = |x| x[1] }
@@ -286,7 +289,7 @@ mlp.expr.suffix:add {
 mlp.method_args:add { "<<", expr_parser, ">>", builder = |x| { x[1] } }
 
 -- Declare a forward parser
-mlp.lexer:add{ "forward" }
+--mlp.lexer:add{ "forward" }
 mlp.stat:add { "forward", mlp.expr,
    builder = |x| +{stat: (-{x[1]}) = |...| -{x[1]}(...) } }
 

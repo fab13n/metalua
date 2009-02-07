@@ -11,27 +11,6 @@
 -- for details.
 --
 ----------------------------------------------------------------------
--- History:
--- $Log: mlp_misc.lua,v $
--- Revision 1.6  2006/11/15 09:07:50  fab13n
--- debugged meta operators.
--- Added command line options handling.
---
--- Revision 1.5  2006/11/10 02:11:17  fab13n
--- compiler faithfulness to 5.1 improved
--- gg.expr extended
--- mlp.expr refactored
---
--- Revision 1.4  2006/11/09 09:39:57  fab13n
--- some cleanup
---
--- Revision 1.3  2006/11/07 04:38:00  fab13n
--- first bootstrapping version.
---
--- Revision 1.2  2006/11/05 15:08:34  fab13n
--- updated code generation, to be compliant with 5.1
---
-----------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
 --
@@ -46,9 +25,6 @@
 -- * [mlp.id2string()]
 --
 --------------------------------------------------------------------------------
-
---require "gg"
---require "mll"
 
 module ("mlp", package.seeall)
 

@@ -36,6 +36,33 @@
 module("gg", package.seeall)
 
 -------------------------------------------------------------------------------
+-- If non-nil, all keywords passed to standard parser generators 
+-- are automatically added to this parser's keyword list.
+-------------------------------------------------------------------------------
+local default_lexers = { }
+
+function set_lexer (lx)
+   table.insert (default_lexers, lx)
+end
+
+function reset_lexer ()
+   return table.remove (default_lexers)
+end
+
+-------------------------------------------------------------------------------
+-- Declare keywords in the default lexer. Non-string elements of the list
+-- are ignored.
+-------------------------------------------------------------------------------
+function register_keywords (list)
+   local default_lexer = default_lexers [#default_lexers]
+   if type(list)=='table' and default_lexer then
+      for t in ivalues (list) do
+	 if type(t)=='string' then default_lexer :add (t) end
+      end
+   end
+end
+
+-------------------------------------------------------------------------------
 -- parser metatable, which maps __call to method parse, and adds some
 -- error tracing boilerplate.
 -------------------------------------------------------------------------------
@@ -208,6 +235,9 @@ function sequence (p)
       p.name = "<anonymous>"
    end
 
+   -- Declare keywords in the lexer
+   register_keywords (p)
+
    return p
 end --</sequence>
 
@@ -258,8 +288,8 @@ function multisequence (p)
    -------------------------------------------------------------------
    function p:add (s)
       -- compile if necessary:
-      local keyword = s[1]
       if not is_parser(s) then sequence(s) end
+      local keyword = type(s)=='table' and s[1]
       if is_parser(s) ~= 'sequence' or type(keyword) ~= "string" then 
          if self.default then -- two defaults
             error ("In a multisequence parser, all but one sequences "..
@@ -605,6 +635,9 @@ function list (p)
    if type(p.separators) == "string" then p.separators = { p.separators }
    elseif p.separators and #p.separators == 0 then p.separators = nil end
 
+   register_keywords (p.separators)
+   register_keywords (p.terminators)
+
    return p
 end --</list>
 
@@ -676,6 +709,9 @@ function onkeyword (p)
    if not next (p.keywords) then 
       eprintf("Warning, no keyword to trigger gg.onkeyword") end
    assert (p.primary, 'no primary parser in gg.onkeyword')
+
+   register_keywords (p.keywords)
+
    return p
 end --</onkeyword>
 
@@ -700,6 +736,8 @@ function optkeyword (...)
       args = args[1]
    end
    for _, v in ipairs(args) do assert (type(v)=="string") end
+   register_keywords (args)
+
    return function (lx)
       local x = lx:is_keyword (lx:peek(), unpack (args))
       if x then lx:next(); return x

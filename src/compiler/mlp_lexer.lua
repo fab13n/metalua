@@ -30,3 +30,5 @@ local keywords = {
 for w in values(keywords) do mlp_lexer:add(w) end
 
 _M.lexer = mlp_lexer
+
+gg.set_lexer (mlp_lexer)
