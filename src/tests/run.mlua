@@ -6,10 +6,23 @@
 ls = io.popen ( (os.getenv("OS") or "") :match "^Windows" and "dir /b" or "ls")
 this_script = arg[1]
 
+local errors = {}
+
 for filename in ls :lines() if filename ~= this_script and filename :strmatch  "%.m?lua$" do
    printf ("*** running %s ***", filename)
    local ret = os.execute ("metalua "..filename)
-   if ret ~= 0 then error("Test "..filename.." failed, returned "..ret) end
+   if ret ~= 0 then 
+      errors[#errors + 1] = "Test "..filename.." failed, returned "..ret
+   end
 end
 
 ls :close()
+
+if #errors > 0 then
+   print("\n\n================================================================================") 
+   error(
+      "TEST FAILURES DETECTED:\n" ..
+      "-----------------------\n" ..
+      " * " .. table.concat(errors, "\n * ")
+    ) 
+end
