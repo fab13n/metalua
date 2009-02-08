@@ -3,7 +3,7 @@
 
 -{ extension 'xloop' }
 
-ls = io.popen (os.getenv "OS" :match "^Windows" and "dir /b" or "ls")
+ls = io.popen ( (os.getenv("OS") or "") :match "^Windows" and "dir /b" or "ls")
 this_script = arg[1]
 
 for filename in ls :lines() if filename ~= this_script and filename :strmatch  "%.m?lua$" do
