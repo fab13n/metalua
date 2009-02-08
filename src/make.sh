@@ -101,7 +101,7 @@ cat > ${INSTALL_BIN}/metalua <<EOF
 METALUA_LIB=${INSTALL_LIB}
 export LUA_PATH="?.luac;?.lua;\\\${METALUA_LIB}/?.luac;\\\${METALUA_LIB}/?.lua"
 export LUA_MPATH="?.mlua;\\\${METALUA_LIB}/?.mlua"
-${LUA} \\\${METALUA_LIB}/metalua.luac \\\$*
+${LUA} \\\${METALUA_LIB}/metalua.luac "\\\$@"
 EOF
 
 chmod a+x ${INSTALL_BIN}/metalua
