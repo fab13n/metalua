@@ -1,0 +1,25 @@
+-{ extension 'xloop' }
+
+ls = io.popen ( (os.getenv("OS") or "") :match "^Windows" and "dir /b reweave" or "ls reweave")
+this_script = arg[1]
+
+local errors = {}
+
+for filename in ls :lines() if filename :strmatch  "%.m?lua$" do
+   printf ("--- weaver check %s ---", filename)
+   local ret = os.execute ("metalua ../samples/weaver.mlua reweave/"..filename.." | diff -q reweave/"..filename.." -")
+   if ret ~= 0 then
+      print("================================================================================") 
+      print("Reweaved source does not match original:") 
+      print("================================================================================") 
+      os.execute ("metalua ../samples/weaver.mlua reweave/"..filename.." | diff reweave/"..filename.." -")
+      errors[#errors + 1] = "Reweaving of "..filename.." failed, returned "..ret
+   end
+end
+
+ls :close()
+
+if #errors > 0 then
+   print("================================================================================") 
+   error("REWEAVING ERRORS DETECTED:\n * " .. table.concat(errors, "\n * ")) 
+end
