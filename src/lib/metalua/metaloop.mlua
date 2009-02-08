@@ -13,7 +13,11 @@ do -- set readline() to a line reader, either editline otr a default
       local rl_handle = editline.init 'metalua'
       readline = |p| rl_handle:read(p) 
    else
-      readline = |p| io.write(p) and io.read '*l'
+      function readline (p)
+         io.write (p)
+         io.flush ()
+         return io.read '*l'
+      end
    end
 end
 
