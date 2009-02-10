@@ -38,7 +38,6 @@ LUAC=$(which luac)
 
 # --- END OF USER-EDITABLE PART ---
 
-
 echo '*** Lua paths setup ***'
 
 export LUA_PATH="?.luac;?.lua;${BUILD_LIB}/?.luac;${BUILD_LIB}/?.lua"
@@ -101,7 +100,7 @@ cat > ${INSTALL_BIN}/metalua <<EOF
 METALUA_LIB=${INSTALL_LIB}
 export LUA_PATH="?.luac;?.lua;\\\${METALUA_LIB}/?.luac;\\\${METALUA_LIB}/?.lua"
 export LUA_MPATH="?.mlua;\\\${METALUA_LIB}/?.mlua"
-exec ${LUA} \\\${METALUA_LIB}/metalua.luac "\\\$@"
+exec ${LINEREADER} ${LUA} \\\${METALUA_LIB}/metalua.luac "\\\$@"
 EOF
 
 chmod a+x ${INSTALL_BIN}/metalua
