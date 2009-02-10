@@ -67,6 +67,7 @@ end
 -- error tracing boilerplate.
 -------------------------------------------------------------------------------
 local parser_metatable = { }
+
 function parser_metatable.__call (parser, lx, ...)
    --printf ("Call parser %q of type %q", parser.name or "?", parser.kind)
    if mlc.metabugs then 
@@ -85,6 +86,12 @@ function parser_metatable.__call (parser, lx, ...)
                                li[1], li[2], li[3], parser.name or parser.kind))
       end
    end
+end
+
+function parser_metatable.__index (parser, key)
+   local get = rawget (parser, 'get')
+   if get then return parser.get(parser, key) 
+   else return nil end
 end
 
 -------------------------------------------------------------------------------
