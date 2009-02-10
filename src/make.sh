@@ -47,7 +47,7 @@ echo '*** Create the distribution directories, populate them with lib sources **
 
 mkdir -p ${BUILD_BIN}
 mkdir -p ${BUILD_LIB}
-cp -R lib/* ${BUILD_LIB}/
+cp -Rp lib/* ${BUILD_LIB}/
 # cp -R bin/* ${BUILD_BIN}/ # No binaries provided for unix (for now)
 
 echo '*** Generate a callable metalua shell script ***'
@@ -106,6 +106,9 @@ EOF
 chmod a+x ${INSTALL_BIN}/metalua
 
 cp -R ${BUILD_LIB}/* ${INSTALL_LIB}/
+
+echo "metalua installed in ${INSTALL_LIB}"
+
 EOF2
 chmod a+x make-install.sh
 
