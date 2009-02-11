@@ -1,0 +1,3 @@
+do
+  print("scope")
+end
