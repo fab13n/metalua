@@ -78,7 +78,7 @@ ${BUILD_BIN}/metalua -vb -f compiler/mlc.mlua     -o ${BUILD_LIB}/metalua/mlc.lu
 ${BUILD_BIN}/metalua -vb -f compiler/metalua.mlua -o ${BUILD_LIB}/metalua.luac
 
 echo '*** Precompile metalua libraries ***'
-for SRC in $(find ${BUILD_LIB} -name '*.mlua'); do
+for SRC in $(find ${BUILD_LIB} -name '[a-zA-Z_0-9]*.mlua'); do
     DST=$(dirname $SRC)/$(basename $SRC .mlua).luac
     if [ $DST -nt $SRC ]; then
         echo "+ $DST already up-to-date"
