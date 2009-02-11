@@ -402,6 +402,58 @@ function expr (p)
    make_parser ("expr", p)
 
    -------------------------------------------------------------------
+   -- Get or generate builders for the different kinds of operators.
+   -------------------------------------------------------------------
+
+   local function get_prefix_builder (p)
+      if not p.builder then 
+         error "missing builder for prefix expr parser"
+      elseif type(p.builder)=='function' then
+         return p.builder
+      elseif type(p.builder)=='string' then
+         return function(_, x) return {tag=p.builder, x} end
+      else
+         error "prefix expr builder must be a string or function"
+      end
+   end
+
+   local function get_infix_builder (p)
+      if not p.builder then 
+         error "missing builder for infix expr parser"
+      elseif type(p.builder)=='function' then
+         return p.builder
+      elseif type(p.builder)=='string' then
+         return function(a, _, b) return {tag=p.builder, a, b} end
+      else
+         error "infix expr builder must be a string or function"
+      end
+   end
+
+   local function get_flat_builder (p)
+      if not p.builder then 
+         return function (list) return list end
+      elseif type(p.builder)=='function' then
+         return p.builder
+      elseif type(p.builder)=='string' then
+         return function(list) list.tag=p.builder; return list end
+      else
+         error "infix flat expr builder must be a string, function or nil"
+      end
+   end
+
+   local function get_suffix_builder (p)
+      if not p.builder then 
+         error "missing builder for prefix expr parser"
+      elseif type(p.builder)=='function' then
+         return p.builder
+      elseif type(p.builder)=='string' then
+         return function(x, _) return {tag=p.builder, x} end
+      else
+         error "prefix expr builder must be a string or function"
+      end
+   end
+
+   -------------------------------------------------------------------
    -- parser method.
    -- In addition to the lexer, it takes an optional precedence:
    -- it won't read expressions whose precedence is lower or equal
@@ -439,7 +491,7 @@ function expr (p)
          local op = p2_func and p2_func (lx)
          if op then -- Keyword-based sequence found
             local ili = lx:lineinfo_right() -- Intermediate LineInfo
-            local e = p2.builder (op, self:parse (lx, p2.prec))
+            local e = get_prefix_builder(p2) (op, self:parse (lx, p2.prec))
             local lli = lx:lineinfo_left()
             return transform (transform (e, p2, ili, lli), self, fli, lli)
          else -- No prefix found, get a primary expression         
@@ -474,7 +526,7 @@ function expr (p)
                local _ -- We only care about checking that p2==pflat
                _, p2 = get_parser_info (self.infix)
             until p2 ~= pflat
-            local e2 = pflat.builder (list)
+            local e2 = get_flat_builder(pflat) (list)
             local lli = lx:lineinfo_left()
             return transform (transform (e2, pflat, fli, lli), self, fli, lli)
  
@@ -489,7 +541,7 @@ function expr (p)
             local op = p2_func(lx)
             if not op then return false end
             local e2 = self:parse (lx, p2.prec)
-            local e3 = p2.builder (e, op, e2)
+            local e3 = get_infix_builder(p2) (e, op, e2)
             local lli = lx:lineinfo_left()
             return transform (transform (e3, p2, fli, lli), self, fli, lli)
 
@@ -521,7 +573,7 @@ function expr (p)
             local op = p2_func(lx)
             if not op then return false end
             local lli = lx:lineinfo_left()
-            e = p2.builder (e, op)
+            e = get_suffix_builder(p2) (e, op)
             e = transform (transform (e, p2, fli, lli), self, fli, lli)
             return e
          end

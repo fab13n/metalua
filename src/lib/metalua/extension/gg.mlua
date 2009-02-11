@@ -1,277 +1,291 @@
--- stuff to support:
--- * gg.sequence
---   << "do", b=mlp.block, "end" ::  b >>
--- * gg.multisequence
---   <<  "do", mlp.block, "end" || "while", mlp.expr, "do", mlp.block, "end" >> 
--- * gg.expr
---   not supported yet
--- * gg.list
---   expr_list = << repeat mlp.expr while "," >>
---   block = << repeat mlp.expr, ? ";" until "end" >>
---   table = << "{", repeat pair while "," or ";", "}" >> 
--- * gg.onkeyword
+--------------------------------------------------------------------------------
+-- Syntax supported:
+--
+-- * parsers are declared, in Lua, within << ... >>
+--
+-- * sequence parsers are build with `,':
+--   << "do", mlp.block, "end" >>
+--      ==> gg.sequence{ "do", mlp.block, "end" }
+--
+-- * multisequence parsers are built with `||':
+--   <<  "do", mlp.block, "end" || "while", mlp.expr, "do", mlp.block, "end" >>
+--       ==> gg.multisequence{ 
+--              gg.sequence{ "do", mlp.block, "end" },
+--              gg.sequence{ "while", mlp.expr, "do", mlp.block, "end" } }
+--
+-- * lists are declared with a prefix `repeat'. They can be suffixed
+--   with `until "kw_1" or "kw_2" or ... or "kw_n"'  for terminators, or
+--   with `while "kw_1" or "kw_2" or ... or "kw_n"'  for separators.
+--   << repeat mlp.expr while "," >>
+--      ==> gg.list{ mlp.expr, separators={ "," } }
+--   << "{", repeat pair_or_expr while "," or ";" until "}", "}" >>
+--      ==> gg.sequence{ "{",
+--             gg.list{ pair_or_expr, separators={ ",", ";" },
+--                                    terminators={ "}" } }, "}" }
+--
+-- * onkeyword triggered parsers are denoted by a `=>' between the keyword
+--   and the parser:
 --   << "else" => mlp.block >>
---   << "if", pairs = repeat mlp.expr, "then", mlp.block while "elseif",
---      last = "else" => block, "end" 
---   :: `If{ table.iflatten (table.insert (pairs, last)) } >> 
--- * optkeyword
---   <<? ";" >>
+--      ==> gg.onkeyword{ "else", mlp.block }
 --
--- Now I also need to bind builders to them. Being able to write x.builder = ...
--- would greatly help. 
+-- * optkeywords are denoted by a suffix `?' (multiple optkeywords aren't
+--   supported yet):
+--   << ";" ? >>
+--      ==> gg.optkeyword{ ";" }
 --
+-- Moreover, it is possible to capture parts of a parsed tree, and to use it
+-- in a builder expression. Capturing a sub-tree is done by prefixing it with
+-- an identifier and an `=' sign. Builder expressions are introduced with
+-- a `::' infix operator:
+--
+-- << "while", condition=mlp.expr, "do", body=mlp.block, "end" 
+-- :: `While{ condition, body } >>
+--    ==> gg.sequence{ "while", mlp.expr, "do", mlp.block, "end",
+--           builder = function (it)
+--              local condition, body = it[1], it[2]
+--              return `While{ condition, body }
+--           end }
+--
+-- Notice that:
+--
+-- * The link between binders (<identifier> = <parser>) and builders
+--   (<parser> :: <expr>) doesn't go through multisequences nor lists.
+--   The following is therefore incorrect (and incidentally meaningless):
+--
+--   << "<%", repeat foo=mlp.expr while ",", "%>" :: foo >>
+--
+-- * Parentheses are accepted inside parser definitions
+--
+-- * Lua expressions are also accepted
+--
+-- * Precedence: the operators, from the lowest to the tightest precedence,
+--   are `||', `::', `,', `=>', `=', `?'.
+--
+-- * In lua expressions, parsers don't require parentheses to be passed as
+--   arguments to functions and methods. These are therefore valid expressions:
+--
+--   x = << "do", mlp.block, "end" >>
+--
+--   mlp.stat:add << "loop", b=mlp.block, "end" :: +{while true do -{b} end} >>
+--
+--   table.print << "do", mlp.block, "end" >>
+--
+--
+-- * Since parsers are not function bodies, mutually recursive parsers would
+--   be tricky to define. To handle this, two statement syntaxes are
+--   declared:
+--
+--    - `forward <mlp.expr>' promises that a parser will eventually be stored
+--      in mlp.expr, which must therefore be a valid left-hand-side expression;
+--
+--    - `local forward <id>' is the same as `local <id>; forward <id>'.
+--
+--------------------------------------------------------------------------------
 
 require 'metalua.ast_to_string'
 
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
--- print debug info.
-function pdli (x, ...)
-   local function dli (x)
-      if type(x)=='table' then
-         x.lineinfo=nil
-         for k, v in pairs(x) do dli(k); dli(v) end
-      end
-      return x
-   end
-   return table.tostring(dli(x), ...)
-end
-
-pdli = ast_to_string
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-
 -{ extension 'match' }
+-{ extension 'log' }
 
 require 'strict'
 
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+--
+-- Abstract syntax -> Lua compiler
+--
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 
--- binders  :: parser => varname => (place)*
--- builders :: parser => function quote
-binders  = { }
-builders = { }
+--------------------------------------------------------------------------------
+-- compile() takes a special parser AST, and returns:
+--
+--  * a Lua AST;
+--
+--  * a var_name->path table, where the path describes how to extract 
+--    a variable's value from a builder
+--
+-- The latter table is used to build builders out of parsers; each node
+-- compiler is in charge of changing and returning the paths as necessary.
+--
+-- The parser AST grammar is as follows:
+--
+-- p ::= `Sequence{ p* }
+--     | `Multisequence{ `Sequence{ p* } * }
+--     | `List{ p, { kw* },  { kw* } }
+--     | `Onkeyword{ `Lua{ kw }, p }
+--     | `Optkeyword{ kw* }
+--     | `Bind{ name, p }
+--     | `Lua{ mlp.expr }
+--     | `Builder{ p, mlp.expr }
+-- 
+-- kw ::= `String{ <string> }
+--
+-- It's generated by the expr_parser defined below.
+--
+--------------------------------------------------------------------------------
 
-function set_builder (parser, builder_body)
-   -- generer le builder: transformer chaque binder en un accesseur,
-   -- et fabriquer une fonction.
-   local my_binders = binders [parser] or { }
-   local my_builder = builders [parser]
-   if not my_builder then error "No builder for this parser" end
-   local fetch = `Local{ { }, { } }
-   for var, place in pairs (my_binders) do
-      local a = +{A}
-      for e in ivalues (place) do
-         -- FIXME: by fixing optkey/onkey, the test could be avoided
-         a = +{ -{a} and -{a} [-{`Number{ e }}] }
+compile = { }; setmetatable (compile, compile)
+
+-- `compile()' dispatches node handling according to the node's tag:
+function compile:__call (ast)
+   -- $log (ast, 'nohash')
+   return self [ast.tag] (self, unpack (ast))
+end
+
+function compile:Multisequence (...) 
+   local x, openvars = `Table{ }, nil
+   for i, p in ipairs{ ... } do
+      x[i], openvars = self (p)
+      if next (openvars) then
+         eprintf ("Warning: lost open variables in a multisequence case")
       end
-      table.insert (fetch[1], `Id{ var })
-      table.insert (fetch[2], a)
    end
-   --FIXME: body peut pas etre juste un Builder
-   --if body.tag == 'Builder' then body = compile_builder (body[1]) end
-   if fetch[1][1] then 
-      my_builder <- +{ function (A) -{fetch} return -{builder_body} end }
+   return `Call{ +{gg.multisequence}, x }, { } -- binders don't go through.
+end
+
+function compile:Sequence(...) 
+   local x = `Table{ }
+   local openvars = { }
+   local j = 0 -- index of the current parser in the sequence's result
+   for i, p in ipairs{ ... } do
+      local o 
+      match p with
+      | `Lua{ `String{ keyword }==kw_string } -> x[i], o = kw_string, { }
+      | _ -> x[i], o = self (p)
+      end
+      if x[i].tag ~= 'String' then 
+         -- add an index to var paths
+         j += 1 
+         for var_name, var_accessor in  pairs (o) do
+            table.insert (var_accessor, j)
+            openvars [var_name] = var_accessor
+         end
+      else assert (not next(o), "there shouldn't be openvars on a keyword") end
+   end
+   return `Call{ +{gg.sequence}, x }, openvars
+end
+
+function compile:List (p, sep, term)
+   local x, o = self (p)
+   if next (o) then
+      eprintf ("Warning: lost open variables in a list element parser")
+   end
+   local args = `Table{ x }
+   local r = `Call{ +{gg.list}, args }
+   local function insert_pair (key, values)
+      if values and next(values) then
+         values.tag = 'Table'
+         table.insert (args, `Pair{ `String{ key }, values })
+      end
+   end
+   insert_pair ('separators', sep)
+   insert_pair ('terminators', term)
+   return r, { } -- binders don't go through
+end
+
+function compile:Onkeyword (kw, p)  
+   local x, o = self (p)
+   if next (o) then
+      -- update accessors
+      for var_name, var_accessor in  pairs (o) do
+         table.insert (var_accessor, 'optional')
+         o [var_name] = var_accessor
+      end
+   end
+   return +{ gg.onkeyword{ -{kw}, -{x} } }, { }
+end
+
+function compile:Optkeyword (kw)
+   return +{gg.optkeyword {-{ kw }} }, { }
+end
+
+function compile:Lua (expr)
+   if expr.tag=='String' then 
+      return +{ gg.sequence{ -{expr} } }, { }
    else
-      my_builder <- +{ function (A) return -{builder_body} end }
+      return expr, { }
    end
 end
 
--- Build the result of +{ -{parser} :: -{op[1]} }
-function builder_builder (parser, op)
-   local builder_body = op[1]
-
-   if not gg.is_parser (parser) then
-      -- Embed parser in a single-element parser,
-      -- so that it can receive a builder.
-      local my_builder = +{nil}
-      builders [parser] = my_builder
-      parser <- +{ gg.sequence { -{ `String{ parser[1] } }, 
-                                 builder = -{my_builder} } } 
-   end
-   set_builder (parser, builder_body)
+function compile:Bind (name, p)
+   local x, o = compile (p)
+   o [name] = { }
+   return x, o
 end
 
-function bind_builder (id, _, parser)
-   assert (id.tag=='Id', "identifier expected on left of '='")
-   local name = id [1]
-   local b = binders [parser] 
-   if not b then b = { }; binders [parser] = b end
-   b [name] = { }
-   return parser
+-- From a binder path, reconstitute an accessing expression
+local function apply_path (path, x)
+   match table.remove (path) with
+   | 'optional'             -> return +{ -{x} and apply_path (path, -{x}) }
+   | n if type(n)=='number' -> return `Index{ apply_path(path, x), `Number{n} }
+   | nil                    -> return x
+   end
 end
 
-function seq_builder (x)
-   -- r: resulting parser AST
-   -- args: sub-parsers
-   -- my_builder == builders[r]: this parser's builder AST
-   -- my_binder  == binders [r]: binders in this parser
-   local args, my_binders, my_builder, i = `Table{ unpack (x) }, { }, +{nil}, 1
-   table.insert (args, `Pair{ +{"builder"}, my_builder })
-   local r = +{ gg.sequence (-{args}) } 
-   binders  [r] = my_binders
-   builders [r] = my_builder
-
-   -- For each non-keyword sub-parser, add the relevant binding
-   for _, y in ipairs (args) do      
-      if y.tag ~= 'String' then 
-         for name, place in pairs (binders [y] or { }) do
-            assert (not my_binders [name], "Multiple occurences of binder "..name)
-            table.insert (place, i)
-            my_binders [name] = place
-         end
-         i=i+1 -- only increment for non-keywords!
-      end
-      -- binders [y] = nil -- release binders for sub-parsers
-   end
-   return r
-end
-
---------------------------------------------------------------------------------
--- Build a multisequence node and its binders:
---
---  * Generate the union list of all bound names in all alternatives
---
---  * Each alternative is a `Sequence{ } and therefore has no builder,
---    generate a builder which returns an array of all the possibly bound
---    variables. If alternatives don't have the same binders, there will
---    be some `nil' values in the array.
---
---  * As a result, the `Multisequence{ } as a whole as a single, clear
---    set of binders, which is published normally, as a `binders[x]'
---    entry.
---
---------------------------------------------------------------------------------
-function multi_builder (x)
-
-   -- name_set = smallest common superset of bound vars in alternatives, as a set
-   local names_set = { }
-   for y in ivalues (x) do
-      for name in keys (binders[y] or { }) do all_names [name] = true end
+function compile:Builder (p, expr)
+   local x, o = compile (p)
+   
+   -- We need the result to accept builders
+   match x with
+   | +{ gg.optkeyword{ -{...} } } -> error "Optkeyword can't support a builder"
+   | +{ gg[ -{name} ]{ -{...} } } -> -- pass
+   | _ -> error "This parser can't support a builder"
    end
 
-   -- Turn single keywords, into trivial sequences
-   for i, alt in ipairs (x) do
-      if alt.tag=='String' then 
-         --eprintf("Make a sequence from string "..alt[1])
-         local my_builder = +{nil}
-         builders [alt] = my_builder
-         alt <- +{ gg.sequence{ -{ `String{ alt[1] } }, builder = -{my_buidler} } }
-      end
-   end
-
-   local my_binders = { }
-
-   -- If nothing's exported, avoid useless reformatting
-   if next (names_set) then
-
-      -- names_list: names_set converted into a list (arbitrary order)
-      local names_list = { }
-      for name in keys (names_set) do table.insert (names_list, name) end
-
-      -- Put a builder in each alternative, so that they all present the same
-      -- bound vars in the same order.
-      for i, alt in ipairs(x) do
-         
-         --eprintf("MULTIBUILDER ALT #%i: \n%s", i, pdli(alt, 50))
-      
-         -- Compute the list of missing symbols
-         local b, r = binders [alt], `Table{ }
-         if b then -- b has some binders, generate a complete name_list
-            for j, name in ipairs (names_list) do
-               if b[name] then r[j] = `Id{ name } else
-                  r[j] = +{nil}
-                  eprintf("Warning: symbol "..name..
-                          " is not always bound in multisequence")
-               end
-            end
-            set_builder (alt, r)
-         else -- no binders for alt, make it build an empty table
-            alt.builder = `Builder{ { }, `Table{ } }
-         end
-      end
-      
-      -- Every bound var has been handled by the multiseq, give them
-      -- their new places.
-      for i, var in ipairs (names_list) do
-         my_binders [var] = { i }
-      end
+   -- Build accessors to bound vars
+   -- FIXME: only generate an accessor if the variable is used in `expr'
+   -- FIXME: -{it} should be gensym'ed
+   local vars, accessors = { }, { }
+   for var, path in pairs (o)  do
+      local accessor = apply_path (path, +{it})
+      table.insert (vars, var)
+      table.insert (accessors, accessor)
    end
    
-   -- Build up the multisequence call statement
-   x.tag = 'Table'
-   local my_builder = +{nil}
-   table.insert (x, `Pair{ +{"builder"}, my_builder })
-   local r = +{ gg.multisequence (-{x}) }
-   builders[r] = my_builder
-   binders [r] = my_binders
-   --eprintf("MULTIBUILDER RESULT: \n%s", pdli(r, 50))
-   return r
+   -- Builder function:
+   local f = next(vars) 
+      and +{ function (it) -{ `Local{ vars, accessors} } return -{expr} end }
+      or  +{ || -{expr} }
+
+   -- Insert builder in the AST of the parser argument table:
+   table.insert (x[2], `Pair{ +{"builder"}, f })
+
+   return x, { } -- remove binders (their path is not valid anymore)
 end
 
 --------------------------------------------------------------------------------
--- * kw: keyword triggering gg.onkeyword
--- * p:  parser triggered by kw
--- The binders in p are kept, they're simply forced to nil if p isn't triggered. 
 --------------------------------------------------------------------------------
-
--- FIXME C'est pas vrai, rien n'est fait pour l'instant avec les binders
-
-function onkey_builder (x)
-   local kw, _, p = unpack (x)
---   for name, place in pairs (binders [p] or { }) do
---      table.insert (place, 'maybe')
---   end
-   local r = +{ gg.onkeyword{ -{kw}, -{p} } }
-   --binders [r], binders [p] = binders [p], nil
-   binders [r] = binders [p]
-   return r
-end
-
+--
+-- Concrete syntax parsers
+--
 --------------------------------------------------------------------------------
--- builder for lists.
--- * parser is the list elements parser
--- * qualifiers is built by list_qualifiers, it's a list of `Pair{}s,
---   possibly empty, to be appended to the list arguments og +{gg.list()}.
---   Its keys can by +{"terminators"} and/or +{"separators"}.
 --------------------------------------------------------------------------------
-function list_builder (x)
-   local parser, qualifiers = unpack (x) 
-   -- Emit a warning if any binder escapes, since they'll be lost anyway.
-   if binders [parser] and next (binders [parser]) then
-      eprintf ("Warning, bindings in the list parser will be lost")
-   end
-   return +{ gg.list (-{ `Table{ parser, unpack (qualifiers) } }) }
-end
-
---------------------------------------------------------------------------------
--- builder for `` "keyword" ? ''
---------------------------------------------------------------------------------
-function optkey_builder (x)
-   assert (x[1].tag=='String', "Only keywords can be made optional")
-   return +{ gg.optkeyword{ -{x[2]} } }
-end
 
 --------------------------------------------------------------------------------
 -- list suffixes: ``until <terminators>'' and ``while <separators>''
 --------------------------------------------------------------------------------
-function list_qualifiers (lx)
-   local t = `Table{ }
-   local kw_list = gg.list{ mlp.string, separators = "or", builder='Table' }
-   local f = |k| lx:next() and table.insert (t, `Pair{ `String{ k }, kw_list(lx) })
+function list_qualifiers_parser (lx)
+   local kw_list = gg.list{ mlp.string, separators = "or" }
+   local separators, terminators
    while true do
       match lx:is_keyword (lx:peek()) with
-      | "while" -> f 'separators'
-      | "until" -> f 'terminators'
-      | _  -> return t
+      | "while" if not separators  -> lx:next(); separators  = kw_list (lx)
+      | "until" if not terminators -> lx:next(); terminators = kw_list (lx)
+      | _  -> return { separators or { }, terminators or { } }
       end
    end
-   return t
 end
-
---mlp.expr.transformers:add(|x|eprintf("expr: %s", table.tostring(x, 'nohash')))
 
 -- Forward declaration for self reference
 local function _expr_parser (...) return expr_parser (...) end
+
+local function get_lua (ast)
+   match ast with
+   | `Lua{ x } -> return x
+   | _ -> $log(ast, 'nohash'); error "Lua expr expected"
+   end
+end
 
 --------------------------------------------------------------------------------
 -- Main parser expression syntax: This parses the content of << ... >>.
@@ -280,23 +294,24 @@ expr_parser = gg.expr{ name = "gg parser",
 
    primary = gg.multisequence{ 
       { "(", _expr_parser, ")", builder = |x| x[1] },
-      { "repeat", _expr_parser, list_qualifiers, 
+      { "repeat", _expr_parser, list_qualifiers_parser, 
          builder = |x| `List{ x[1], x[2][1], x[2][2] } },
-      { mlp.expr, builder = |x| `Lua{ x } }
+      { mlp.expr, builder = 'Lua' }
    },
    
    infix = { 
-      { "=",      prec=90, builder = |x| `Bind{ x[1], x[3] } },
-      { ",",      prec=50, builder = 'Sequence',       assoc = 'flat' },
-      { "|", "|", prec=30, builder = 'Multisequence' , assoc = 'flat' },
-      { "=>",     prec=70, builder = |x| `Onkeyword{ x[1], x[3] } },
+      { "=",      prec=90, builder = |v,_,p| `Bind{ get_lua(v), p } },
+      { ",",      prec=50, builder = 'Sequence',      assoc = 'flat' },
+      { "|", "|", prec=30, builder = 'Multisequence', assoc = 'flat' },
+      { "=>",     prec=70, builder = |k,_,p| `Onkeyword{ get_lua(k), p } }
    }, 
 
    prefix = { },
 
    suffix = {
-      { "::", mlp.expr, prec=40, builder = |x| `Builder{ x[1], x[2][1] } },
-      { "?", builder = 'Optkeyword' }, --FIXME check, most likely false
+      { "?", prec=100, builder = |k,_| `Optkeyword{ get_lua(k) } },
+      { "::", mlp.expr, prec=40, 
+         builder = |p,x| `Builder{ p, x[1] } },
    }
 }
 
@@ -304,7 +319,7 @@ expr_parser = gg.expr{ name = "gg parser",
 -- Plug parser expression in metalua, between << ... >>
 -- ``myparser = << ... >>''
 --------------------------------------------------------------------------------
-mlp.expr.primary:add{ "<<", expr_parser, ">>", builder = |x| compile(x[1]) }
+mlp.expr.primary:add{ "<<", expr_parser, ">>", builder = |x| (compile(x[1])) }
 
 --------------------------------------------------------------------------------
 -- Allow parsers as function parameters without parentheses
@@ -312,13 +327,13 @@ mlp.expr.primary:add{ "<<", expr_parser, ">>", builder = |x| compile(x[1]) }
 --------------------------------------------------------------------------------
 mlp.expr.suffix:add { 
    "<<", expr_parser, ">>", 
-   builder = |f, x| `Call{ f, compile(x[1]) } }
+   builder = |f, x| `Call{ f, (compile(x[1])) } }
 
 --------------------------------------------------------------------------------
 -- Allow parsers as method parameters without parentheses:
 -- ``object:method_accepting_parsers << foo, bar >>''
 --------------------------------------------------------------------------------
-mlp.method_args:add { "<<", expr_parser, ">>", builder = |x| { compile(x[1]) } }
+mlp.method_args:add { "<<", expr_parser, ">>", builder = |x| {(compile(x[1]))} }
 
 --------------------------------------------------------------------------------
 -- Declare a forward parser (i.e. an eta-expansion of a future parser):
@@ -333,165 +348,5 @@ mlp.stat:add { "forward", mlp.expr,
 --------------------------------------------------------------------------------
 local local_parser = mlp.stat :get "local" [2]
 local_parser:add{ "forward", mlp.id,
-   builder = |x| +{stat: local function -{x[1]} (...) return -{x[1]} (...) end } }
+   builder = |x| +{stat: local function -{x[1]}(...) return -{x[1]}(...) end } }
 
-
-compile = { }
-setmetatable (compile, compile)
-
-function compile:__call (ast)
-   return self [ast.tag] (self, unpack (ast))
-end
-
-function compile:Multisequence (...) 
-   local x = `Table{ }
-   for i, p in ipairs{ ... } do
-      x[i], openvars = self (p)
-      -- Make sure that each alternative is a sequence
-      match x[i] with 
-      | `Call{ +{gg.sequence}, ... } -> -- ok
-      | y -> x[i] = +{ gg.sequence{ -{y}, builder = |x| x[1] } } -- convert
-      end
-      if next (openvars) then
-         eprintf ("Warning: lost open variables in a multisequence case")
-      end
-   return `Call{ +{gg.multisequence}, x }, { }
-end
-
-function compile:Sequence(...) 
-   local x = `Table{ }
-   local openvars = { }
-   local j = 0 -- index of the current parser in the sequence's result
-   for i, p in ipairs{ ... } do
-      local o 
-      x[i], o = self (p)
-      if x[i].tag ~= "string" then 
-         -- build open var accessors
-         j += 1 
-         for var_name, var_accessor in  pairs (o) do
-            openvars [var_name] = `Index{ var_accessor, `Number{ j } }
-         end
-      else assert (not next(o), "there shouldn't be openvars on a keyword") end
-   end
-   return `Call{ +{gg.sequence}, x }, openvars
-end
-
-function compile:List (p, sep, term)
-   local x, o = self (p)
-   if next (o) then
-      eprintf ("Warning: lost open variables in a list element parser")
-   end
-   local r = `Call{ +{gg.list}, x }
-   local function insert_pair (r, key, values)
-      if values and next(values) then
-         values.tag = 'Table'
-         table.insert (r, `Pair{ `String{ key }, values })
-      end
-   end
-   insert_pair (r, 'separators', sep)
-   insert_pair (r, 'terminators', term)
-   return r, { }
-end
-
-function compile:Onkeyword (kw, p)  
-   local x, o = self (p)
-   if next (o) then
-      -- update accessors
-      for var_name, var_accessor in  pairs (o) do
-         o [var_name] = ???
-      end
-   end
-   return +{ gg.onkeyword{ -{kw}, -{x} } }
-end
-
-<< "else" => e=(mlp.expr, "end") >>
-dedans, e -> it[1]
-dehors, e -> it and it[1] 
-
-function compile:Optkeyword (...)
-   return +{gg.optkeyword -{ {...} } }, { }
-end
-
-function compile:Lua (expr)
-   return expr, { }
-end
-
-function compile:Bind (name, p)
-   local x, o = compile (p)
-   o [name] = ???eemptypath
-   return x, o
-end
-
-function compile:Builder (p, expr)
-   local x, o = compile (p)
-   
-   -- We need the result to accept builders
-   if p.tag=='Lua' or p.tag=='Optkeyword' then
-      x = +{ gg.sequence{ -{expr} } }
-   end
-
-   -- Node where the builder will be inserted: 1st arg of `Call
-   local parser_arg = x[2]
-
-   -- Build accessors to bound vars
-
-   local fv = freevars (x)
-   local vars, accessors = { }, { }
-   local getvars = `Local{ vars, accessors }
-   for v in keys (fv) if o[v] do
-      local accessor = ???
-      table.insert (vars, `Id{ v })
-      table.insert (accessors, accessor)
-   end
-   
-   -- Builder value:
-   local f = +{function (it) -{getvars}; return -{expr} end}
-
-   table.insert (parser_arg, `Pair{ +{"builder"}, f })
-
-   return x, { } -- remove binders (but should I?)
-
-end
-
-
-
-function generate_accessor_body (path, n, core)
-   
-   local x = path[n]
-   if not x then return +{it}
-   elseif x == 'optional' then
-      +{ it = }
-
- { 1, 3, 'optional' 4 }
-
- `Stat{ +{local it= -{core}}, +{ -{core} and xx } }
-
- it[1]
- it[1][3]
- it = it[1][3]; it and 
-
- it = it[1][3]; it and it[4]
-
-function f (it)
-   local foo = it[1][3] foo = foo and foo[4]
-   
-
-   local foo = -{ `Stat{ +{block: local it = it[1][3] } }, +{ it and it[4] } }
-
-
-   f( it, { 1,3,opt,4 } )
-   f( it[1], { 3,opt,4 } )
-   f( it[1][3], {opt,4 } )
-   f( do local it=it[1][3] return f(it, 4) end, { } ) 
-
-
-
-   f( it, {1,opt,2,opt,3} )
-   f( it[1], {opt,2,opt,3} )
-   f( do local it=it[1],
-
-
-match path with
-| { } | { 'optional' } -> return calculi, core
-| { 'optional', n, ... } if type(n)=='number' -> 
-   table.insert (calculi, +{ it = -{core} })

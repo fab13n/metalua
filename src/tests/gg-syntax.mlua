@@ -1,0 +1,29 @@
+-{ extension 'gg' }
+
+gg.set_default_lexer (false)
+
+-- basic sequence:
+x = << "+" >>
+x = << "<", ">" >>
+
+-- list:
+x = << repeat "+">>
+x = << repeat "+" while "/" or "|" >>
+x = << "<", repeat "+" while "/" or "|", ">" >>
+x = << "<", repeat "+" until ">", ">" >>
+x = << "<", repeat "+" until ">" or "|", ">" >>
+
+-- alternatives:
+x = << "foo" || "bar" >>
+x = << "a", "b" || "c", "d" >>
+x = << "<", repeat "+" || "-" until ">", ">" >>
+
+-- onkeyword:
+x = << "foo" => "bar" >>
+x = << "foo" => "bar", "bar" >>
+x = << "foo" => ("bar"?, "bar") >>
+
+-- builders:
+x = << "while", c=mlp.expr, "do", b=mlp.block, "end" :: `While{ c, b } >>
+
+
