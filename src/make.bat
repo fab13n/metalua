@@ -12,7 +12,7 @@
 @set BASE=%CD%
 @set DISTRIB=%BASE%\..\distrib
 @set DISTRIB_BIN=%DISTRIB%\bin
-@set DISTRIB_LIB=%DISTRIB%\lib
+@set DISTRIB_LIB=C:\fabien\src\eclipse-workspaces\main\kahlua\resources
 @set LUA=%DISTRIB_BIN%\lua
 @set LUAC=%DISTRIB_BIN%\luac
 @set BC_EXT=lbc
@@ -53,4 +53,4 @@ call %DISTRIB_BIN%\metalua -vb -f compiler\mlc.mlua     -o %DISTRIB_LIB%\metalua
 call %DISTRIB_BIN%\metalua -vb -f compiler\metalua.mlua -o %DISTRIB_LIB%\metalua.%BC_EXT%
 
 @REM *** Precompile metalua libraries ***
-%LUA% %BASE%\build-utils\precompile.lua directory=%DISTRIB_LIB% command=%DISTRIB_BIN%\metalua bytecode_ext=%BC_EXT%
+%LUA% %BASE%\build-utils\precompile.lua directory=%DISTRIB_LIB% metalua_compiler=%DISTRIB_BIN%\metalua lua_compiler=%DISTRIB_BIN%\luac bytecode_ext=%BC_EXT%
