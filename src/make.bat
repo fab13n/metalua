@@ -25,7 +25,7 @@ mkdir %DISTRIB%
 mkdir %DISTRIB_BIN%
 mkdir %DISTRIB_LIB%
 xcopy /y /s lib %DISTRIB_LIB%
-xcopy /y /s bin %DISTRIB_BIN%
+xcopy /y /s ..\bin %DISTRIB_BIN%
 
 @REM *** Generate a callable batch metalua.bat script ***
 
