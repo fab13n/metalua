@@ -132,7 +132,7 @@ function mlc.__index(_, name)
    if not osrc then error ("unknown source format "..src) end
    if not odst then error ("unknown destination format "..src) end
    if osrc > odst then error "Can't convert in this direction" end
-   return |x, name| mlc.convert(x, src, dst, name) 
+   return (|x, name| mlc.convert(x, src, dst, name) )
 end
 
 --------------------------------------------------------------------------------
@@ -147,15 +147,16 @@ mlc.luacstring_of_function = string.dump
 -- they're referenced in the registry.
 --------------------------------------------------------------------------------
 
+-- Kahlua: don't rely on Lua compiler
 lua_loadstring = loadstring
 local lua_loadstring = loadstring
-lua_loadfile = loadfile
-local lua_loadfile = loadfile
+-- lua_loadfile = loadfile
+-- local lua_loadfile = loadfile
 
 function loadstring(str, name)
    if type(str) ~= 'string' then error 'string expected' end
-   if str:match '^\027LuaQ' then return lua_loadstring(str) end
-   local n = str:match '^#![^\n]*\n()'
+   if str:strmatch '^\027LuaQ' then return lua_loadstring(str) end
+   local n = str:strmatch '^#![^\n]*\n()'
    if n then str=str:sub(n, -1) end
    -- FIXME: handle erroneous returns (return nil + error msg)
    local success, f = pcall (mlc.function_of_luastring, str, name)

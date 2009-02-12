@@ -61,7 +61,7 @@ local function spring_load(filename)
    local fd = io.popen (cmd)
    local ast_src = fd:read '*a'
    fd:close()
-   local ast = lua_loadstring (ast_src) () -- much faster than loadstring()
+   -- local ast = lua_loadstring (ast_src) () -- much faster than loadstring()
    return mlc.function_of_ast (ast, filename)
 end
 
@@ -71,16 +71,9 @@ end
 function package.metalua_loader (name)
    local file, filename_or_msg = package.findfile (name, package.mpath)
    if not file then return filename_or_msg end
-   if package.metalua_nopopen then
-      local luastring = file:read '*a'
-      file:close()
-      return mlc.function_of_luastring (luastring, name)
-   else      
-      file:close()
-      require 'metalua.mlc_xcall'
-      local status, ast = mlc_xcall.client_file (filename_or_msg)
-      return mlc.function_of_ast(ast)
-   end
+   local luastring = file:read '*a'
+   file:close()
+   return mlc.function_of_luastring (luastring, name)
 end
 
 ----------------------------------------------------------------------
