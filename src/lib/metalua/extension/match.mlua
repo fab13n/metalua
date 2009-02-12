@@ -345,12 +345,43 @@ function match_builder (x)
    return cfg.code
 end
 
+-- AST grammar:
+--
+-- m        ::= `Match{ mlp.expr+, case* }
+-- case     ::= `Case{ patterns, guard?, mlp.block }
+-- patterns ::= `Multipattern{ pattern+ } | pattern
+-- pattern  ::= `Pattern{ mlp.expr+ }
+-- guard    ::= mlp.expr
+
 ----------------------------------------------------------------------
 -- Syntactical front-end
 ----------------------------------------------------------------------
 
 mlp.lexer:add{ "match", "with", "->" }
 mlp.block.terminators:add "|"
+
+--[[
+parser = { }
+parser.Pattern = << repeat mlp.expr while "," :: 'Pattern' >>
+
+parser.Multipattern =
+   << p = repeat parser.Pattern while "|" :: 'Multipattern' >>
+
+parser.Case =
+   << patterns = parser.Multipattern, 
+      guard    = "if" => mlp.expr, "->",
+      body     = mlp.block
+   :: guard and `Case{ patterns, guard, body } or `Case{ patterns, body } >>
+
+parser.Match =
+   << "match", term_list = repeat mlp.expr until "with", 
+      "with", "|" ?,
+      case_list = repeat parser.Case while "|" until "end" ,
+      "end" 
+   :: `Match{ term_list, case_list } >>
+
+mlp.stat.add << parser.Match :: compile >>
+--]]
 
 match_cases_list_parser = gg.list{ name = "match cases list",
    gg.sequence{ name = "match case",

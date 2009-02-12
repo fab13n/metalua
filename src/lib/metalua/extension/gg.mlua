@@ -59,7 +59,7 @@
 -- * Lua expressions are also accepted
 --
 -- * Precedence: the operators, from the lowest to the tightest precedence,
---   are `||', `::', `,', `=>', `=', `?'.
+--   are `||',  `::',  `,',  `=>',  `=',  `?'.
 --
 -- * In lua expressions, parsers don't require parentheses to be passed as
 --   arguments to functions and methods. These are therefore valid expressions:
@@ -84,7 +84,7 @@
 
 require 'metalua.ast_to_string'
 
--{ extension 'match' }
+-- -{ extension 'match' }
 -{ extension 'log' }
 
 require 'strict'
@@ -150,10 +150,15 @@ function compile:Sequence(...)
    local j = 0 -- index of the current parser in the sequence's result
    for i, p in ipairs{ ... } do
       local o 
-      match p with
-      | `Lua{ `String{ keyword }==kw_string } -> x[i], o = kw_string, { }
-      | _ -> x[i], o = self (p)
+      if p.tag=='Lua' and p[1].tag=='String' then
+         x[i], o = p[1][1], { }
+      else
+         x[i], o = self (p)
       end
+      -- match p with
+      -- | `Lua{ `String{ keyword }==kw_string } -> x[i], o = kw_string, { }
+      -- | _ -> x[i], o = self (p)
+      -- end
       if x[i].tag ~= 'String' then 
          -- add an index to var paths
          j += 1 
@@ -216,10 +221,18 @@ end
 
 -- From a binder path, reconstitute an accessing expression
 local function apply_path (path, x)
-   match table.remove (path) with
-   | 'optional'             -> return +{ -{x} and apply_path (path, -{x}) }
-   | n if type(n)=='number' -> return `Index{ apply_path(path, x), `Number{n} }
-   | nil                    -> return x
+   -- match table.remove (path) with
+   -- | 'optional'             -> return +{ -{x} and apply_path (path, -{x}) }
+   -- | n if type(n)=='number' -> return `Index{ apply_path(path, x), `Number{n} }
+   -- | nil                    -> return x
+   -- end
+   local n = table.remove (path)
+   if n=='optional' then 
+      return +{ -{x} and apply_path (path, -{x}) }
+   elseif type(n)=='number' then 
+      return `Index{ apply_path(path, x), `Number{n} }
+   else
+      assert (n==nil); return x
    end
 end
 
@@ -227,10 +240,22 @@ function compile:Builder (p, expr)
    local x, o = compile (p)
    
    -- We need the result to accept builders
-   match x with
-   | +{ gg.optkeyword{ -{...} } } -> error "Optkeyword can't support a builder"
-   | +{ gg[ -{name} ]{ -{...} } } -> -- pass
-   | _ -> error "This parser can't support a builder"
+   local need_surrounding_sequence
+   -- match x with
+   -- | +{ gg.optkeyword{ -{...} } } -> need_surrounding_sequence = true
+   -- | +{ gg[ -{name} ]{ -{...} } } -> need_surrounding_sequence = false
+   -- | _                            -> need_surrounding_sequence = true
+   -- end
+   if x.tag=='Call' and x[1].tag=='Index' and 
+      x[1][1].tag=='Id' and x[1][1][1]=='gg' and x[1][2].tag=='String' then
+      need_surrounding_sequence = (x[1][2][1]=='optkeyword')
+   else
+      need_surrounding_sequence = true
+   end
+
+   if need_surrounding_sequence then 
+      x = +{gg.sequence{ -{x} } }
+      for path in values(o) do table.insert (path, 1) end
    end
 
    -- Build accessors to bound vars
@@ -244,12 +269,17 @@ function compile:Builder (p, expr)
    end
    
    -- Builder function:
-   local f = next(vars) 
-      and +{ function (it) -{ `Local{ vars, accessors} } return -{expr} end }
-      or  +{ || -{expr} }
+   local builder
+   if expr.tag=='String' then
+      builder = expr
+   elseif next(vars) then
+      builder = +{ function (it) -{ `Local{ vars, accessors} } return -{expr} end }
+   else
+      builder = +{ || -{expr} }
+   end
 
    -- Insert builder in the AST of the parser argument table:
-   table.insert (x[2], `Pair{ +{"builder"}, f })
+   table.insert (x[2], `Pair{ +{"builder"}, builder })
 
    return x, { } -- remove binders (their path is not valid anymore)
 end
@@ -269,10 +299,18 @@ function list_qualifiers_parser (lx)
    local kw_list = gg.list{ mlp.string, separators = "or" }
    local separators, terminators
    while true do
-      match lx:is_keyword (lx:peek()) with
-      | "while" if not separators  -> lx:next(); separators  = kw_list (lx)
-      | "until" if not terminators -> lx:next(); terminators = kw_list (lx)
-      | _  -> return { separators or { }, terminators or { } }
+      local kw = lx:is_keyword (lx:peek())
+      -- match lx:is_keyword (lx:peek()) with
+      -- | "while" if not separators  -> lx:next(); separators  = kw_list (lx)
+      -- | "until" if not terminators -> lx:next(); terminators = kw_list (lx)
+      -- | _  -> return { separators or { }, terminators or { } }
+      -- end
+      if kw=='while' and not separators then
+         lx:next(); separators  = kw_list (lx)
+      elseif kw=='until' and not terminators then
+         lx:next(); terminators = kw_list (lx)
+      else
+         return { separators or { }, terminators or { } }
       end
    end
 end
@@ -281,10 +319,8 @@ end
 local function _expr_parser (...) return expr_parser (...) end
 
 local function get_lua (ast)
-   match ast with
-   | `Lua{ x } -> return x
-   | _ -> $log(ast, 'nohash'); error "Lua expr expected"
-   end
+   if ast.tag=='Lua' then return ast[1]
+   else $log(ast, 'nohash'); error "Lua expr expected" end
 end
 
 --------------------------------------------------------------------------------

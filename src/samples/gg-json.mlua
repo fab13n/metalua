@@ -3,6 +3,8 @@
 
 -{ block:
    -{ extension 'gg' }
+
+   local function tag(tag, table) table.tag=tag; return table end
    
    -- We'll put all the parsers we'll need to define in this table:
    local json = { }
@@ -27,18 +29,18 @@
    -- json object: a set of key/value pairs between braces
    json.object = 
      << "{", pairs = repeat json.pair while ",", "}" 
-     :: `Table{ unpack (pairs) } >>
+     :: 'Table' `tag` pairs >>
 
    -- json array: comma-separated values between brackets
    json.array =
       << "[",  vals = repeat json.value while ",", "]" 
-      :: `Table{ unpack (vals) } >>
+      :: 'Table' `tag` vals >>
 
    -- json value: union of above, plus a couple of keywords
    json.value  =
-      << "true"  :: `True
-      || "false" :: `False
-      || "null"  :: `Nil
+      << "true"  :: +{true}
+      || "false" :: +{false}
+      || "null"  :: +{nil}
       || json.array 
       || json.object 
       || json.litteral >>
