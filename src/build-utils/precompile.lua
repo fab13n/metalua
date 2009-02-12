@@ -1,5 +1,5 @@
 -- Compile all files called *.mluam in a directory and its sub-directories,
--- into their *.luac counterpart.
+-- into their *.lbc counterpart.
 --
 -- This script is windows-only, Unices have half-decent shell script languages 
 -- which let you do the same with a find and an xargs.
@@ -22,7 +22,7 @@ for src in f:lines() do
    file_seen[src] = true
    local base = src:match "^(.+)%.mlua$"
    if base then
-      local target = base..".luac"
+      local target = base..".lbc"
       if file_seen[target] then 
 	 -- the target file has been listed before the source ==> it's newer
 	 print ("("..target.." up-to-date)")
