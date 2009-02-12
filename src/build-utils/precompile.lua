@@ -1,5 +1,5 @@
 -- Compile all files called *.mluam in a directory and its sub-directories,
--- into their *.lbc counterpart.
+-- into their bytecode counterpart.
 --
 -- This script is windows-only, Unices have half-decent shell script languages 
 -- which let you do the same with a find and an xargs.
@@ -18,11 +18,12 @@ end
 local f = io.popen ("dir /S /b /o-D " .. cfg.directory)
 
 local file_seen = { }
+
 for src in f:lines() do
    file_seen[src] = true
    local base = src:match "^(.+)%.mlua$"
    if base then
-      local target = base..".lbc"
+      local target = base.."."..cfg.bytecode_ext
       if file_seen[target] then 
 	 -- the target file has been listed before the source ==> it's newer
 	 print ("("..target.." up-to-date)")
