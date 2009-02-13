@@ -326,7 +326,7 @@ function lexer:add (w, ...)
          if not list then list = { }; self.sym [k] = list end
          _G.table.insert (list, w)
       elseif w:match "^%p$" then return
-      else error "Invalid keyword" end
+      else error (string.format("Invalid keyword %q",w)) end
    end
 end
 

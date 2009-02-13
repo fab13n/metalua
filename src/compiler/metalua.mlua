@@ -236,7 +236,7 @@ local function main (...)
       end
       local st, msg = xpcall(|| f(unpack (runargs)), print_traceback)
       if not st then
-         io.stderr:write(msg)
+         print (msg)
          os.exit(RUNTIME_ERROR_NUMBER)
       end
    end
