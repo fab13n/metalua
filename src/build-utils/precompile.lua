@@ -37,7 +37,7 @@ for src in f:lines() do
       local target = base.."."..cfg.bytecode_ext
       if file_seen[target] then 
          -- the target file has been listed before the source ==> it's newer
-         print ("\t("..target.." up-to-date)")
+         print ("  [OK]\t("..target.." up-to-date)")
       else
          local compiler = ext=='mlua' and cfg.metalua_compiler or cfg.lua_compiler
          local cmd = compiler.." -o "..target.." "..src

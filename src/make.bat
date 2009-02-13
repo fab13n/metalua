@@ -10,9 +10,9 @@
 @REM --- BEGINNING OF USER-EDITABLE PART ---
 
 @set BASE=%CD%
-@set DISTRIB=%BASE%\..\distrib
+@set DISTRIB=%BASE%\..\..
 @set DISTRIB_BIN=%DISTRIB%\bin
-@set DISTRIB_LIB=C:\fabien\src\eclipse-workspaces\main\kahlua\resources
+@set DISTRIB_LIB=%DISTRIB%\resources
 @set LUA=%DISTRIB_BIN%\lua
 @set LUAC=%DISTRIB_BIN%\luac
 @set BC_EXT=lbc
