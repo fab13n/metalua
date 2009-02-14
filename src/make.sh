@@ -5,35 +5,21 @@
 # Metalua sources
 BASE=${PWD}
 
-# Temporary building location.
-# Upon installation, everything will be moved to ${INSTALL_LIB} and ${INSTALL_BIN}
-
-if [ -z "${BUILD}" ]; then
-  BUILD=/tmp/metalua-build
-fi
-
 if [ -z "${BUILD_BIN}" ]; then
-  BUILD_BIN=${BUILD}/bin
+  BUILD_BIN=../../bin
 fi
 
 if [ -z "${BUILD_LIB}" ]; then
-  BUILD_LIB=${BUILD}/lib
-fi
-
-# Where to place the final results
-# INSTALL_BIN=/usr/local/bin
-# INSTALL_LIB=/usr/local/lib/lua/5.1
-if [ -z "${INSTALL_BIN}" ]; then
-  INSTALL_BIN=~/local/bin
-fi
-
-if [ -z "${INSTALL_LIB}" ]; then
-  INSTALL_LIB=~/local/lib/lua
+  BUILD_LIB=../../resources
 fi
 
 if [ -z "${BC_EXT}" ]; then
   BC_EXT=lbc
 fi
+
+# Make paths absolute (in case they were relative)
+BUILD_BIN=$(cd ${BUILD_BIN}; pwd)
+BUILD_LIB=$(cd ${BUILD_LIB}; pwd)
 
 # Where to find Lua executables.
 # On many Debian-based systems, those can be installed with "sudo apt-get install lua5.1"
@@ -52,8 +38,7 @@ echo '*** Create the distribution directories, populate them with lib sources **
 
 mkdir -p ${BUILD_BIN}
 mkdir -p ${BUILD_LIB}
-cp -R lib/* ${BUILD_LIB}/
-# cp -R bin/* ${BUILD_BIN}/ # No binaries provided for unix (for now)
+cp -Rp lib/* ${BUILD_LIB}/
 
 echo '*** Generate a callable metalua shell script ***'
 
@@ -82,38 +67,39 @@ echo '*** Finish the bootstrap: recompile the metalua parts of the compiler with
 ${BUILD_BIN}/metalua -vb -f compiler/mlc.mlua     -o ${BUILD_LIB}/metalua/mlc.${BC_EXT}
 ${BUILD_BIN}/metalua -vb -f compiler/metalua.mlua -o ${BUILD_LIB}/metalua.${BC_EXT}
 
-echo '*** Precompile metalua libraries ***'
+echo '*** Precompile lua & metalua libraries ***'
 for SRC in $(find ${BUILD_LIB} -name '*.mlua'); do
     DST=$(dirname $SRC)/$(basename $SRC .mlua).${BC_EXT}
     if [ $DST -nt $SRC ]; then
-        echo "+ $DST already up-to-date"
+        echo "  [OK]\t+ $DST already up-to-date"
     else
-        echo "- $DST generated from $SRC"
+        echo "  -do-\t- $DST generated from $SRC"
         ${BUILD_BIN}/metalua $SRC -o $DST
     fi
 done
 
-echo '*** Generate make-install.sh script ***'
+for SRC in $(find ${BUILD_LIB} -name '*.lua'); do
+    DST=$(dirname $SRC)/$(basename $SRC .lua).${BC_EXT}
+    if [ $DST -nt $SRC ]; then
+        echo "  [OK]\t+ $DST already up-to-date"
+    else
+        echo "  -do-\t- $DST generated from $SRC"
+        luac -o $DST $SRC
+    fi
+done
 
-cat > make-install.sh <<EOF2
-#!/bin/sh
-mkdir -p ${INSTALL_BIN}
-mkdir -p ${INSTALL_LIB}
+echo '*** Generate metalua shell script ***'
 
-cat > ${INSTALL_BIN}/metalua <<EOF
+cat > ${BUILD_BIN}/metalua <<EOF
 #!/bin/sh
-METALUA_LIB=${INSTALL_LIB}
+METALUA_LIB=${BUILD_LIB}
 export LUA_PATH="?.${BC_EXT};?.lua;\\\${METALUA_LIB}/?.${BC_EXT};\\\${METALUA_LIB}/?.lua"
 export LUA_MPATH="?.mlua;\\\${METALUA_LIB}/?.mlua"
 exec ${LUA} \\\${METALUA_LIB}/metalua.${BC_EXT} "\\\$@"
 EOF
 
-chmod a+x ${INSTALL_BIN}/metalua
-
-cp -R ${BUILD_LIB}/* ${INSTALL_LIB}/
-EOF2
-chmod a+x make-install.sh
+chmod a+x ${BUILD_BIN}/metalua
 
 echo
-echo "Build completed, proceed to installation with './make-install.sh' or 'sudo ./make-install.sh'"
+echo "Build completed in ${BUILD_LIB}, metalua executable in ${BUILD_BIN}"
 echo
