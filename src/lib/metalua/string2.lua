@@ -31,13 +31,16 @@ end
 -- so here is an always available substitute.
 string.strmatch = string["match"]
 
--- change a compiled string into a function
-function string.undump(str)
-   if str:strmatch '^\027LuaQ' or str:strmatch '^#![^\n]+\n\027LuaQ' then
-      local f = (lua_loadstring or loadstring)(str)
-      return f
-   else
-      error "Not a chunk dump"
+if not kahmetalua then
+   -- change a compiled string into a function
+   function string.undump(str)
+      print "metalua's string.undump()"
+      if str:strmatch '^\027LuaQ' or str:strmatch '^#![^\n]+\n\027LuaQ' then
+         local f = (lua_loadstring or loadstring)(str)
+         return f
+      else
+         error "Not a chunk dump"
+      end
    end
 end
 
