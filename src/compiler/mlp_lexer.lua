@@ -13,15 +13,10 @@
 --
 ----------------------------------------------------------------------
 
-print ("mlp_lexer 1")
 
 module ("mlp", package.seeall)
 
-print ("mlp_lexer 2")
-
 local mlp_lexer = lexer.lexer:clone()
-
-print ("mlp_lexer 3")
 
 local keywords = {
     "and", "break", "do", "else", "elseif",
@@ -30,13 +25,7 @@ local keywords = {
     "return", "then", "true", "until", "while",
     "...", "..", "==", ">=", "<=", "~=", 
     "+{", "-{" }
- 
-print ("mlp_lexer 4")
 
 for w in values(keywords) do mlp_lexer:add(w) end
 
-print ("mlp_lexer 5")
-
 _M.lexer = mlp_lexer
-
-print ("mlp_lexer 6")
