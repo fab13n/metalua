@@ -8,9 +8,12 @@ local WRITE = { }; WRITE.__index = WRITE
 
 
 function READ:read(x)
+   --printf ("io:read(%q)", x)
    if x == '*a' then 
-      local result = x :sub (self.content, self.i, -1)
+      --printf("get from content: %q", self.content)
+      local result = self.content :sub (self.i, -1)
       self.i = #self.content+1
+      --printf("result=%q", result)
       return result
    elseif x=='*l' then
       local result, new_i = x :match ("(.-)\n()", self.i)
@@ -47,6 +50,7 @@ end
 io = { }
 
 function io.open (filename, direction)
+   --printf ("io.open(%q)", filename)
    if direction:match 'w' then return new_filewriter(filename)
    else return new_filereader(filename) end
 end
