@@ -226,6 +226,7 @@ local function main (...)
    if cfg.run then
       verb_print "Running"
       local f = mlc.function_of_luacstring (bytecode)
+
       bytecode = nil
       -- FIXME: isolate execution in a ring
       -- FIXME: check for failures
@@ -234,11 +235,7 @@ local function main (...)
       local function print_traceback (errmsg)
          return errmsg .. '\n' .. debug.traceback ('',2) .. '\n'
       end
-      local st, msg = xpcall(|| f(unpack (runargs)), print_traceback)
-      if not st then
-         print (msg)
-         os.exit(RUNTIME_ERROR_NUMBER)
-      end
+      f(unpack (runargs))
    end
 
    -------------------------------------------------------------------
