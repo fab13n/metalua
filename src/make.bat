@@ -21,6 +21,9 @@
 
 @REM *** Create the distribution directories, populate them with lib sources ***
 
+@set LUA_PATH=?.luac;?.lua;%DISTRIB_LIB%\?.luac;%DISTRIB_LIB%\?.lua
+@set LUA_MPATH=?.mlua;%DISTRIB_LIB%\?.mlua
+
 mkdir %DISTRIB%
 mkdir %DISTRIB_BIN%
 mkdir %DISTRIB_LIB%
