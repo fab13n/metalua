@@ -1,0 +1,36 @@
+require 'walk'
+
+function bindings(ast)
+   -- binders :: ast  => name => occurences
+   -- unbound :: name => occurences
+   -- scope   :: name => ast
+
+   local bound_id, unbound, cfg, scope = { }, { }, { scope={ } }, scope:new()
+
+   -- * id: identifier entering in scope
+   -- * ast: statement or expr carrying this id, on of:
+   --        Local, Localrec, Forin, Fornum, Function.
+   function cfg.binder (id, ast)
+      local id_name = id[1]
+      scope.current[id[1]] = ast
+   end
+   
+   -- identifier occurence, not as a binder: reference this occurence
+   function cfg.Id (id)
+      local id_name = id[1]
+      local binder = scope.current[id_name]
+      if binder then bound_id[id] = binder
+      else 
+         local occ = scope.current[id_name]free_id[id_name]
+         if occ then table.insert (occ, id)
+         else free_id[id_name] = { id } end
+      end
+   end
+
+   function cfg.scope.down() scope:push() end
+
+   function cfg.scope.up() scope:pop() end
+
+   walk.guess (cfg, ast)
+   return bound_id, free_id
+end
