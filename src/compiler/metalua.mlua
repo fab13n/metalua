@@ -149,7 +149,7 @@ local function main (...)
          end
       end
       if not st then
-         printf ("Cannot compile %s: %s", table.tostring(x), ast or "no msg")
+         printf ("Cannot compile %s:\n%s", table.tostring(x), ast or "no msg")
          os.exit (AST_COMPILE_ERROR_NUMBER)
       end
       ast.origin = x

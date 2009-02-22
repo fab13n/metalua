@@ -22,7 +22,13 @@ function mlc_xcall.server (luafilename, astfilename)
    require 'serialize'
 
    -- compile the content of luafile name in an AST, serialized in astfilename
-   local status, ast = pcall (mlc.luafile_to_ast, luafilename)
+   --local status, ast = pcall (mlc.luafile_to_ast, luafilename)
+   local status, ast
+   local function compile() return mlc.luafile_to_ast (luafilename) end
+   if mlc.metabugs or true then 
+      print 'mlc_xcall.server/metabugs'
+      status, ast = xpcall (compile, debug.traceback)
+   else status, ast = pcall (compile) end
    local out = io.open (astfilename, 'w')
    if status then -- success
       out:write (serialize (ast))
