@@ -53,8 +53,12 @@ function parser_metatable.__call (parser, lx, ...)
       local li = lx:lineinfo_right() or { "?", "?", "?", "?" }
       local status, ast = pcall (parser.parse, parser, lx, ...)      
       if status then return ast else
+         -- Try to replace the gg.lua location, in the error msg, with
+         -- the place where the current parser started handling the
+         -- lexstream.
+         -- Since the error is rethrown, these places are stacked. 
          error (string.format ("%s\n - (l.%s, c.%s, k.%s) in parser %s", 
-                               ast:strmatch "gg.lua:%d+: (.*)" or ast,
+                               ast :strmatch "gg.lua:%d+: (.*)" or ast,
                                li[1], li[2], li[3], parser.name or parser.kind))
       end
    end
@@ -201,10 +205,14 @@ function sequence (p)
    -- Construction
    -------------------------------------------------------------------
    -- Try to build a proper name
-   if not p.name and type(p[1])=="string" then 
-      p.name = p[1].." ..." 
-      if type(p[#p])=="string" then p.name = p.name .. " " .. p[#p] end
-   else
+   if p.name then
+      -- don't touch existing name
+   elseif type(p[1])=="string" then -- find name based on 1st keyword
+      if #p==1 then p.name=p[1]
+      elseif type(p[#p])=="string" then
+         p.name = p[1] .. " ... " . p[#p]
+      else p.name = p[1] .. " ..." end
+   else -- can't find a decent name
       p.name = "<anonymous>"
    end
 
