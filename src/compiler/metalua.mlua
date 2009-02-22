@@ -131,6 +131,7 @@ local function main (...)
 
    -------------------------------------------------------------------
    -- Get ASTs from sources
+   mlc.metabugs = cfg.metabugs
    local last_file
    for x in values(chunks) do
       verb_print("Compiling %s", table.tostring(x))
@@ -185,6 +186,8 @@ local function main (...)
       end
    end
 
+   -- FIXME: canonize/check AST
+
    -------------------------------------------------------------------
    -- Insert runtime loader
    if cfg['no-runtime'] then
@@ -193,18 +196,17 @@ local function main (...)
       table.insert(code, 1, +{require'metalua.runtime'})
    end
 
-   -- FIXME: check for failures
-   mlc.metabugs = cfg.metabugs
    local bytecode = mlc.luacstring_of_ast (code)
    code = nil
 
    -------------------------------------------------------------------
    -- Insert #!... command
    if cfg.sharpbang then
-      verb_print ("Adding sharp-bang directive %q", cfg.sharpbang)
-      if not cfg.sharpbang:strmatch'^#!' then cfg.sharpbang='#!'..cfg.sharpbang end
-      if not cfg.sharpbang:strmatch'\n$' then cfg.sharpbang=cfg.sharpbang..'\n' end
-      bytecode = cfg.sharpbang..bytecode
+      local shbang = cfg.sharpbang
+      verb_print ("Adding sharp-bang directive %q", shbang)
+      if not shbang :strmatch'^#!' then shbang = '#!' .. shbang end
+      if not shbang :strmatch'\n$' then shbang = shbang .. '\n' end
+      bytecode = shbang .. bytecode
    end
 
    -------------------------------------------------------------------
