@@ -38,6 +38,11 @@ LUAC=$(which luac)
 
 # --- END OF USER-EDITABLE PART ---
 
+if [ -z ${LUA}  ] ; then echo "Error: no lua interpreter found"; fi
+if [ -z ${LUAC} ] ; then echo "Error: no lua compiler found"; fi
+
+if [ -f ~/.metaluabuildrc ] ; then . ~/.metaluabuildrc; fi
+
 echo '*** Lua paths setup ***'
 
 export LUA_PATH="?.luac;?.lua;${BUILD_LIB}/?.luac;${BUILD_LIB}/?.lua"
@@ -107,7 +112,8 @@ chmod a+x ${INSTALL_BIN}/metalua
 
 cp -R ${BUILD_LIB}/* ${INSTALL_LIB}/
 
-echo "metalua installed in ${INSTALL_LIB}"
+echo "metalua libs installed in ${INSTALL_LIB};"
+echo "metalua executable in ${INSTALL_BIN}."
 
 EOF2
 chmod a+x make-install.sh

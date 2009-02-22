@@ -135,6 +135,18 @@
 -- e.g. they're called after the right-hand-side has been visited in a
 -- `Local node, but before in a `Localrec node.
 --
+-- TODO: document scopes, relaxed cfg descriptions
+-- -----------------------------------------------
+--
+-- Examples of cfg structures:
+--
+-- { Id = f1, Local = f2 }
+-- f
+-- { up = f1, down = f2 }
+-- { scope = { up = f1, down = f2 }, up = f1, down = f2 }
+-- { stat = f1, expr = { up = f1 } }
+--
+--
 --------------------------------------------------------------------------------
 
 -{ extension "match" }
@@ -153,6 +165,11 @@ walk.tags.expr = table.transpose{
    'Paren', 'Call', 'Invoke', 'Index', 'Op', 'Function', 'Stat',
    'Table', 'Nil', 'Dots', 'True', 'False', 'Number', 'String', 'Id' }
 
+local function scope (cfg, dir)
+   local h = cfg.scope and cfg.scope[dir]
+   if h then h() end
+end
+
 --------------------------------------------------------------------------------
 -- These [walk.traverse.xxx()] functions are in charge of actually going through
 -- ASTs. At each node, they make sure to call the appropriate walker.
@@ -165,28 +182,31 @@ function walk.traverse.stat (cfg, x, ...)
    local E  = |y| walk.expr        (cfg, y, x, unpack(log))
    local EL = |y| walk.expr_list   (cfg, y, x, unpack(log))
    local I  = |y| walk.binder_list (cfg, y, x, unpack(log))
+   local function BS(y)
+      scope (cfg, 'down'); B(y); scope (cfg, 'up')
+   end
+
    match x with
    | {...} if x.tag == nil -> for y in ivalues(x) do walk.stat(cfg, y, ...) end
                               -- no tag --> node not inserted in the history log
-   | `Do{...}                    -> B(x)
+   | `Do{...}                    -> BS(x)
    | `Set{ lhs, rhs }            -> EL(lhs); EL(rhs)
-   | `While{ cond, body }        -> E(cond); B(body)
-   | `Repeat{ body, cond }       -> B(body); E(cond)
+   | `While{ cond, body }        -> E(cond); BS(body)
+   | `Repeat{ body, cond }       -> scope(cfg, 'down'); B(body); E(cond); scope(cfg, 'up')
    | `Local{ lhs }               -> I(lhs)
    | `Local{ lhs, rhs }          -> EL(rhs); I(lhs)
    | `Localrec{ lhs, rhs }       -> I(lhs); EL(rhs)
-   | `Fornum{ i, a, b, body }    -> E(a); E(b); I{i}; B(body)
-   | `Fornum{ i, a, b, c, body } -> E(a); E(b); E(c); I{i}; B(body)
-   | `Forin{ i, rhs, body }      -> EL(rhs); I(i); B(body)
-   | `If{...}                    -> for i=1, #x-1, 2 do E(x[i]); B(x[i+1]) end
-                                    if #x%2 == 1 then B(x[#x]) end
+   | `Fornum{ i, a, b, body }    -> E(a); E(b); I{i}; BS(body)
+   | `Fornum{ i, a, b, c, body } -> E(a); E(b); E(c); I{i}; BS(body)
+   | `Forin{ i, rhs, body }      -> EL(rhs); I(i); BS(body)
+   | `If{...}                    -> for i=1, #x-1, 2 do E(x[i]); BS(x[i+1]) end
+                                    if #x%2 == 1 then BS(x[#x]) end
    | `Call{...}|`Invoke{...}|`Return{...} -> EL(x)
    | `Break | `Goto{ _ } | `Label{ _ }    -> -- nothing
-   | {...} if walk.tags.stat[x.tag]-> 
-      printf("Warning: walk: malformed %s stat node: %s", x.tag, table.tostring(x,80))
-   | {...} -> print("Warning: walk: unknown stat node: "..table.tostring(x,80))
-   | _     -> print("Warning: walk: unexpected stat node of type "..type(x)
-                    ..": "..table.tostring(x,80))
+   | { tag=tag, ...} if walk.tags.stat[tag]-> 
+      walk.malformed (cfg, x, unpack (log))
+   | _ ->  
+      walk.unknonw (cfg, x, unpack (log))
    end
 end
 
@@ -203,19 +223,18 @@ function walk.traverse.expr (cfg, x, ...)
    | `Call{...} | `Invoke{...} -> EL(x)
    | `Index{ a, b }            -> E(a); E(b)
    | `Op{ opid, ... }          -> E(x[2]); if #x==3 then E(x[3]) end
-   | `Function{ params, body } -> I(params); B(body)
-   | `Stat{ b, e }             -> B(b); E(e)
+   | `Function{ params, body } -> I(params); scope(cfg, 'down'); B(body); scope (cfg, 'in')
+   | `Stat{ b, e }             -> scope(cfg, 'down'); B(b); E(e); scope (cfg, 'in')
    | `Table{ ... }             ->
       for i = 1, #x do match x[i] with
          | `Pair{ k, v } -> E(k); E(v)
          | v            -> E(v)
       end end
    |`Nil|`Dots|`True|`False|`Number{_}|`String{_}|`Id{_} -> -- nothing 
-   | {...} if walk.tags.expr[x.tag]-> 
-      printf("Warning: walk: malformed %s expr node: %s", x.tag, table.tostring(x,80))
-   | {...} -> print("Warning: walk: unknown expr node: "..table.tostring(x,80))
-   | _     -> print("Warning: walk: unexpected expr node of type "..type(x)
-                    ..": "..table.tostring(x,80))
+   | { tag=tag, ...} if walk.tags.expr[tag]-> 
+      walk.malformed (cfg, x, unpack (log))
+   | _ ->  
+      walk.unknonw (cfg, x, unpack (log))
    end
 end
 
@@ -232,24 +251,36 @@ end
 
 ----------------------------------------------------------------------
 -- Generic walker generator.
+-- * if `cfg' has an entry matching the tree name, use this entry
+-- * if not, try to use the entry whose name matched the ast kind
+-- * if an entry is a table, look for 'up' and 'down' entries
+-- * if it is a function, consider it as a `down' traverser.
 ----------------------------------------------------------------------
 local walker_builder = |cfg_field, traverse| function (cfg, x, ...)
-   local sub_cfg  = cfg[cfg_field] or { }
-   local broken   = false
-   if sub_cfg.down then
-      if sub_cfg.down=='break' then broken='break'
-      else broken = sub_cfg.down (x, ...) end
+   local sub_cfg = type (x)=='table' and x.tag and cfg[x.tag] 
+      or cfg[cfg_field] or cfg
+   local broken, down, up = false
+   if type(sub_cfg)=='table' then
+      down, up = sub_cfg.down, sub_cfg.up
+   elseif type(sub_cfg)=='function' or sub_cfg=='break' then
+      down, up = sub_cfg, nil
+   else error "Invalid walk config" end
+
+   if down then
+      if down=='break' then broken='break'
+      else broken = down (x, ...) end
       assert(not broken or broken=='break', 
              "Map functions must return 'break' or nil")
    end
-   if not broken then traverse (cfg, x, ...) end
-   if sub_cfg.up then sub_cfg.up (x, ...) end
+   if not broken and traverse then traverse (cfg, x, ...) end
+   if up then up (x, ...) end
 end
 
 ----------------------------------------------------------------------
 -- Declare [walk.stat], [walk.expr], [walk.block] and [walk.expr_list]
 ----------------------------------------------------------------------
-for w in values{ "stat", "expr", "block", "expr_list" } do
+for w in values{ "stat", "expr", "block", "expr_list",
+   "malformed", "unknown" } do
    walk[w] = walker_builder (w, walk.traverse[w])
 end
 

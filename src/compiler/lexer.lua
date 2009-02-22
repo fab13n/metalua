@@ -64,8 +64,8 @@ local function unescape_string (s)
    local function unesc_digits (backslashes, digits)
       if #backslashes%2==0 then
          -- Even number of backslashes, they escape each other, not the digits.
- 	 -- Return them so that unesc_letter() can treaat them
-	 return backslashes..digits
+         -- Return them so that unesc_letter() can treaat them
+         return backslashes..digits
       else
          -- Remove the odd backslash, which escapes the number sequence.
          -- The rest will be returned and parsed by unesc_letter()
@@ -75,7 +75,8 @@ local function unescape_string (s)
       local z = _G.string.byte "0"
       local code = (k or z) + 10*(j or z) + 100*(i or z) - 111*z
       if code > 255 then 
-      	 error ("Illegal escape sequence '\\"..digits.."' in string: ASCII codes must be in [0..255]") 
+      	 error ("Illegal escape sequence '\\"..digits..
+                "' in string: ASCII codes must be in [0..255]") 
       end
       return backslashes .. string.char (code)
    end
