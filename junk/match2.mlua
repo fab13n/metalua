@@ -1,0 +1,388 @@
+----------------------------------------------------------------------
+-- Metalua samples:  $Id$
+--
+-- Summary: Structural pattern matching for metalua ADT.
+--
+----------------------------------------------------------------------
+--
+-- Copyright (c) 2006-2008, Fabien Fleutot <metalua@gmail.com>.
+--
+-- This software is released under the MIT Licence, see licence.txt
+-- for details.
+--
+--------------------------------------------------------------------------------
+--
+-- Implementation hints
+-- ====================
+--
+-- The implementation is made as modular as possible, so that parts
+-- can be reused in other extensions. The priviledged way to share
+-- contextual information across functions is through the 'cfg' table
+-- argument. Its fields include:
+--
+-- * code: code generated from pattern. A pattern_(element|seq|group)
+--   is compiled as a sequence of instructions which will jump to
+--   label [cfg.on_failure] if the tested term doesn't match.
+--
+-- * on_failure: name of the label where the code will jump if the
+--   pattern doesn't match
+--
+-- * locals: names of local variables used by the pattern. This
+--   includes bound variables, and temporary variables used to
+--   destructure tables. Names are stored as keys of the table,
+--   values are meaningless.
+--
+-- * after_success: label where the code must jump after a pattern
+--   succeeded to capture a term, and the guard suceeded if there is
+--   any, and the conditional block has run.
+--
+-- * ntmp: number of temporary variables used to destructurate table
+--   in the current case.
+--
+-- Code generation is performed by acc_xxx() functions, which accumulate
+-- code in cfg.code:
+--
+-- * acc_test(test, cfg) will generate a jump to cfg.on_failure 
+--   *when the test returns TRUE*
+--
+-- * acc_stat accumulates a statement
+-- 
+-- * acc_assign accumulate an assignment statement, and makes sure that 
+--   the LHS variable the registered as local in cfg.locals.
+--   
+----------------------------------------------------------------------
+
+-- TODO: hygiene wrt type()
+-- TODO: cfg.ntmp isn't reset as often as it could. I'm not even sure
+--       the corresponding locals are declared.
+
+module ('spmatch', package.seeall)
+
+----------------------------------------------------------------------
+-- This would have been best done through library `metalua.walk',
+-- but `walk' depends on `match', so we have to break the dependency.
+-- It replaces all instances of `...' in `ast' with `term', unless
+-- it appears in a function.
+----------------------------------------------------------------------
+function replace_dots (ast, term)
+   if type(x) ~= 'table' or x.tag == 'Function' then
+      -- end of traversal: pass
+   elseif x.tag == 'Dots' then -- perform the replacement:
+      if term ~= 'ambiguous' then x <- term else
+         error ("You can't use `...' on the right of a match case "..
+                "when it appears more than once on the left")
+      end
+   else -- recursive traversal:
+      for y in ivalues (x) do replace_dots (y, term) end 
+   end
+end
+
+-- Code accumulators
+function compile:stat (x) table.insert (self.code, x) end
+
+-- The current pattern test fails if expr -{x} is true
+function compile:test (x) self:stat 
+   +{stat: if -{x} then -{ `Goto{ self.on_pattern_failure } } end }
+end
+
+-- lhs :: `Id{ string }
+-- rhs :: expr
+-- Set Id lhs to rhs and remembers that lhs' name has been used
+-- in the current pattern
+function compile:assign (lhs, rhs)
+   assert (lhs.tag=='Id')
+   self.pattern_locals [lhs [1]] = true
+   self.stat (`Set{ {lhs}, {rhs} })
+end
+
+literal_tags = table.transpose{ 'String', 'Number', 'True', 'False', 'Nil' }
+
+-- pattern :: `Id{ string }
+-- term    :: expr
+function compile:Id (term, pattern)
+   assert (pattern.tag=='Id')
+   local id_name = pattern [1]
+   if id_name == "_" then 
+      -- wildcard => do nothing
+   elseif cfg.pattern_locals [id_name] then -- already bound, must be ==
+      self:test +{ -{term} ~= -{pattern} }
+   else -- 1st occurence in pattern => assign & remember it
+      self:assign (pattern, term)
+   end
+end
+
+-- Concatenate code in [cfg.code], that will jump to label
+-- [cfg.on_failure] if [pattern] doesn't match [term]. [pattern]
+-- should be an identifier, or at least cheap to compute and
+-- side-effects free.
+--
+-- pattern :: pattern_element
+-- term    :: expr
+function compile:expr (term, pattern)
+   if literal_tags [pattern.tag] then
+      self:test +{ -{term} ~= -{pattern} }
+   elseif "Id" == pattern.tag then 
+      self:Id (term, pattern)
+   elseif "Op" == pattern.tag and "div" == pattern[1] then
+      self:Op_div (term, pattern)
+   elseif "Op" == pattern.tag and "eq" == pattern[1] then
+      self:Op_eq (term, pattern)
+   elseif "Table" == pattern.tag then
+      self:Table (term, pattern)
+   else 
+      -- FIXME: use ast2string
+      error ("Invalid pattern: "..table.tostring(pattern, "nohash"))
+   end
+end
+
+function compile:Op_eq (term, pattern)
+   -- FIXME: make sure that local vars indentation isn't messed.
+   self:expr (term, pattern[1])
+   self:expr (term, pattern[2])
+end
+
+-- pattern :: `Op{ 'div', string, list{`Id string} or `Id{ string }}
+-- term    :: expr
+function compile:Op_div (term, pattern)
+   local op, regexp, sub_pattern = unpack(pattern)
+
+   -- Sanity checks --
+   assert (op=='div')
+   assert (regexp.tag=="String", "Left of `/' must be a string")
+   if sub_pattern.tag=="Table" then
+      for x in ivalues(sub_pattern) do
+         assert (x.tag=="Id" or x.tag=='Dots', "Right of `/' must be id list")
+      end
+   elseif sub_pattern.tag == "Id" then
+      -- pass
+   else
+      error ("Right of '/' in a pattern must be a [list of] id")
+   end
+
+   -- Regexp patterns can only match strings
+   self:test +{ type (-{term}) ~= 'string' }
+   -- Put all captures in a list
+   local capture_list  = +{ { -{term}:strmatch (-{regexp}) } }
+   -- Save them in a var_n for recursive decomposition
+   local v = self:push_var()
+   self:assign (v, capture_list)
+   self:test +{ not next (-{v}) }
+   self:expr (v, sub_pattern)
+   self:pop_var()
+end
+
+-- pattern :: `Table{ }
+-- term    :: expr
+function compile:Table (term, pattern)
+   local has_dots, len = false, 0
+   self:test +{ type( -{term} ) ~= "table" }
+   for i = 1, #pattern do
+      local key, sub_pattern
+      if pattern[i].tag=="Pair" then -- Explicit key/value pair
+         key, sub_pattern = unpack (pattern[i])
+         assert (literal_tags[key.tag], "Invalid key")
+      else -- Implicit key
+         len, key, sub_pattern = len+1, `Number{ len+1 }, pattern[i]
+      end
+      
+      if sub_pattern.tag == "Id" then 
+         -- Optimization: save a useless [ v(n+1)=v(n).key ]
+         self:Id (`Index{ term, key }, sub_pattern)
+         if sub_pattern[1] ~= "_" then self:test +{ -{sub_pattern} == nil } end
+
+      elseif sub_pattern.tag == "Dots" then
+         -- Remember to capture it and not to check arity
+         has_dots = true
+         assert (i==#pattern, "Wrongly placed `...' ")
+         break
+      else
+         -- Business as usual:
+         local v = self:push_var()
+         self:assign (v, `Index{ term, key })
+         self:expr (v, sub_pattern)
+         self:pop_var()
+      end
+   end
+
+   if has_dots then -- remember how to retrieve `...'
+      -- FIXME: check, but there might be cases where the variable -{term} 
+      -- will be overridden in contrieved tables.
+      -- ==> save it now, and clean the setting statement if unused
+      if cfg.dots_replacement then cfg.dots_replacement = 'ambiguous' else
+         cfg.dots_replacement = +{ select(-{`Number{len}},unpack(-{term})) } 
+      end
+   else -- Check arity
+      self:test +{ #-{term} ~= -{`Number{len}} }
+   end
+end
+
+-- Jump to [cfg.on_pattern_failure] if pattern doesn't match term
+function compile:Pattern (term, pattern)
+   if #pattern ~= #term then error ("Bad pattern arity") end
+   cfg.pattern_locals = { } -- reset bound variables between alternatives
+   assert (self.var_idx==0)
+   for i=1, #pattern_seq do self:expr (term [i], pattern [i]) end
+end
+
+
+function compile:Multipattern (term, pattern)
+   
+end
+
+--------------------------------------------------
+-- for each case i:
+--   pattern_seq_builder_i:
+--    * on failure, go to on_failure_i
+--    * on success, go to on_success
+--   label on_success:
+--   block
+--   goto after_success
+--   label on_failure_i
+--------------------------------------------------
+
+function compile:Case{ term, multipattern }
+   if multipattern.tag=='Pattern' then
+      multipattern = `Multipattern{ multipattern }
+   end
+   
+   -- reprendre ici --
+
+   local patterns_group, guard, block = unpack(case)
+   local on_success = mlp.gensym 'on_success' [1]
+   for i = 1, #patterns_group do
+      local pattern_seq = patterns_group[i]
+      cfg.on_failure = mlp.gensym 'match_fail' [1]
+      cfg.dots_replacement = false
+      pattern_seq_builder (pattern_seq, term_seq, cfg)
+      if i<#patterns_group then
+         acc_stat (`Goto{on_success}, cfg)
+         acc_stat (`Label{cfg.on_failure}, cfg)
+      end
+   end
+   acc_stat (`Label{on_success}, cfg)
+   if guard then acc_test (+{not -{guard}}, cfg) end
+   if cfg.dots_replacement then
+      replace_dots (block, cfg.dots_replacement)
+   end
+   block.tag = 'Do'
+   acc_stat (block, cfg)
+   acc_stat (`Goto{cfg.after_success}, cfg)
+   acc_stat (`Label{cfg.on_failure}, cfg)
+end
+
+function compile:Match (cfg, term_seq, case_list)
+   cfg = { 
+      code          = `Do{ },
+      after_success = mlp.gensym "_after_success" }
+
+
+   -- Some sharing issues occur when modifying term_seq,
+   -- so it's replaced by a copy new_term_seq.
+   -- TODO: clean that up, and re-suppress the useless copies
+   -- (cf. remarks about capture bug below).
+   local new_term_seq = { }
+
+   local match_locals
+
+   -- Make sure that all tested terms are variables or literals
+   for i=1, #term_seq do
+      local t = term_seq[i]
+      -- Capture problem: the following would compile wrongly:
+      --    `match x with x -> end'
+      -- Temporary workaround: suppress the condition, so that
+      -- all external variables are copied into unique names.
+      --if t.tag ~= 'Id' and not literal_tags[t.tag] then
+         local v = mlp.gensym 'v'
+         if not match_locals then match_locals = `Local{ {v}, {t} } else
+            table.insert(match_locals[1], v)
+            table.insert(match_locals[2], t)
+         end
+         new_term_seq[i] = v
+      --end
+   end
+   term_seq = new_term_seq
+   
+   if match_locals then acc_stat(match_locals, cfg) end
+
+   for i=1, #cases do
+      local case_cfg = { 
+         after_success    = cfg.after_success,
+         code             = `Do{ }
+         -- locals    = { } -- unnecessary, done by pattern_seq_builder
+      }
+      case_builder (cases[i], term_seq, case_cfg)
+      if next (case_cfg.locals) then
+         local case_locals = { }
+         table.insert (case_cfg.code, 1, `Local{ case_locals, { } })
+         for v in keys (case_cfg.locals) do
+            table.insert (case_locals, `Id{ v })
+         end
+      end
+      acc_stat(case_cfg.code, cfg)
+   end
+   acc_stat(+{error 'mismatch'}, cfg)
+   acc_stat(`Label{cfg.after_success}, cfg)
+   return cfg.code
+end
+
+-- AST grammar:
+--
+-- m        ::= `Match{ mlp.expr+, case* }
+-- case     ::= `Case{ patterns, guard?, mlp.block }
+-- patterns ::= `Multipattern{ pattern+ } | pattern
+-- pattern  ::= `Pattern{ mlp.expr+ }
+-- guard    ::= mlp.expr
+
+----------------------------------------------------------------------
+-- Syntactical front-end
+----------------------------------------------------------------------
+
+mlp.lexer:add{ "match", "with", "->" }
+mlp.block.terminators:add "|"
+
+--[[
+
+-{ extension 'gg' }
+
+parser = { }
+parser.Pattern = << repeat mlp.expr while "," :: 'Pattern' >>
+
+parser.Multipattern =
+   << p = repeat parser.Pattern while "|" :: 'Multipattern' >>
+
+parser.Case =
+   << patterns = parser.Multipattern, 
+      guard    = "if" => mlp.expr, "->",
+      body     = mlp.block
+   :: guard and `Case{ patterns, guard, body } or `Case{ patterns, body } >>
+
+parser.Match =
+   << "match", term_list = repeat mlp.expr until "with", 
+      "with", "|" ?,
+      case_list = repeat parser.Case while "|" until "end" ,
+      "end" 
+   :: `Match{ term_list, case_list } >>
+
+mlp.stat.add << parser.Match :: compile >>
+--]]
+
+match_cases_list_parser = gg.list{ name = "match cases list",
+   gg.sequence{ name = "match case",
+      gg.list{ name  = "match case patterns list",
+         primary     = mlp.expr_list,
+         separators  = "|",
+         terminators = { "->", "if" } },
+      gg.onkeyword{ "if", mlp.expr, consume = true },
+      "->",
+      mlp.block },
+   separators  = "|",
+   terminators = "end" }
+
+mlp.stat:add{ name = "match statement",
+   "match", 
+   mlp.expr_list, 
+   "with", gg.optkeyword "|",
+   match_cases_list_parser,
+   "end",
+   builder = |x| match_builder{ x[1], x[3] } }
+

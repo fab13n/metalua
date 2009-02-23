@@ -1,0 +1,30 @@
+Match:
+
+* on commence avec un bloc de code vide;
+* creer une liste de variables qui contiennent les termes;
+
+
+
+Invariants:
+on_XXX_success:
+
+after_success: ou aller apres qu'un pattern a marche
+
+duree de vie des variables:
+* les binds vivent sur un `Case
+* les niveaux de table vivent pour un `Pattern
+* 
+
+
+multiterm, multipattern:
+
+
+labels interessants:
+* on_pattern_failure
+* on_pattern_success
+* on_case_executed
+
+schema d'argument:
+cfg, term, pattern
+
+pattern est le + decompose possible, par un unpack()
