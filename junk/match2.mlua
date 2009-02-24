@@ -217,16 +217,28 @@ function compile:Table (term, pattern)
 end
 
 -- Jump to [cfg.on_pattern_failure] if pattern doesn't match term
-function compile:Pattern (term, pattern)
-   if #pattern ~= #term then error ("Bad pattern arity") end
+function compile:Pattern (term_seq, pattern)
+   if #pattern ~= #term_seq then error ("Bad pattern arity") end
+   -- FIXME: it's not between patterns that locals must be updated!
    cfg.pattern_locals = { } -- reset bound variables between alternatives
    assert (self.var_idx==0)
-   for i=1, #pattern_seq do self:expr (term [i], pattern [i]) end
+   for i=1, #pattern_seq do self :expr (term_seq [i], pattern [i]) end
 end
 
 
-function compile:Multipattern (term, pattern)
-   
+-- at the end, label on_pattern_failure isn't positionned yet;
+-- on success, execution should go on in the same block
+function compile:Multipattern (term_seq, multipattern)
+   self :change_label 'on_pattern_success'
+   for i, pattern in ipairs (multipattern) do
+      self.dots_replacement = false
+      self :change_label 'on_pattern_failure'
+      self :Pattern (term_seq[i],  pattern)
+      if i < #multipattern then
+         self :stat +{ `Goto{ self.on_pattern_success } }
+         self :stat +{ `Label{ self.on_pattern_failure } }
+      end
+   end
 end
 
 --------------------------------------------------
@@ -240,12 +252,29 @@ end
 --   label on_failure_i
 --------------------------------------------------
 
-function compile:Case{ term, multipattern }
+function compile:Case (term_seq, multipattern, x, y)
+   local guard, body = y and x, y or x
+
    if multipattern.tag=='Pattern' then
       multipattern = `Multipattern{ multipattern }
    end
    
+   self :push_block(`Do{ })
+
+   -- if one succeeds, continue;
+   -- if one fails, jump to on_pattern_failure
+   self :multipattern (term_seq, multipattern)
+
+   -- todo: insert locals
+   -- todo: insert onfailure
+   -- todo: pop block
+   
+
+   self :pop_block()
+
    -- reprendre ici --
+
+
 
    local patterns_group, guard, block = unpack(case)
    local on_success = mlp.gensym 'on_success' [1]
