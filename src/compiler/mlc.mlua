@@ -90,9 +90,9 @@ function mlc.convert (x, src_fmt, dst_fmt, name)
    local status -- status = compilation success
    local lx=x
    if mlc.metabugs
-   -- If SHOW_METABUGS is true, errors should be attributed to a parser bug.
+   -- If metabugs is true, errors should be attributed to a parser bug.
    then status, x = true, mlp.chunk (lx)
-   -- If SHOW_METABUGS is false, errors should be attributed to an invalid entry.
+   -- If metabugs is false, errors should be attributed to an invalid entry.
    else status, x = pcall (mlp.chunk, lx) end
    -- FIXME: this test seems wrong ??? Or is it the message?
    if status and lx:peek().tag ~= "Eof"
@@ -103,8 +103,9 @@ function mlc.convert (x, src_fmt, dst_fmt, name)
       -- x = error msg; get rid of ???
       x = x:strmatch "[^:]+:[0-9]+: (.*)" or x
       local li = lx:lineinfo_left()
-      error(string.format("Parsing error in %s line %s, column %i, char %s: \n%s",
-                          name or "<nofilename>", li[1], li[2], li[3], x))
+      error (string.format (
+         "Parsing error in %s line %s, column %i, char %s: \n%s",
+         name or "<nofilename>", li[1], li[2], li[3], x), 2)
       return nil
    end
    

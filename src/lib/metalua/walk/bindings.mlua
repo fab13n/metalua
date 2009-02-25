@@ -1,0 +1,41 @@
+require 'metalua.walk'
+require 'metalua.walk.scope'
+
+function bindings(ast)
+   -- binders :: ast  => name => occurences
+   -- unbound :: name => occurences
+   -- scope   :: name => ast
+
+   local binders, unbound, cfg, scope = { }, { }, { scope={ } }, scope:new()
+
+   -- * id: identifier entering in scope
+   -- * ast: statement or expr carrying this id, on of:
+   --        Local, Localrec, Forin, Fornum, Function.
+   function cfg.binder (id, ast)
+      local id_name = id[1]
+      -- Reference in scope, so that the binding statement can be retrieved:
+      scope.current[id_name] = ast
+      -- Init the occurences list for this identifier:
+      if binders[ast] then binders[ast][id_name] = { }
+      else binders[ast] = { [id_name] = { } } end
+   end
+   
+   -- identifier occurence, not as a binder: reference this occurence
+   function cfg.Id (id)
+      local id_name = id[1]
+      -- ast which binds this id, might be nil:
+      local binder_ast = scope.current [id_name] 
+      -- dict id_name => occurences, might be the list of unbound occurences:
+      local occur_dict = binder_ast and binders[binder_ast] or unbound
+      -- add an occurence of `id' in the occurences list:
+      local occurences = occur_dict [id_name]
+      if occurences then table.insert (occurences, id) 
+      else occur_dict [id_name] = { id } end
+   end
+
+   function cfg.scope.down() scope:push() end
+   function cfg.scope.up()   scope:pop()  end
+
+   walk.guess (cfg, ast)
+   return binders, unbound
+end
