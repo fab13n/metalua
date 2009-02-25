@@ -70,7 +70,7 @@ Compile and/or execute metalua programs. Parameters passed to the
 compiler should be prefixed with an option flag, hinting what must be
 done with them: take tham as file names to compile, as library names
 to load, as parameters passed to the running program... When option
-flags lack, metalua tries to adopt a "Do What I Mean" approach:
+flags are absent, metalua tries to adopt a "Do What I Mean" approach:
 
 - if no code (no library, no literal expression and no file) is
   specified, the first flag-less parameter is taken as a file name to

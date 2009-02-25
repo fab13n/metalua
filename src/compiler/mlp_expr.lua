@@ -108,8 +108,16 @@ local _func_val = function (lx) return func_val(lx) end
 function id_or_literal (lx)
    local a = lx:next()
    if a.tag~="Id" and a.tag~="String" and a.tag~="Number" then
-      gg.parse_error (lx, "Unexpected expr token %s",
-                      _G.table.tostring (a, 'nohash'))
+      local msg
+      if a.tag=='Eof' then
+         msg = "End of file reached when an expression was expected"
+      elseif a.tag=='Keyword' then
+         msg = "An expression was expected, and `"..a[1]..
+            "' can't start an expression"
+      else
+         msg = "Unexpected expr token " .. _G.table.tostring (a, 'nohash')
+      end
+      gg.parse_error (lx, msg)
    end
    return a
 end
