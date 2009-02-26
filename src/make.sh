@@ -9,7 +9,7 @@ BASE=${PWD}
 # Upon installation, everything will be moved to ${INSTALL_LIB} and ${INSTALL_BIN}
 
 if [ -z "${BUILD}" ]; then
-  BUILD= $(cd ../build; pwd)
+  BUILD=$(mkdir -p ../build; cd ../build; pwd)
 fi
 
 if [ -z "${BUILD_BIN}" ]; then

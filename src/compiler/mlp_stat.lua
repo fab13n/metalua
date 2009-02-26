@@ -174,13 +174,15 @@ local function assign_or_call_stat_parser (lx)
             "separated by semicolons, or not separated at all") end
       if e[1].tag ~= "Call" and e[1].tag ~= "Invoke" then
          local typename
-         if e[1].tag == 'Id' then typename = "an identifier"
-         elseif e[1].tag == 'Op' then typename = "an arithmetic operation"
-         else typename = "of type '"..(e[1].tag or "<list>".."'" end
+         if e[1].tag == 'Id' then 
+            typename = '("'..e[1][1]..'") is an identifier'
+         elseif e[1].tag == 'Op' then 
+            typename = "is an arithmetic operation"
+         else typename = "is of type '"..(e[1].tag or "<list>").."'" end
 
-         gg.parse_error (lx, "This expression is " .. typename ..
-            "; only function and method call expressions "..
-            "can be used as statements");
+         gg.parse_error (lx, "This expression " .. typename ..
+            "; a statement was expected, and only function and method call "..
+            "expressions can be used as statements");
       end
       return e[1]
    end

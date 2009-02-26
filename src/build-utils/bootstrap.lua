@@ -12,7 +12,7 @@ for _, a in ipairs(arg) do
    if var then cfg[var] = val else table.insert (cfg.inputs, a) end
 end
 
--- metalua.mlc doesn't exit yet; this preload manager loads a mockup which is just
+-- metalua.mlc doesn't exist yet; this preload manager loads a mockup which is just
 -- sufficient to compile the real mlc.mlua
 package.preload['metalua.mlc'] = function()
 
