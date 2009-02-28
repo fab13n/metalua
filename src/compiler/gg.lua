@@ -266,15 +266,16 @@ function multisequence (p)
    -------------------------------------------------------------------
    function p:add (s)
       -- compile if necessary:
-      local keyword = s[1]
-      if not is_parser(s) then sequence(s) end
-      if is_parser(s) ~= 'sequence' or type(keyword) ~= "string" then 
+      local keyword = type(s)=='table' and s[1]
+      if type(s)=='table' and not is_parser(s) then sequence(s) end
+      if is_parser(s)~='sequence' or type(keyword)~='string' then 
          if self.default then -- two defaults
             error ("In a multisequence parser, all but one sequences "..
                    "must start with a keyword")
          else self.default = s end -- first default
       elseif self.sequences[keyword] then -- duplicate keyword
-         eprintf (" *** Warning: keyword %q overloaded in multisequence ***", keyword)
+         eprintf (" *** Warning: keyword %q overloaded in multisequence ***",
+                  keyword)
          self.sequences[keyword] = s
       else -- newly caught keyword
          self.sequences[keyword] = s
