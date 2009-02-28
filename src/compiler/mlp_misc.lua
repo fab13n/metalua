@@ -135,7 +135,7 @@ function id2string (id)
       -- That is, without sugar:
       return {tag="String",  {tag="Index", {tag="Splice", id[1] }, 
                                            {tag="Number", 1 } } }
-   else error ("Identifier expected: "..table.tostring(id)) end
+   else error ("Identifier expected: ".._G.table.tostring(id, 'nohash')) end
 end
 
 --------------------------------------------------------------------------------

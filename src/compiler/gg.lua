@@ -94,11 +94,11 @@ local function raw_parse_sequence (lx, p)
       e=p[i]
       if type(e) == "string" then 
          if not lx:is_keyword (lx:next(), e) then
-            parse_error (lx, "Keyword '%s' expected", e) end
+            parse_error (lx, "A keyword was expected, probably `%s'.", e) end
       elseif is_parser (e) then
          table.insert (r, e (lx)) 
       else 
-         gg.parse_error (lx,"Sequence `%s': element #%i is not a string "..
+         gg.parse_error (lx,"Sequence `%s': element #%i is neither a string "..
                          "nor a parser: %s", 
                          p.name, i, table.tostring(e))
       end
@@ -210,7 +210,7 @@ function sequence (p)
    elseif type(p[1])=="string" then -- find name based on 1st keyword
       if #p==1 then p.name=p[1]
       elseif type(p[#p])=="string" then
-         p.name = p[1] .. " ... " . p[#p]
+         p.name = p[1] .. " ... " .. p[#p]
       else p.name = p[1] .. " ..." end
    else -- can't find a decent name
       p.name = "<anonymous>"
@@ -468,7 +468,7 @@ function expr (p)
          -- Check for non-associative operators, and complain if applicable. 
          -----------------------------------------
          elseif p2.assoc=="none" and p2.prec==prec then
-            parser_error (lx, "non-associative operator!")
+            parse_error (lx, "non-associative operator!")
 
          -----------------------------------------
          -- No infix operator suitable at that precedence

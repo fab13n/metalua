@@ -169,11 +169,20 @@ local function assign_or_call_stat_parser (lx)
    else 
       assert (#e > 0)
       if #e > 1 then 
-         gg.parse_error (lx, "comma is not a valid statement separator") end
+         gg.parse_error (lx, 
+            "comma is not a valid statement separator; statement can be "..
+            "separated by semicolons, or not separated at all") end
       if e[1].tag ~= "Call" and e[1].tag ~= "Invoke" then
-         gg.parse_error (lx, "This expression is of type '%s'; "..
-            "only function and method calls make valid statements", 
-            e[1].tag or "<list>")
+         local typename
+         if e[1].tag == 'Id' then 
+            typename = '("'..e[1][1]..'") is an identifier'
+         elseif e[1].tag == 'Op' then 
+            typename = "is an arithmetic operation"
+         else typename = "is of type '"..(e[1].tag or "<list>").."'" end
+
+         gg.parse_error (lx, "This expression " .. typename ..
+            "; a statement was expected, and only function and method call "..
+            "expressions can be used as statements");
       end
       return e[1]
    end
