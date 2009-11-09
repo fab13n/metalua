@@ -1,0 +1,25 @@
+local gg_expr = gg_syntax.gg_expr
+
+mlp.lexer :add{ "<<", ">>" }
+
+-- parser expression
+mlp.expr.primary :add{ "<<", gg_expr, ">>", builder = |x| x[1] }
+
+-- parser as a parenthese-less function argument
+mlp.expr.suffix :add{ 
+   "<<", gg_expr, ">>", 
+   builder = |f, x| `Call{ f, x[1] } }
+
+-- parser as a parenthese-less method argument
+mlp.method_args :add{ "<<", gg_expr, ">>", builder = |x| { x[1] } }
+
+-- Declare a forward parser
+mlp.lexer:add{ "forward" }
+mlp.stat:add { "forward", mlp.expr,
+   builder = |x| +{stat: (-{x[1]}) = |...| -{x[1]}(...) } }
+
+-- TODO: turn this into a public API in mlp
+local local_parser = mlp.stat :get "local" [2]
+
+local_parser:add{ "forward", mlp.id,
+   builder = |x| +{stat: local function -{x[1]} (...) return -{x[1]} (...) end } }

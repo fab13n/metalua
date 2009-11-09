@@ -1,0 +1,132 @@
+-{ extension 'match' }
+
+-- gg-syntax, stage 2: associate binders with builder bodies
+-- gg_expr ASTs are walked through:
+--  * top-down to find builders;
+--  * bottom-up within builder gg_exprs, to synthetize binder accessors.
+--
+-- It is considered that builders cannot access to binders within a sub-builder.
+
+-- replace(id, val, term)
+-- replace identifer id with val in term.
+-- Term is currently a tower of nested `Index{ _, `Number _ }
+-- This is a helper function for decorate()
+local function replace (id, val, term, parent, idx)
+   if type(id)=='table' then id=id[1] end
+   match term with
+   | `Id{ id2 } if id==id2 -> if parent then parent[idx] = val end return val
+   | `Index{ term2, _ }    -> replace (id, val, term2, term, 1); return term
+   | _ -> error ("Can't replace in a "..table.tostring(term))
+   end
+end
+
+local v = `Id '_a_'
+
+-- Decorate the AST with bound variable accessors information:
+--  * `WithBuilder{ } gets an accessor attribute, which maps
+--    bound var names with a term t(v) so that in
+--    `WithBuilder{ y, _ }, |v| t(v) in y builder's scope returns
+--    the term bound to the corresponding variable.
+--  * `MultiSequence { y_i } gets a builder attribute,
+--    and gives a multi_bind attribute to its children,
+local function decorate(x)
+   match x with
+
+   | `Bind{ _, `String{ ... } } ->
+      error "Cannot bind a keyword"
+
+   | `Bind{ id, y } ->
+      local binders = decorate (y)
+      if binders [id] then warning ("duplicate binder id "..id) end
+      binders [id] = v
+      return binders
+
+   | `WithBuilder{ y == `MultiSequence{ ... }, body } ->
+      -- y has a special builder: compose them, don't replace it
+      error "Builder on multiseq not implemented"
+
+   | `WithBuilder{ y == `String{ ... }, body } ->
+      x[1] = `Sequence{ y }
+      return decorate(x)
+
+   | `WithBuilder{ y, body } ->
+      x.accessors = decorate (y)
+      return { } -- binders don't cross builders (yet)
+
+   | `OnKeyword{ kw, y } ->  return decorate(y)
+
+   -- FIXME:
+   -- Keywords are omited in the builder argment; therefore,
+   -- builder argument indexes don't match sub-parser indexes.
+   -- However, we don't necessarily know at compile-time wether
+   -- an argument is a keyword or a real parser. Therefore, there
+   -- can be a glitch, when a keyword string is computed rather than
+   -- literal.
+   -- The simplest way to fix this is to add a param in gg.lua's
+   -- raw_parse_sequence to increment
+   | `Sequence{ ... } ->
+      local binders, i = { }, 1
+      for _, y in ipairs (x) do
+         local b = decorate(y)
+         for id, path in pairs (b) do -- append an index and concat paths
+            if binders [id] then warning ("duplicate binder id "..id) end
+            binders[id] = replace (v, `Index{ v, `Number{ i } }, path)
+         end
+         if y.tag ~= 'String' then i=i+1 end
+      end
+      return binders
+
+   -- Add builders to collect free variables
+   | `MultiSequence{ ... } ->
+
+      local multi_binders = { } -- list of child binder sets
+      for i, y in ipairs(x) do multi_binders[i] = decorate(y) end
+
+      -- bound_names_set: set of occuring names
+      local bound_names_set = { }
+      for b in ivalues(multi_binders) do for id, _ in pairs(b) do
+            bound_names_set [id] = true
+      end end
+
+      -- bound_names_list: (ordered) list of occuring names
+      local bound_names_list = { }
+      for id, _ in pairs(bound_names_set) do
+         table.insert(bound_names_list, id) 
+      end
+
+      -- term inner_map[i] builds an accessor to the bound var
+      -- bound_names_list[i] (or returns `Nil if n/a).
+      for i, y in ipairs (x) do
+         local inner_map = `Table{ }
+         for j, id in ipairs (bound_names_list) do
+            inner_map [j] = multi_binders[i][id]
+         end
+         for i=1, #bound_names_list do inner_map[i] = inner_map[i] or `Nil end
+         y.multi_inner_builder = `Function{ {v}, { `Return{ inner_map } } }
+      end
+
+      -- Create new binders, connecting with multi_inner_builders
+      local binders = { }
+      for j, id in ipairs (bound_names_list) do
+         binders[id] = `Index{ v, `Number{ j }}
+      end
+
+      return binders
+   | _ -> return { } -- OptKeyword | List | mlp.expr
+   end
+   return binders
+end
+
+
+-- a(i, x) accesses variable i in parser x
+-- a(i, `OptKeyword{ kw })   = || nil
+-- a(i, `List{ x, s, t })    = || nil
+-- a(i, `WithBuilder{ x, b}) = || nil
+-- a(i, mlp.expr)            = || nil
+-- a(i, `Bind{ i, x }) = |t| t
+-- a(i, `OnKeyword{ kw, x}) = a(i, x) 
+-- a(i, `Sequence{ x_n }) = |t| a(i, x_n)(t[n])
+-- a(i, `Multisequence{ x_n }) = 
+
+gg_syntax.decorate = decorate
+gg_syntax.v = v

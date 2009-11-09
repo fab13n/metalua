@@ -1,0 +1,106 @@
+-- gg-syntax, stage 1: build a specific AST out of concrete syntax.
+
+-- AST syntax:
+-- gg_expr ::=
+--  | `Sequence{ gg_expr+ }
+--  | `MultiSequence{ gg_expr+ }
+--  | `Bind{ id=string, gg_expr }
+--  | `WithBuilder{ gg_expr, builder_body=mlp.expr }
+--  | `OptKeyword{ keyword=string, gg_expr }
+--  | `Optkeyword{ string }
+--  | `List{ gg_expr, separators={ string* }?, terminators={ string* }?
+--  | mlp.expr
+
+-{ extension 'match' }
+
+require 'strict'
+
+local M = gg_syntax
+
+function M.builder_builder (parser, suffix)
+   local builder_body = suffix[1]
+   return `WithBuilder{ parser, builder_body }
+end
+
+function M.bind_builder (id, _, parser)
+   assert (id.tag=='Id', "identifier expected on left of '='")
+   return `Bind{ id[1], parser }
+end
+
+function M.seq_builder (x)
+   x.tag = 'Sequence' 
+   return x
+end
+
+function M.multi_builder (x)
+   x.tag = 'MultiSequence'
+   -- todo: change single keywords into sequecnes
+   -- or handle it in gg.lua
+   return x
+end
+
+function M.onkey_builder (x)
+   local kw, _, p = unpack (x)
+   assert (kw.tag=='String', "Keyword expected on left of =>")
+   local r = `OptKeyword{ kw[1], p }
+   return r
+end
+
+function M.list_builder (x)
+   local parser, qualifiers = unpack (x)
+   local separators, terminators = unpack (qualifiers)
+   return `List{ parser, separators, terminators }
+end
+
+function M.optkey_builder (keyword)
+   assert (keyword.tag=='String', "Only keywords can be made optional")
+   return `Optkeyword {keyword[1]}
+end
+
+function M.list_qualifiers (lx)
+   local t = `Table{ }
+   local kw_list = gg.list{ mlp.string, separators = "or", builder='Table' }
+   local f = |k| lx:next() and table.insert(t, `Pair{`String{k}, kw_list(lx)})
+   while true do
+      match lx :is_keyword (lx :peek()) with
+      | "while" -> f 'separators'
+      | "until" -> f 'terminators'
+      | _       -> return t
+      end
+   end
+   return t
+end
+
+--mlp.expr.transformers:add(|x|eprintf("expr: %s", table.tostring(x, 'nohash')))
+
+-- Forward declaration for self reference
+local function _gg_expr (...) return M.gg_expr_ast (...) end
+
+-- gg_expr parser.
+-- Not inserted in mlp parsers yet.
+M.gg_expr_ast = gg.expr{ name = "gg expression parser",
+
+   primary = gg.multisequence{ 
+      { "(", _gg_expr, ")", builder = |x| x[1] },
+      { "repeat", _gg_expr, M.list_qualifiers, builder = M.list_builder },
+      default = mlp.expr,
+   },
+   
+   infix = { 
+      { "=",      prec=90, builder = M.bind_builder },
+      { ",",      prec=50, builder = M.seq_builder,   assoc = 'flat' },
+      { "|", "|", prec=30, builder = M.multi_builder, assoc = 'flat' },
+      { "=>",     prec=70, builder = M.onkey_builder },
+   }, 
+
+   prefix = {
+   },
+
+   suffix = {
+      { "::", mlp.expr, prec=40, builder = M.builder_builder },
+      { "?", builder = M.optkey_builder },
+   }
+}
+
+mlp.lexer:add{ "::", "=>" }
+

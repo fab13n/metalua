@@ -1,0 +1,7 @@
+-{stat: require 'gg-syntax.init' }
+
+--x = << "local", mlp.id, "=", mlp.expr >>
+--x = << "local", left=mlp.id, "=", right=mlp.expr :: {left, right} >>
+--x = << "let", ("num", a=mlp.number, b="#"? || "str", a=mlp.string) :: "XXX"..a >>
+--x = << "num" || "str" :: "XXX" >>
+x=<<a,b::AB||c,d::CD>>

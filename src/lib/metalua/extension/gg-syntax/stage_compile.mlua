@@ -1,0 +1,93 @@
+-- Compile a decorated gg_expr AST into a Lua AST.
+
+-{ extension 'match' }
+-{ extension 'log' }
+
+local M = gg_syntax
+
+local function set_builder (parser_ast, func_ast)
+   $log("set builder on this ast:", parser_ast)
+   $log("of this function:", func_ast)
+
+   local arg_table
+   match parser_ast with
+   | `Call{ `Index{ `Id 'gg', _ }, arg==`Table{ ... } } -> arg_table=arg
+   | _ -> 
+      arg_table  =`Table{ parser_ast }
+      parser_ast = +{gg.sequence(-{arg_table}) }
+   end
+   table.insert (arg_table, `Pair{ +{'builder'}, func_ast })
+   $log("resulting in this ast:", parser_ast)
+   return parser_ast
+end
+
+-- compile an id->accessor table into a local declaration statement
+local function compile_binders (binders)
+   local lhs, rhs = { }, { }
+   local r = `Local{ lhs, rhs}
+   for id, expr in pairs (binders) do
+      table.insert (lhs, `Id{ id })
+      table.insert (rhs, expr)
+   end
+   return next(lhs) and r
+end
+
+-- Take x a decorated gg AST, return a Lua AST
+local function compile (x)
+   local function compile_list (x)
+      local children = table.imap (compile, x)
+      children.tag = 'Table'
+      return children
+   end
+
+   match x with
+   | `Sequence{ ... } -> 
+      return +{ gg.sequence(-{compile_list(x)}) }
+
+   | `MultiSequence{ ... } ->
+      local children = compile_list(x)
+      -- Set children builders
+      for i, y in ipairs(x) do
+         if y.tag=='String' then y=`Sequence{y}; children[i]=compile(y) end 
+         set_builder (children[i], y.multi_inner_builder or +{ || nil })
+      end
+      return +{ gg.multisequence(-{children}) }
+
+   | `Bind{ _, y } ->
+      return compile (y)
+
+   | `WithBuilder{ y, body, accessors=binders } ->
+      local compiled_binders = compile_binders (binders)
+      local f = compiled_binders and
+         +{ function (-{M.v})
+               -{ compiled_binders }
+               return -{ body }
+            end }
+         or +{ || -{body} }
+      return set_builder (compile(y), f)
+
+   | `OnKeyword{ keyword, y } ->
+      return +{gg.onkeyword{ -{`String{ keyword } }, -{compile(y)} } }
+
+   | `Optkeyword{ keyword } ->
+      return +{gg.optkeyword{ -{`String{ keyword } } } }
+
+   | `List{ primary, separators, terminators } ->
+      local seps, terms
+      if separators and separators[1] then
+         separators.tag = 'Table'
+         seps = `Pair{ +{'separators'}, separators }
+      end
+      if terminators and terminators[1] then
+         terminators.tag = 'Table'
+         terms = `Pair{ +{'terminators'}, terminators }
+      end
+      local arg_table = `Table{ compile(primary), seps, terms }
+      return +{gg.list(-{arg_table})}
+
+   | _ -> return x -- mlp.expr
+
+   end
+end
+
+M.compile = compile
