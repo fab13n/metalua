@@ -1,4 +1,4 @@
-#! /bin/sh
+#!/bin/sh
 
 # --- BEGINNING OF USER-EDITABLE PART ---
 
