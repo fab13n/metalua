@@ -21,6 +21,7 @@ if [ -z "${BUILD_LIB}" ]; then
 fi
 
 # Where to place the final results
+# DESTDIR=
 # INSTALL_BIN=/usr/local/bin
 # INSTALL_LIB=/usr/local/lib/lua/5.1
 if [ -z "${INSTALL_BIN}" ]; then
@@ -43,6 +44,8 @@ if [ -z ${LUAC} ] ; then echo "Error: no lua compiler found"; fi
 
 if [ -f ~/.metaluabuildrc ] ; then . ~/.metaluabuildrc; fi
 
+if [ -z "$LINEREADER" ] && which -s rlwrap; then LINEREADER=rlwrap; fi
+
 echo '*** Lua paths setup ***'
 
 export LUA_PATH="?.luac;?.lua;${BUILD_LIB}/?.luac;${BUILD_LIB}/?.lua"
@@ -53,7 +56,7 @@ echo '*** Create the distribution directories, populate them with lib sources **
 mkdir -p ${BUILD_BIN}
 mkdir -p ${BUILD_LIB}
 cp -Rp lib/* ${BUILD_LIB}/
-# cp -R bin/* ${BUILD_BIN}/ # No binaries provided for unix (for now)
+# cp -Rp bin/* ${BUILD_BIN}/ # No binaries provided for unix (for now)
 
 echo '*** Generate a callable metalua shell script ***'
 
@@ -99,8 +102,11 @@ cat > make-install.sh <<EOF2
 #!/bin/sh
 mkdir -p ${INSTALL_BIN}
 mkdir -p ${INSTALL_LIB}
-
-cat > ${INSTALL_BIN}/metalua <<EOF
+if [ -n "${DESTDIR}" ]; then
+    mkdir -p ${DESTDIR}${INSTALL_BIN}
+    mkdir -p ${DESTDIR}${INSTALL_LIB}
+fi
+cat > ${DESTDIR}${INSTALL_BIN}/metalua <<EOF
 #!/bin/sh
 METALUA_LIB=${INSTALL_LIB}
 export LUA_PATH="?.luac;?.lua;\\\${METALUA_LIB}/?.luac;\\\${METALUA_LIB}/?.lua"
@@ -108,9 +114,9 @@ export LUA_MPATH="?.mlua;\\\${METALUA_LIB}/?.mlua"
 exec ${LINEREADER} ${LUA} \\\${METALUA_LIB}/metalua.luac "\\\$@"
 EOF
 
-chmod a+x ${INSTALL_BIN}/metalua
+chmod a+x ${DESTDIR}${INSTALL_BIN}/metalua
 
-cp -R ${BUILD_LIB}/* ${INSTALL_LIB}/
+cp -pR ${BUILD_LIB}/* ${DESTDIR}${INSTALL_LIB}/
 
 echo "metalua libs installed in ${INSTALL_LIB};"
 echo "metalua executable in ${INSTALL_BIN}."
