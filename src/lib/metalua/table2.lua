@@ -26,20 +26,28 @@ function table.iforeach(f, ...)
          if result then return result end
       end
    else -- advanced case: boundaries and/or multiple tables
+
+      -- fargs:       arguments fot a single call to f
+      -- first, last: indexes of the first & last elements mapped in each table
+      -- arg1:        index of the first table in args
+
       -- 1 - find boundaries if any
       local  args, fargs, first, last, arg1 = {...}, { }
-      if     type(args[1]) ~= "number" then first, arg1 = 1, 1
+      if     type(args[1]) ~= "number" then first, arg1 = 1, 1 -- no boundary
       elseif type(args[2]) ~= "number" then first, last, arg1 = 1, args[1], 2
-      else   first,  last, i = args[1], args[2], 3 end
-      assert (nargs > arg1)
+      else   first,  last, arg1 = args[1], args[2], 3 end
+      assert (nargs >= arg1) -- at least one table
       -- 2 - determine upper boundary if not given
       if not last then for i = arg1, nargs do 
             assert (type (args[i]) == "table")
             last = max (#args[i], last) 
       end end
-      -- 3 - perform the iteration
+      -- 3 - remove non-table arguments from args, adjust nargs
+      if arg1>1 then args = { select(arg1, unpack(args)) }; nargs = #args end
+
+      -- 4 - perform the iteration
       for i = first, last do
-         for j = arg1, nargs do fargs[j] = args[j][i] end -- build args list
+         for j = 1, nargs do fargs[j] = args[j][i] end -- build args list
          local result = f (unpack (fargs)) -- here is the call
          -- If the function returns non-false, stop iteration
          if result then return result end
