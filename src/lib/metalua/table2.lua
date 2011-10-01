@@ -14,6 +14,7 @@ function table.transpose(t)
    return tt
 end
 
+-- iforeach(f[[, first], last], t1[, t2[,...]])
 function table.iforeach(f, ...)
    -- assert (type (f) == "function") [wouldn't allow metamethod __call]
    local nargs = select("#", ...)
@@ -30,16 +31,16 @@ function table.iforeach(f, ...)
       local  args, fargs, first, last, arg1 = {...}, { }
       if     type(args[1]) ~= "number" then first, arg1 = 1, 1
       elseif type(args[2]) ~= "number" then first, last, arg1 = 1, args[1], 2
-      else   first,  last, i = args[1], args[2], 3 end
-      assert (nargs > arg1)
+      else   first, last, arg1 = args[1], args[2], 3 end
+      assert (nargs >= arg1)
       -- 2 - determine upper boundary if not given
       if not last then for i = arg1, nargs do 
-            assert (type (args[i]) == "table")
-            last = max (#args[i], last) 
+         assert (type (args[i]) == "table")
+         last = max (#args[i], last) 
       end end
       -- 3 - perform the iteration
       for i = first, last do
-         for j = arg1, nargs do fargs[j] = args[j][i] end -- build args list
+         for j = arg1, nargs do fargs[j-arg1+1] = args[j][i] end -- build args list
          local result = f (unpack (fargs)) -- here is the call
          -- If the function returns non-false, stop iteration
          if result then return result end
