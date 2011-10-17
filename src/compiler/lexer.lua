@@ -35,7 +35,14 @@ lexer = { alpha={ }, sym={ } }
 lexer.__index=lexer
 
 local debugf = function() end
---local debugf=printf
+-- local debugf=printf
+
+----------------------------------------------------------------------
+-- Some locale settings produce bad results, e.g. French locale
+-- expect float numbers to use commas instead of periods.
+----------------------------------------------------------------------
+os.setlocale('C')
+
 
 ----------------------------------------------------------------------
 -- Patterns used by [lexer:extract] to decompose the raw string into
@@ -170,7 +177,7 @@ function lexer:extract ()
       if ext_idx==1 then loc = self.i end
 
       if tag then 
-         --printf("`%s{ %q }\t%i", tag, content, loc);
+         --printf("`%s{ %q }\t%i", tostring(tag), tostring(content), tostring(loc));
          return build_token (tag, content) 
       end
    end
@@ -275,7 +282,9 @@ function lexer:extract_number()
    end
    if not j then return end
    -- Number found, interpret with tonumber() and return it
-   local n = tonumber (self.src:sub (self.i, j-1))
+   local str = self.src:sub (self.i, j-1)
+   local n = tonumber (str)
+   if not n then error(str.." is not a valid number according to tonumber()") end
    self.i = j
    return "Number", n
 end
