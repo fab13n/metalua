@@ -1,7 +1,7 @@
 \section{Splicing and quoting}
 As the previous section shows, AST are not extremely readable, and as
-promized, Metalua offer a way to avoid dealing with them
-directly. Well, rarely dealing with them anyway.
+promised, Metalua offer a way to avoid dealing with them
+directly. Well, rarely dealing with them, anyway.
 
 In this section, we will deal a lot with \verb|+{...}| and
 \verb|-{...}|; the only (but real) difficulty is not to get lost
@@ -99,7 +99,7 @@ either be an AST, or evaluate to an AST. If not, the result of the
 surrounding quote won't be an AST).
 
 But what happens when a splice is put outside of any quote? There is
-no explicit quotation to cancel, but actually, there is an hidden AST
+no explicit quotation to cancel, but actually, there is a hidden AST
 generation. The process of compiling a Metalua source file consists in
 the following steps:
 
@@ -155,8 +155,8 @@ NORMAL HELLO
 \hrule~\\
 
 Thanks to the print statement in the splice, we see that the code
-it contains is actually executed during evaluation. More in details,
-what happens is that:
+it contains is actually executed during evaluation. More in detail,
+what happens is this:
 \begin{itemize}
 \item The code inside the splice is parsed and compiled separately;
 \item it is executed: the call to \verb|print "META HELLO"| is
@@ -185,7 +185,7 @@ and "NORMAL HELLO" at runtime:
 \paragraph{ternary choice operator}
 Let's build something more useful. As an example, we will build here a
 ternary choice operator, equivalent to the \verb|_ ? _ : _| from
-C. Here, we will not deal yet with syntax sugar: our operator will
+C. Here, we will not deal with syntax sugar yet: our operator will
 have to be put inside splices. Extending the syntax will be dealt with
 in the next section, and then, we will coat it with a sweet syntax.
 
@@ -256,7 +256,7 @@ Now, we will write another simple example, which doesn't use
 quasi-quotes, just to show that we can. Another operator that C
 developpers might be missing with Lua is the \verb|++| operator. As
 with the ternary operator, we won't show yet how to put the syntax
-sugar coating around it, just how to build the backend functionnality.
+sugar coating around it, just how to build the backend functionality.
 
 Here, the transformation is really trivial: we want to encode
 \verb|x++| as \verb|x=x+1|. We will only deal with \verb|++| as
@@ -297,11 +297,11 @@ generator, which allows to build and grow parsers. It's used to
 implement \verb|mlp|, the Metalua parser, which turns Metalua sources
 into AST.
 
-Therefore, the informations useful to extend Metalua syntax are:
+Therefore, the information useful to extend Metalua syntax is:
 
 \begin{itemize}
 \item What are the relevant entry points in mlp, the methods which
   allow syntax extension.
-\item How to use these methods: this consists into knowing the classes
-  defined into gg, which offer dynamic extension possibilities.
+\item How to use these methods: this consists of knowing the classes
+  defined in gg, which offer dynamic extension possibilities.
 \end{itemize}

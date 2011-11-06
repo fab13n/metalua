@@ -2,7 +2,7 @@
 When you write a short-lived macro which takes reasonably short arguments, you
 generally don't want to write a supporting syntax for it. The dollar library
 allows you to call it in a generic way: if you store your macro in the table
-{\tt mlp.macros}, say as function {\tt mlp.macros.foobar}, then you can call it
+{\tt mlp.macros}, say as a function {\tt mlp.macros.foobar}, then you can call it
 in your code as {\tt\$foobar(arg1, arg2...)}: it will receive as parameters the
 ASTs of the pseudo-call's arguments.
 

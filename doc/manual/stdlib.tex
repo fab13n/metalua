@@ -55,14 +55,14 @@ FIXME: move this into metalua.compiler?
 Many of the extensions of {\tt table} are dedicated to a more
 functional style programming. When compared to the functions in
 Haskell or ML's standard libs, these one are slightly more general,
-taking advantage from Lua's dynamic typing.
+taking advantage of Lua's dynamic typing.
 
 \function{table.iforeach(f, ...)}
 
 {\tt table.iforeach(f, t)} will evaluate f with every array-part
 elements of t in order.
 
-If more than one table are passed as parameters, f will receive an
+If more than one table is passed as arguments, f will receive an
 element of each table at each iteration. For instance, {\tt
   table.iforeach (print, \{1, 2, 3\}, \{4, 5, 6\}, \{7, 8, 9\})} will
 print:
@@ -73,9 +73,10 @@ print:
 \end{verbatim}
 
 If the second and/or third parameters are numbers, they indicate the
-first and last indexes to use in the tables. First index defaults to
-1, last index default to the length of the longest table. If only one
-number is passed, it's considered to be the first index. For instance,
+first and last indices to use in the tables. The first index defaults
+to 1, the last index defaults to the length of the longest table. If
+only one number is passed, it's considered to be the first index. For
+instance,
 {\tt table.iforeach (print, 2, \{1, 2, 3\}, \{4, 5, 6\}, \{7, 8, 9\})}
 will only print:
 \begin{verbatim}
@@ -99,15 +100,15 @@ iteration, {\tt f()} takes {\tt acc} as its first param. For instance,
 the sum of {\tt list}'s elements can be computed by {\tt table.ifold(
   (|x,y| x+y), 0, list)}.
 
-This function also accepts first and last indexes after {\tt acc}, and
-more than one table argument: if there are more than one table, then
+This function also accepts first and last indices after {\tt acc}, and
+more than one table argument: if there is more than one table, then
 more than two parameters are passed to {\tt f()}. For instance, this
 function returns $\sum_{i\le2} \max(x[i], y[i])$: {\tt
   table.ifold( (|acc, xi, yi| acc + max (xi, yi)), 0, 2, x, y)}.
 
 \function{table.izip(...)}  
 
-Take a sequence of lists, and return the
+Takes a sequence of lists, and returns the
 list of their first elements, then their second elements, etc. For
 instance, {\tt table.izip (\{1,2,3\}, \{4,5,6\})} will return
 {\tt\{\{1,4\}, \{2,5\} , \{3,6\}\}}.
@@ -152,7 +153,7 @@ whereas the former also copies the hash-part.
 
 Does a deep copy of {\tt t}, i.e. all keys and values are recursively
 copied. Handles tables with shared and circular references correctly;
-also set the copy's metatable to the original's one.
+also sets the copy's metatable to the original's one.
 
 \function{table.range(a, b, c)}
 
@@ -187,9 +188,9 @@ keyword, it's practical to have another name for this function.
 
 \subsection{Library {\tt mlc}}
 
-FIXME: move in metalua.compiler.
+FIXME: move into metalua.compiler.
 
-This library offer conversion between the different possible
+This library offers conversions between the different possible
 representations of metalua programs:
 \begin{itemize}
 \item as source files
@@ -201,7 +202,7 @@ representations of metalua programs:
 \item FIXME
 \end{itemize}
 
-Hopefully, the function names are self-explanatory. Some of them are
+The function names are hopefully self-explanatory. Some of them are
 simply aliases to other standard functions such as {\tt loadstring()}
 or {\tt string.dump()}; many others are compositions of other
 functions. The point is that every sensible transformation from
@@ -228,7 +229,7 @@ System, supported by its own Domain-Specific Language.
 
 \function{walk\_stat (cfg)}
 FIXME
-%don't get confused between the AST it applies on, the the AST being
+%don't get confused between the AST it applies on and the AST being
 %currently inspected.
 
 %function calls and method invocations in a statement context are not

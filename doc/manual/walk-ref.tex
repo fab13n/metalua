@@ -3,10 +3,10 @@
 When you write advanced macros, or when you're analyzing some code to check for
 some property, you often need to design a function that walks through an
 arbitrary piece of code, and does complex stuff on it. Such a function is called
-a code walker. Code walkers can be used for some punctual adjustments, e.g.
+a code walker. Code walkers can be used for selective adjustments, e.g.
 changing a function's {\tt return} statements into something else, or checking
 that a loop performs no {\tt break}, up to pretty advanced transformations, such
-as CPS transformation (a way to encode full continuations into a language taht
+as CPS transformation (a way to encode full continuations into a language that
 doesn't support them natively; see Paul Graham's On Lisp for an accessible
 description of how it works), lazy semantics...
 
@@ -14,18 +14,18 @@ Anyway, code walkers are tricky to write, can involve a lot of boilerplate code,
 and are generally brittle. To ease things as much as possible, Metalua comes
 with a walk library, which intends to accelerate code walker implementation.
 Since code walking is intrinsically tricky, the lib won't magically make it
-trivial, but at least it will save you a lot of time and code, when compared to
-writing all walkers from scratch. Moreover, other people who took the time to
+trivial, but at least it will save you a lot of time and code when compared to
+writing walkers from scratch. Moreover, other people who took the time to
 learn the walker generator's API will enter into your code much faster.
 
 \subsection{Principles}
 
 Code walking is about traversing a tree, first from root to leaves, then from
 leaves back to the root. This tree is not uniform: some nodes are expressions,
-some others statements, some others blocks; and each of these node kinds is
+some are statements, some are blocks; and each of these node kinds is
 subdivided in several sub-cases (addition, numeric for loop...). The basic code
 walker just goes from root to leaves and back to root without doing anything.
-Then it's up to you to plug some action callbacks in that walker, so that it
+Then it's up to you to plug some action callbacks into that walker, so that it
 does interesting things for you.
 
 Without entering into the details of AST structure, here is a simplified version
@@ -71,30 +71,30 @@ The real walker generator is only marginally more complex than that:
 \end{itemize}
 
 \subsection{API}
-There are 3 main tree walkers: {\tt walk.expr()}, {\tt walk.stat()} and {\tt
+There are three main tree walkers: {\tt walk.expr()}, {\tt walk.stat()} and {\tt
   walk.block()}, to walk through the corresponding kinds of ASTs. Each of these
-walker take as parameters a table {\tt cfg} containing the various visitor
-functions, and the AST to walk throuhg. the configuration table {\tt cfg} can
+walkers takes as parameters a table {\tt cfg} containing the various visitor
+functions, and the AST to walk through. The configuration table {\tt cfg} can
 contain fields:
 \begin{itemize}
 \item {\tt cfg.stat.down(node, parent, grandparent...)}, which applies when
-  traversing a statement down, i.e. before its children nodes are parsed, and
-  can modify the tree, and return {\tt nil} or {\tt'break'}. The way children
+  traversing a statement down, i.e. before its children nodes are parsed,
+  can modify the tree and return {\tt nil} or {\tt'break'}. The way children
   are traversed is decided {\em after} the {\tt down()} visitor has been run:
   this point matters when the visitor modifies its children nodes.
-\item {\tt cfg.stat.up(node, parent, grandparent...)}, which is applies on the
+\item {\tt cfg.stat.up(node, parent, grandparent...)}, which applies on the
   way back up. It is applied even if {\tt cfg.stat.down()} returned
   {\tt'break'}, but in that case, the children have not been (and will not be)
   traversed. 
 \item {\tt cfg.expr.down()} and {\tt cfg.expr.up()}, which work just as their
   {\tt stat} equivalent, but apply to expression nodes.\\
   Notice that in Lua, function calls and method invocations can be used as
-  statements as well as as espressions: in such cases, they are visited only by
+  statements as well as expressions: in such cases, they are visited only by
   the statement visitor, not by the expression visitor.
-\item {\tt cfg.block.down()} and {\tt cfg.block.up()} do the same for statements
+\item {\tt cfg.block.down()} and {\tt cfg.block.up()} do the same for statement
   blocks: loops, conditional and function bodies.
 \item {\tt cfg.binder(identifier, id\_parent, id\_grandparent...)}: this
-  is run on identifiers which create a new local variable, jsut before that
+  is run on identifiers which create a new local variable, just before that
   variable's scope begins.
 \end{itemize}
 
@@ -115,7 +115,7 @@ walker = |ast| walk.block(cfg, ast)
 
 Now, let's say we want to catch and remove all statement calls to function
 assert(). This can be done by removing its tag and content: an empty list is
-simply ignored in an AST. So we're only interested by `Call nodes, and within
+simply ignored in an AST. So we're only interested in `Call nodes, and within
 these nodes, we want the function to be `Id 'assert'. All of this is only
 relevant to stat nodes:
 
@@ -123,7 +123,7 @@ relevant to stat nodes:
 function cfg.stat.down (x)
    match x with
    | `Call{ `Id 'assert', ... } -> x.tag=nil; x <- { }
-   | _ -> -- not interested by this node, do nothing
+   | _ -> -- not interested in this node, do nothing
    end
 end
 \end{verbatim}
@@ -132,15 +132,15 @@ You'll almost always want to use the 'match' extension to implement visitors.
 The imperative table overrider ({\tt x <- y} a.k.a. {\tt table.override(x, y)}
 also often comes handy to modify an AST.
 
-We'll now remove {\tt assert()} calls in non-statement; we cannot replace an
-expression by nothing, so we'll replace these nodes by these will simply be
-replaced by {\tt nil}:
+We'll now remove {\tt assert()} calls in non-statements; we cannot
+replace an expression with nothing, so we'll simply replace them with
+{\tt nil}:
 
 \begin{verbatim}
 function cfg.expr.down (x)
    match x with
    | `Call{ `Id 'assert', ... } -> x <- `Nil
-   | _ -> -- not interested by this node, do nothing
+   | _ -> -- not interested in this node, do nothing
    end
 end
 \end{verbatim}
@@ -154,23 +154,23 @@ sucked more than approaches that embraced imperativeness.
 
 \paragraph{Cuts}
 By making down() return 'break', you can prevent the traversal to go further
-down. This might be either because you're not interested by the subtrees, or
+down. This might be either because you're not interested in the subtrees, or
 because you want to traverse them in a special way. In that later case, just do
 the traversal by yourself in the down() function, and cut the walking by
 returning 'break', so that nodes aren't re-traversed by the default walking
-algorithm. We'll see that in the next, more complex example, listing of free
+algorithm. We'll see that in the next, more complex example of listing free
 variables.
 
-This example is exclusively there for demonstration purposes. For actual work on
-identifiers that require awareness of an identifier's binder of freedom, there
+This example is exclusively there for demonstration purposes. For actual
+work on identifiers that require awareness of their binding state, there
 is a dedicated {\tt walk.id} library.
 
-We'll progressively build a walker that gathers all global variables used in a
-given AST. This involves keeping, at all times, a set of the identifiers
-currently bound by a "local" declaration, by function parameters, as for loop
-variables etc. Then, every time an identifier is found in the AST, its presence
-is checked in the current set of bound variables. If it isn't in it, then it's a
-free (global) identifier.
+We'll progressively build a walker that gathers all global variables
+used in a given AST. This involves keeping, at all times, a set of
+the identifiers currently bound by a "local" declaration, by function
+parameters, by for loop variables etc. Then, every time an identifier is
+found in the AST, its presence is checked in the current set of bound
+variables. If it isn't in it, then that's a free (global) identifier.
 
 The first thing we'll need is a scope handling system: something that keeps
 track of what identifiers are currently in scope. It must also allow to save the
@@ -220,8 +220,8 @@ end
 its documentation for details).
 
 Now let's start designing the walker. We'll keep a scope object up to date, as
-well as a set of found free identifiers, gathered every time we find an `Id{ }
-node. To slightly simplify matter, we'll consider that the AST represent a
+well as a set of free identifiers found, gathered every time we find an `Id{ }
+node. To slightly simplify matter, we'll consider that the AST represents a
 block.
 
 \begin{Verbatim}[fontsize=\scriptsize]
@@ -278,7 +278,7 @@ local cfg = { expr  = { },
 \end{Verbatim}
 
 This starts to be useful. We can also easily add the case for `Localrec{ } nodes
-(the ones generated by {\tt "local function foo() ... end"}), where the variable
+(the ones generated by {\tt "local function foo() ... end"}), where a variable
 is already bound in the {\tt`Localrec} statement's right-hand side; so we do the
 same as for {\tt`Local}, but we do it in the {\tt down()} function rather than
 in the up() one.
@@ -392,7 +392,7 @@ identifiers in a scope-aware way, though, you'll want to look at the {\tt
 \subsection{Library {\tt walk.id}, the scope-aware walker}
 
 This library walks AST to gather information about the identifiers in it. It
-call distinct visitor functions depending on whether an identifier is bound or
+calls distinct visitor functions depending on whether an identifier is bound or
 free; moreover, when an identifier is bound, the visitor also receives its
 binder node as a parameter. For instance, in {\tt +\{function(x) print(x)
   end\}}, the bound identifier walker will be called on the \verb|+{x}| in the
@@ -408,7 +408,7 @@ The library is loaded with \verb|require 'walk.id'|. The walkers provided are:
 \item {\tt walk\_id.guess()}.
 \end{itemize}
 
-They take the same config tables as regular walkers, except that they also
+They take the same config tables as regular walkers, except they also
 recognize the following entries:
 \begin{itemize}
 \item {\tt cfg.id.free(identifier, parent, grandparent...)}, which is run on
