@@ -8,14 +8,14 @@ Metalua 0.5
 Metalua is a static metaprogramming system for Lua: a set of tools
 that let you alter the compilation process in arbitrary, powerful and
 maintainable ways. For the potential first-time users of such a
-system, a descripition of these tools, as implemented by Metalua,
+system, a description of these tools, as implemented by Metalua,
 follows.
 
 Dynamic Parsers
 ---------------
 
 One of the tools is the dynamic parser, which allows a source file to
-change the grammar recognized by the parser, while it's being
+change the grammar recognized by the parser while it's being
 parsed. Taken alone, this feature lets you make superficial syntax
 tweaks on the language. The parser is based on a parser combinator
 library called 'gg'; you should know the half dozen functions in gg
@@ -35,7 +35,7 @@ API to do advanced things:
   So if your parser won't natively let you specify infix operator
   precedence and associativity easily, tough luck for you and your
   code maintainers. With combinators OTOH, most of such useful
-  functions already exist, and you can write your owns without
+  functions already exist, and you can write your own without
   rewriting the parser itself. For instance, adding an infix operator
   would just look like:
 
@@ -71,8 +71,8 @@ freely interchangeable. The make-or-break deal is then:
 - To easily let users see sources as trees, as sources, or as
   combination thereof, and switch representations seamlessly.
 
-- To offer the proper libraries, that won't force you to reinvent a
-  square wheel, will take care of the most common pitfalls, won't
+- To offer the proper libraries that won't force you to reinvent a
+  square wheel will take care of the most common pitfalls and won't
   force you to resort to brittle hacks.
 
 On the former point, Lisps are at a huge advantage, their user syntax
@@ -99,7 +99,7 @@ Library-wise, Metalua offers a set of syntax tree manipulation tools:
   error statements", "rename all local variables and their instances
   into unique fresh names", "list the variables which escape this
   chunk's scope", "insert a type-checking instruction into every
-  assignments to variable X", etc. Most of non-trivial macros will
+  assignment to variable X", etc. Most of non-trivial macros will
   require some of those global code transformations, if you really want
   them to behave correctly.
 
@@ -119,7 +119,7 @@ Noteworthy changes from 0.4.1 to 0.5
 
 Simplification of the install and structure:
 
-- This release is included in Lua for Windows, so it now couldn't get simpler
+- This release is included in Lua for Windows, so now it couldn't get simpler
   for MS-Windows users!
 
 - Metalua is written in pure Lua again, thus making it platform-independant. 
@@ -143,7 +143,7 @@ Other changes:
 
 - some new extensions: xloop, xmatch, improved match.
 
-- ASTs now keep track of the source extract that generated them (API is not 
+- ASTs now keep track of the source that generated them (API is not 
   mature though, it will be changed and broken).
 
 - improved table printer: support of a plain-Lua mode, alternative indentation 
@@ -166,7 +166,7 @@ Noteworthy changes from 0.4 to 0.4.1
 - Update to Pluto 2.2 and Lua 5.1.3
 - Build for Visual Studio .NET
 
-Notworthy changes from 0.3 to 0.4
+Noteworthy changes from 0.3 to 0.4
 =================================
 
 - A significantly bigger code base, mostly due to more libraries:
@@ -184,7 +184,7 @@ Notworthy changes from 0.3 to 0.4
   friendly than the mlc from the previous version.
 
 
-- Metalua source libraries are looked for in environmemt variable
+- Metalua source libraries are searched for in environmemt variable
   LUA_MPATH, distinct from LUA_PATH. This way, in an application
   that's part Lua part Metalua, you keep a natural access to the
   native Lua compiler.

@@ -1,5 +1,5 @@
 \subsection{Exceptions}
-As a first non-trivial example of extension, we'll pick exception:
+As a first non-trivial example of an extension, we'll pick exception:
 there is a mechanism in Lua, {\tt pcall()}, which essentially provides
 the raw functionality to catch errors when some code is run, so
 enhancing it to get full exceptions is not very difficult. We will aim
@@ -11,8 +11,8 @@ at:
 \item being able to attach additional data to exception (e.g. an error
   message);
 \item not interfere with the usual error mechanism;
-\item support the ``finally'' feature, which guaranties that a piece
-  of code (most often about resource liberation) will be executed.
+\item support the ``finally'' feature, which guarantees that a piece
+  of code (most often about resource release) will be executed.
 \end{itemize}
 
 \subsubsection{Syntax}
@@ -55,15 +55,15 @@ We use {\tt gg.sequence} to chain the various parsers; {\tt
 lets us read an undetermined series of exception cases, separated by
 keyword ``{\tt|}'', until we find the terminator ``{\tt end}''
 keyword. The parser delegates the building of the resulting statement
-to {\tt trywith\_builder}, which will be detailled later. Finally, we
+to {\tt trywith\_builder}, which will be detailed later. Finally, we
 have to declare a couple of mundane things:
 \begin{itemize}
 \item that {\tt try}, {\tt with} and {\tt->} are keywords. If we don't
-  do this, the two firsts will be returned by the lexer as identifiers
-  instead of keywords; the later will be read as two separate keywords
-  ``{\tt-}'' and ``{\tt>}''. We don't have to declare explicitly
-  ``{\tt|}'', as single-character symbols are automatically considered to
-  be keywords.
+  do this, the first two will be returned by the lexer as identifiers
+  instead of keywords; the last one will be read as two separate
+  keywords ``{\tt-}'' and ``{\tt>}''. We don't have to declare
+  ``{\tt|}'' explicitly, as single-character symbols are automatically
+  considered to be keywords.
 \item that ``{\tt|}'' and ``{\tt with}'' can terminate a block of
   statements. Indeed, metalua needs to know when it reached the end of
   a block, and introducing new constructions which embed blocks often
@@ -92,14 +92,14 @@ objects to represent exceptions.
 
 \subsubsection{Exception objects}
 We want to be able to classify exceptions hierarchically: each
-exception will inherit form a more generic exception, the most generic
+exception will inherit from a more generic exception, the most generic
 one being simply called ``{\tt exception}''. We'll therefore design a
 system which allows to specialize an exception into a sub-exception,
 and to compare two exceptions, to know whether one is a special case
 of another. Comparison will be handled by the usual {\tt< > <= >=}
 operators, which we'll overload through metatables. Here is an
 implementation of the base exception {\tt exception}, with working
-comparisons, and a {\tt new()} method which allow to specialize an
+comparisons, and a {\tt new()} method which allows to specialize an
 exception. Three exceptions are derived as an example, so that
 {\tt exception > exn\_invalid > exn\_nullarg} and {\tt exception >
   exn\_nomorecoffee}:
@@ -131,7 +131,7 @@ and if is has been raised, compare it with each case until we find one
 that fits. If none is found (either it's an uncaught exception, or a
 genuine error which is not an exception at all), it must be rethrown. 
 
-Notice that throwing an exception simply consists into sending it as
+Notice that throwing an exception simply consists of sending it as
 an error:
 \begin{Verbatim}[fontsize=\scriptsize]
 
@@ -210,7 +210,7 @@ function trywith_builder(x)
    end
 
    ---------------------------------------------------------
-   -- Finally, put an [else] block to rethrow uncought errors:
+   -- Finally, put an [else] block to rethrow uncaught errors:
    ---------------------------------------------------------
    table.insert (catchers, +{error (exn)})
 
@@ -291,17 +291,17 @@ traps. Among others:
 \begin{itemize}
 \item Variables {\tt exn} and {\tt status} are subject to capture;
 \item There is no way to put personalized data in an exception. Or,
-  more accurately, there's no practiccal way to retrieve it in the
+  more accurately, there's no practical way to retrieve it in the
   exception handler.
-\item What happens if there's a {\tt return} statement in the guraded
+\item What happens if there's a {\tt return} statement in the guarded
   block?
 \item There's no {\tt finally} block in the construction.
 \item Coroutines can't yield across a {\tt pcall()}. Therefore, a
-yield in the guarded code will cause an error.
+  yield in the guarded code will cause an error.
 \end{itemize}
 
 Refining the example to address these shortcomings is left as an
-exercice to the reader, we'll just give a couple of design
+exercise to the reader, we'll just give a couple of design
 hints. However, a more comprehensive implementation of this exception
 system is provided in metalua's standard libraries; you can consider
 its sources as a solution to this exercice!
@@ -330,10 +330,10 @@ end
 
 The simplest way to detect user-caused returns is to create a unique
 object (typically an empty table), and return it at the end of the
-block. when no exception has been thrown, test whether that object was
-returned: if anything else than it was returned, then propagate it (by
+block. When no exception is thrown, test whether that object was
+returned: if anything else was returned, then propagate it (by
 {\tt return}ing it again). If not, do nothing. Think about the case
-when multiple values have been returned.
+when multiple values are returned.
 
 The {\tt finally} block poses no special problem: just go through it,
 whether an exception occured or not. Think also about going through it

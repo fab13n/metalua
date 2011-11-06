@@ -1,6 +1,6 @@
 \section{{\tt gg}, the grammar generator}
 
-\verb|gg| is the grammar generator, the library with which Metalua
+\verb|gg| is the grammar generator, the library with which the Metalua
 parser is built. Knowing it allows you to easily write your own
 parsers, and to plug them into mlp, the existing Metalua source
 parser. It defines a couple of generators, which take parsers as
@@ -26,14 +26,14 @@ There are four main classes in gg, which allow to generate:
 \subsection{Sequences}
 
 A sequence parser combines sub-parsers together, calling them one after
-the other. A lot of these sub-parsers will simply read a keyword, and
-do nothing of it except making sure that it is indeed here: these can
+the other. A lot of these sub-parsers will simply read a keyword and
+do nothing with it except making sure that it is indeed there: these can
 be specified by a simple string. For instance, the following
 declarations create parsers that read function declarations, thanks
 to some subparsers:
 \begin{itemize}
 \item \verb|func_stat_name| reads a function name (a list of
-  identifiers separated by dots, plus optionally a semicolon and a
+  identifiers separated by dots, plus optionally a colon and a
   method name);
 \item \verb|func_params_content| reads a possibly empty list of
   identifiers separated with commas, plus an optional ``\verb|...|'';
@@ -56,7 +56,7 @@ func_stat = gg.sequence{ "local", "function", mlp.id, "(",
 \subsubsection{Constructor {\tt gg.sequence (config\_table) }}
 
 This function returns a sequence parser. \verb|config_table| contains,
-in its array part, a sequence of string representing keyword parsers,
+in its array part, a sequence of strings representing keyword parsers,
 and arbitrary sub-parsers. Moreover, the following fields are allowed
 in the hash part of the table:
 
@@ -89,7 +89,7 @@ sub-parsers, or the result of \verb|builder| if it is non-nil. In the
 elements: the results of \verb|func_stat_name|,
 \verb|func_params_content| and \verb|mlp.block|.
 
-It can also be directly called as simply \verb|x(lexstream)| instead of
+It can also be called directly as simply \verb|x(lexstream)| instead of
 \verb|x:parse(lexstream)|.
 
 \subsubsection{Method {\tt .transformers:add(f)}}
@@ -122,7 +122,7 @@ mlp.stat = gg.multisequence{
 This function returns a sequence set parser. The array part of
 \verb|config_table| contains a list of parsers. It also accepts tables
 instead of sequence parsers: in this case, these tables are supposed
-to be config tables for \verb|gg.sequence| constructor, and are
+to be config tables for \verb|gg.sequence| constructors, and are
 converted into sequence parsers on-the-fly by calling
 \verb|gg.sequence| on them. Each of these sequence parsers has to
 start with a keyword, distinct from all other initial keywords,
@@ -161,7 +161,7 @@ parser (one of the sequence parsers, or the default parser). That
 result is either returned directly, or passed through \verb|builder|
 if this field is non-nil.
 
-It can also be directly called as simply \verb|x(lexstream)| instead of
+It can also be called directly as simply \verb|x(lexstream)| instead of
 \verb|x:parse(lexstream)|.
 
 \subsubsection{Method {\tt :add(sequence\_parser)}}
@@ -224,7 +224,7 @@ argument lists ``\verb|()|'' are handled properly.
 Beware that separators are consumed from the lexstream stream, but
 terminators are not.
 
-%\caveat{FIXME: check that it works as advertized (for list parserd
+%\caveat{FIXME: check that it works as advertised (for list parsers
 %  with separators AND terminators; it's related to the trailing
 %  separator issue in block and table\_content parsers). There still is
 %  a design issue to settle here.}
@@ -236,7 +236,7 @@ the following fields:
 \begin{itemize}
 
 \item\verb|primary = <parser>| (mandatory): the parser used to read
-  elemetns of the list;
+  elements of the list;
 
 \item\verb|separators = <list> |: list of strings representing the
   keywords accepted as element separators. If only one separator is
@@ -278,7 +278,7 @@ Read a list from the lexstream. The result is either the list of elements
 as read by the primary parser, or the result of that list passed
 through \verb|builder| if it is specified.
 
-It can also be directly called as simply \verb|x(lexstream)| instead of
+It can also be called directly as simply \verb|x(lexstream)| instead of
 \verb|x:parse(lexstream)|.
 
 \subsubsection{Method {\tt .transformers:add}}
@@ -312,7 +312,7 @@ two operator sequences which start with the same keyword (for
 instance, two infix sequences starting with keyword ``\$'').
 
 Most of the time, the sequences representing operators will have a
-single keyword, and no subparser. For instance, the addition is
+single keyword, and no subparsers. For instance, the addition is
 represented as:\\
 \verb~{ "+",  prec=60, assoc="left", builder= |a, _, b| `Op{ `Add, a, b } }~
 
@@ -324,7 +324,7 @@ sequence parsers. Besides this array-part and the usual {\tt
 \begin{itemize}
 
 \item\verb|prec = <number>| its precedence. The higher the precedence, 
-  the tighter the operator bind with respect to other operators. For
+  the tighter the operator binds with respect to other operators. For
   instance, in Metalua, addition precedence is 60, whereas
   multiplication precedence is 70.
 
@@ -350,7 +350,7 @@ sequence parsers. Besides this array-part and the usual {\tt
 \item\verb|builder = <function>| the usual result transformer. The
   function takes as parameters the left operand, the result of the
   sequence parser (i.e. \verb|{ }| if the sequence contains no
-  subparser), and the right operand; it must return the resulting AST.
+  subparser) and the right operand; it must return the resulting AST.
 
 \end{itemize}
 
@@ -378,8 +378,8 @@ read by the parser. The following fields can appear in the table:
 
 \begin{itemize}
 \item\verb|primary| (mandatory): the primary parser, which reads the
-  primary elements linked by operators. In Metalua expression parsers,
-  that would be numbers, strings, identifiers\ldots It is often a
+  primary elements linked by operators. In Metalua expression parsers
+  these would be numbers, strings, identifiers\ldots It is often a
   multisequence parser, although that's not mandatory.
 \item\verb|prefix|: a list of tables representing prefix operator
   sequences, as described above. It supports a {\tt default} parser:
@@ -404,7 +404,7 @@ This is just a shortcut for {\tt primary.add}. Unspecified behavior if
 \subsubsection{Method {\tt :parse (lexstream)}}
 Read a list from the lexstream. The result is built by \verb|builder1| calls.
 
-It can also be directly called as simply \verb|x(lexstream)| instead of
+It can also be called directly as simply \verb|x(lexstream)| instead of
 \verb|x:parse(lexstream)|.
 
 \subsubsection{Method {\tt :tostring()}}
@@ -441,14 +441,14 @@ Run the parser. The result is the internal parser's result, or
 \verb|false| if the next token in the lexstream wasn't one of the
 specified keywords.
 
-It can also be directly called as simply \verb|x(lexstream)| instead of
+It can also be called directly as simply \verb|x(lexstream)| instead of
 \verb|x:parse(lexstream)|.
 
 \subsection{{\tt optkeyword} parser}
 
 Watch for optional keywords: an \verb|optkeyword| parser has a list of
 keyword strings as a configuration. If such a keyword is found as the
-nex lexstream element upon parsing, the keyword is consumed and that
+next lexstream element upon parsing, the keyword is consumed and that
 string is returned. If not, \verb|false| is returned.
 
 \subsubsection{Constructor {\tt gg.optkeyword (keyword1, keyword2, ...)}}

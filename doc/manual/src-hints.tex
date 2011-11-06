@@ -19,7 +19,7 @@ interpretations of a single sentence, and parser combinators handle
 this non-determinism by choosing the interpretation which allows the
 combined parser to yield a result.
 
-Gg intentionnaly doesn't support backtracking: not only would it be
+Gg intentionally doesn't support backtracking: not only would it be
 slightly harder to read in a non-lazy language such as Lua, but it
 isn't required to parse Lua. More importantly, built-in backtracking
 would encourage people to create ambiguous syntax extensions, which is
@@ -27,20 +27,20 @@ an awfully bad idea: indeed, we expect different extensions to
 cohabitate as smoothly as possible, and two extensions with ambiguous
 grammars generally cause a lot of chaos when mixed together. Finally,
 a lot of Lua's essence is about friendly, unsurprizing, clear
-syntax. We want to encourage people into respecting this spirit as
+syntax. We want to encourage people to respect this spirit as
 much as possible, so if they want to introduce chaotic syntax, Metalua
 won't actively prevent them to do so, but it certainly won't help by
 providing the tools.
 
-Gg offers no atomic parser, besides keyword parser generators; it's up
-to the programmer to provide these. Parsers are simply functions which
+Gg offers no atomic parsers besides keyword parser generators; it's up
+to the programmer to provide them. Parsers are simply functions which
 take a lexer as a parameter, and return an AST. Such function examples
 are provided for mlp in mlp\_expr.lua. Lexers are objects with a
 couple of mandatory methods: peek, next and is\_keyword. Lexer API
 shall be discussed in the part about mll.
 
 \paragraph{State} 
-gg.lua is correctly refactored and commented, and should be readable
+Gg.lua is correctly refactored and commented, and should be readable
 by anyone with some notions of Lua and functional programming. Having
 dealt with parsec might help a bit, but is definitely not required.
 
@@ -73,20 +73,20 @@ actually have to deal with. Understanding it requires to understand
 gg. Mlp is cut into several parts:
 
 \begin{itemize}
-\item {\bf mlp\_expr.lua} parses expressions, except literal tables
+\item {\bf mlp\_expr.lua} parses expressions except literal tables
   and quotes. It includes other constants (booleans, strings,
   numbers), the compound expressions built by combining them with
   operators, and function bodies. Most of its complexity is handled by
   the expression parser generator gg.expr.
 \item {\bf mlp\_table.lua} parses tables. Not much to say about this,
   this is probably the simplest subpart of mlp.
-\item {\bf mlp\_stat.lua} parses statements. Except for assignements,
+\item {\bf mlp\_stat.lua} parses statements. Except for assignments,
   every different statement is introduced by a distinct initial
   keyword, and it should remain that way.
 \item {\bf mlp\_ext.lua} gathers the parts of the metalua syntax that
-  aren't regulat Lua: customizable assignments, short lambda syntax
+  aren't regular Lua: customizable assignments, short lambda syntax
   etc. 
-\item {\bf mlp\_meta.lua} handles the meta-operation, splicing and
+\item {\bf mlp\_meta.lua} handles the meta-operations splicing and
   quoting.
 \item {\bf mlp\_misc.lua} contains various little bits that wouldn't
   fit anywhere else. In other words, it's sort of a mess.
@@ -105,7 +105,7 @@ distribution. This has the following consequences:
 \begin{itemize}
 \item it helps to understand the original compiler in C;
 \item it's easy to backport extensions from the C version to Yueliang
-  (I had to do it, since Yueliang was 5.0 and I neede 5.1)
+  (I had to do it, since Yueliang was 5.0 and I needed 5.1)
 \item it's rather easy to get bitwise-identical compilations, between
   what Yueliang produces and what the C version does. And that's good,
   because testing a compiler is a non-trivial problem.
@@ -113,7 +113,7 @@ distribution. This has the following consequences:
 \end{itemize}
 
 The big drawback is that the code is very much structured like C, and
-is therefore, big, memory and time hungry, harder than necessary to
+is therefore big, memory and time hungry, harder than necessary to
 understand and maintain, not suitable for clean and easy
 extensions. Two possible evolutions could be considered for metalua:
 

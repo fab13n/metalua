@@ -5,7 +5,7 @@
 
 \section{{\tt mlp}, the metalua parser}
 
-Metalua parser is built on top of \verb|gg|, and cannot be understood
+The metalua parser is built on top of \verb|gg|, and cannot be understood
 without some knowledge of it. Basically, \verb|gg| allows not only to
 build parsers, but to build {\em extensible} parsers. Depending on a
 parser's type (sequence, sequence set, list, expression\ldots),
@@ -28,8 +28,8 @@ needed to extend Metalua syntax:
   extension point for Metalua expression. Supports all of the methods
   defined by {\tt gg.expr}.}
 
-\entry{mlp.func\_val}{gg.sequence}{Read a function definition,
-  from the arguments' openning parenthesis to the final {\tt end}, but
+\entry{mlp.func\_val}{gg.sequence}{Read a function definition
+  from the arguments' opening parenthesis to the final {\tt end}, but
   excluding the initial {\tt function} keyword, so that it can be used
   both for anonymous functions, for {\tt function some\_name(...) end}
   and for {\tt local function some\_name(...) end}.}
@@ -37,7 +37,7 @@ needed to extend Metalua syntax:
 % \entry{mlp.func\_params\_content}{gg.list}{Read a potentially empty
 %   (``{\tt)}''- or ``{\tt|}''-terminated) list of function definition
 %   parameters, i.e. identifiers or ``{\tt ...}'' varargs. Surrounding
-%   parentheses are excluded. Don't get confused between parameters and
+%   parentheses are excluded. Don't get confused by parameters versus
 %   arguments: parameters are the variable names used in a function
 %   definition; arguments are the values passed in a function call.}
 
@@ -45,8 +45,8 @@ needed to extend Metalua syntax:
 %   of function call arguments. Surrounding parentheses are excluded.}
 
 % \entry{mlp.func\_args}{gg.sequence\_set}{Read function arguments: a
-%   list of expressions between parenthses, or a litteral table, or a
-%   litteral string.}
+%   list of expressions between parenthses, or a literal table, or a
+%   literal string.}
 
 %\entry{mlp.func\_params}{}{}
 \entry{mlp.expr\_list}{}{}
@@ -57,7 +57,7 @@ needed to extend Metalua syntax:
 \entry{mlp.table\_content}{gg.list}{Read the content of a table,
   excluding the surrounding braces}
 
-\entry{mlp.table}{gg.sequence}{Read  a litteral table,
+\entry{mlp.table}{gg.sequence}{Read  a literal table,
   including the surrounding braces}
 
 \entry{mlp.table\_field}{\rm custom function}{Read a table entry: {\tt
@@ -85,7 +85,7 @@ from just after the ``{\tt for}'' to just before the ``{\tt do}''.}
 \tableFooter
 
 Actually, {\tt mlp.stat} is an extended version of a multisequence: it
-supports easy addition of new assignment operator. It has a field {\tt
+supports easy addition of new assignment operators. It has a field {\tt
 assignments}, whose keys are assignment keywords, and values are
 assignment builders taking left-hand-side and right-hand-side as
 parameters. for instance, C's ``+='' operator could be added as:
@@ -107,7 +107,7 @@ end
     are macros which take care not to use names that might interfere
     with user-provided names. The typical non-hygienic macro in C
     is {\tt \#define SWAP( a, b) \{ int c=a; a=b; b=c; \}}: this macro
-    will misearbly fail if you ever call it with a parameter named
+    will misearbly fail if you ever call it with an argument named
     {\tt c}. There are well-known techniques to automatically make a
     macro hygienic. Without them, you'd have to generate a unique name
     for the temporary variable, if you had a {\tt gensym()} operator
