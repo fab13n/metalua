@@ -128,11 +128,17 @@ function M.traverse.expr_list (cfg, x, ...)
 end
 
 function M.malformed(cfg, x, ...)
-    error ("Malformed node of tag "..(x.tag or '(nil)'))
+    local f = cfg.malformed or cfg.error
+    if f then f(x, ...) else
+        error ("Malformed node of tag "..(x.tag or '(nil)'))
+    end
 end
 
 function M.unknown(cfg, x, ...)
-    error ("Unknown node tag "..(x.tag or '(nil)'))
+    local f = cfg.unknown or cfg.error
+    if f then f(x, ...) else
+        error ("Unknown node tag "..(x.tag or '(nil)'))
+    end
 end
 
 function M.occurrence(cfg, x, ...)
