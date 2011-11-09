@@ -151,7 +151,7 @@ function M.binder_list (cfg, id_list, ...)
         if id_node.tag == 'Id' then
             cfg.scope :set (id_node[1], { id_node, ... })
             if f then f(id_node, ...) end
-        else assert (i==#id_list and id_node.tag=='Dots') end
+        else assert (i==#id_list and id_node.tag=='Dots', "Invalid binders list") end
     end
 end
 
