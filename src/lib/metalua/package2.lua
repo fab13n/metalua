@@ -36,7 +36,7 @@ function package.findfile(name, path_string)
       --printf('path = %s, rpath_mark=%s, name=%s', path, resc(path_mark), name)
       local filename = path:gsub (resc (path_mark), name)
       --printf('filename = %s', filename)
-      local file = io.open (filename, 'r')
+      local file = io.open (filename, 'rb')
       if file then return file, filename end
       table.insert(errors, string.format("\tno lua file %q", filename))
    end

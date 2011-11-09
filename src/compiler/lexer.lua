@@ -143,10 +143,11 @@ function lexer:extract ()
          self.column_offset = i 
       end
 
-      -- lineinfo entries: [1]=line, [2]=column, [3]=char, [4]=filename
-      local fli = { first_line, loc-first_column_offset, loc, self.src_name }
-      local lli = { self.line, self.i-self.column_offset-1, self.i-1, self.src_name }
-      --Pluto barfes when the metatable is set:(
+      -- lineinfo entries: [1]=line, [2]=column, [3]=char, [4]=filename, [5]=space_id
+      local fli = { first_line, loc-first_column_offset, loc, self.src_name, self.space_id }
+      self.space_id = self.space_id+1
+      local lli = { self.line, self.i-self.column_offset-1, self.i-1, self.src_name, self.space_id }
+
       setmetatable(fli, lexer.lineinfo_metatable)
       setmetatable(lli, lexer.lineinfo_metatable)
       local a = { tag = tag, lineinfo = { first=fli, last=lli }, content } 
@@ -385,7 +386,7 @@ function lexer:restore (s) self.i=s[1]; self.peeked=s[2] end
 function lexer:sync()
    local p1 = self.peeked[1]
    if p1 then 
-      li = p1.lineinfo.first
+      local li = p1.lineinfo.first
       self.line, self.i = li[1], li[3]
       self.column_offset = self.i - li[2]
       self.peeked = { }
@@ -439,13 +440,14 @@ function lexer:newstream (src_or_stream, name)
    elseif type(src_or_stream)=='string' then -- it's a source string
       local src = src_or_stream
       local stream = { 
-         src_name      = name;   -- Name of the file
-         src           = src;    -- The source, as a single string
-         peeked        = { };    -- Already peeked, but not discarded yet, tokens
-         i             = 1;      -- Character offset in src
-         line          = 1;      -- Current line number
-         column_offset = 0;      -- distance from beginning of file to last '\n'
-         attached_comments = { },-- comments accumulator
+         src_name      = name;    -- Name of the file
+         src           = src;     -- The source, as a single string
+         peeked        = { };     -- Already peeked, but not discarded yet, tokens
+         i             = 1;       -- Character offset in src
+         line          = 1;       -- Current line number
+         column_offset = 0;       -- distance from beginning of file to last '\n'
+         attached_comments = { }; -- comments accumulator
+         space_id      = 1;       -- space identifier number
          lineinfo_last = { 1, 1, 1, name }
       }
       setmetatable (stream, self)
