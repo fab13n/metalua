@@ -44,7 +44,12 @@ if [ -z ${LUAC} ] ; then echo "Error: no lua compiler found"; fi
 
 if [ -f ~/.metaluabuildrc ] ; then . ~/.metaluabuildrc; fi
 
-if [ -z "$LINEREADER" ] && which -s rlwrap; then LINEREADER=rlwrap; fi
+if [ -z "$LINEREADER" ] ; then LINEREADER=$(which rlwrap); fi
+
+if [ -z "$LINEREADER" ] ; then
+    echo "Warning, rlwrap not found, no line editor support for interactive mode"
+    echo "Consider performing the equivalent of 'sudo apt-get install rlwrap'."
+fi
 
 echo '*** Lua paths setup ***'
 
@@ -58,13 +63,13 @@ mkdir -p ${BUILD_LIB}
 cp -Rp lib/* ${BUILD_LIB}/
 # cp -Rp bin/* ${BUILD_BIN}/ # No binaries provided for unix (for now)
 
-echo '*** Generate a callable metalua shell script ***'
+echo '*** Generating a callable metalua shell script ***'
 
 cat > ${BUILD_BIN}/metalua <<EOF
 #!/bin/sh
 export LUA_PATH='?.luac;?.lua;${BUILD_LIB}/?.luac;${BUILD_LIB}/?.lua'
 export LUA_MPATH='?.mlua;${BUILD_LIB}/?.mlua'
-${LUA} ${BUILD_LIB}/metalua.luac \$*
+exec ${LINEREADER} ${LUA} ${BUILD_LIB}/metalua.luac \$*
 EOF
 chmod a+x ${BUILD_BIN}/metalua
 
@@ -79,11 +84,13 @@ echo '*** Bootstrap the parts of the compiler written in metalua ***'
 
 ${LUA} ${BASE}/build-utils/bootstrap.lua ${BASE}/compiler/mlc.mlua output=${BUILD_LIB}/metalua/mlc.luac
 ${LUA} ${BASE}/build-utils/bootstrap.lua ${BASE}/compiler/metalua.mlua output=${BUILD_LIB}/metalua.luac
+${LUA} ${BASE}/build-utils/bootstrap.lua ${BASE}/lib/metalua/treequery/walk.mlua output=${BUILD_LIB}/metalua/treequery/walk.luac
 
 echo '*** Finish the bootstrap: recompile the metalua parts of the compiler with itself ***'
 
 ${BUILD_BIN}/metalua -vb -f compiler/mlc.mlua     -o ${BUILD_LIB}/metalua/mlc.luac
 ${BUILD_BIN}/metalua -vb -f compiler/metalua.mlua -o ${BUILD_LIB}/metalua.luac
+${BUILD_BIN}/metalua -vb -f lib/metalua/treequery/walk.mlua -o ${BUILD_LIB}/metalua/treequery/walk.luac
 
 echo '*** Precompile metalua libraries ***'
 for SRC in $(find ${BUILD_LIB} -name '*.mlua'); do

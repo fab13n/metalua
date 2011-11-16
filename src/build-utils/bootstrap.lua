@@ -51,6 +51,11 @@ package.preload['metalua.mlc'] = function()
    package.metalua_nopopen = true
 end
 
+-- Used to check AST validity by mlc.check_ast().
+package.preload['metalua.treequery.walk'] = function()
+    return { block = function() end }
+end
+
 require 'verbose_require'
 require 'metalua.base'
 require 'metalua.bytecode'

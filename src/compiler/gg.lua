@@ -38,8 +38,15 @@ module("gg", package.seeall)
 -------------------------------------------------------------------------------
 -- parser metatable, which maps __call to method parse, and adds some
 -- error tracing boilerplate.
+--
+-- TODO: parsers don't throw errors anymore, they return `Error{ } nodes instead.
+-- Therefore the accumulation of error positions won't work anymore.
+-- Instead, the mlc.check_ast() function should retrace the whole path to
+-- the actual error position.
+--
 -------------------------------------------------------------------------------
 local parser_metatable = { }
+--[[
 function parser_metatable.__call (parser, lx, ...)
    --printf ("Call parser %q of type %q", parser.name or "?", parser.kind)
    if mlc.metabugs then 
@@ -63,6 +70,9 @@ function parser_metatable.__call (parser, lx, ...)
       end
    end
 end
+--]]
+
+function parser_metatable.__call (parser, lx, ...) return parser :parse(lx, ...) end
 
 -------------------------------------------------------------------------------
 -- Turn a table into a parser, mainly by setting the metatable.
@@ -86,21 +96,32 @@ function is_parser (x)
 end
 
 -------------------------------------------------------------------------------
--- Parse a sequence, without applying builder nor transformers
+-- Parse a sequence, without applying builder nor transformers.
+-- Won't fail: if the parsing can't be completed, the missing results
+-- will be filled with Error nodes.
+--
+-- TODO: This introduces a new assumption in gg that it must produce
+-- AST as results. This should be decoupled by passing an error handler
+-- from outside.
 -------------------------------------------------------------------------------
 local function raw_parse_sequence (lx, p)
    local r = { }
    for i=1, #p do
       e=p[i]
-      if type(e) == "string" then 
-         if not lx:is_keyword (lx:next(), e) then
-            parse_error (lx, "A keyword was expected, probably `%s'.", e) end
+      if failed then
+         if type(e)=="string" then table.insert(r, {tag='Error', "Earlier error" }) end
+      elseif type(e) == "string" then
+         if not lx :is_keyword (lx :next(), e) then
+            table.insert(r, {tag='Error', "A keyword was expected, probably `"..e.."'."})
+            failed=true
+         end
       elseif is_parser (e) then
-         table.insert (r, e (lx)) 
-      else 
-         gg.parse_error (lx,"Sequence `%s': element #%i is neither a string "..
-                         "nor a parser: %s", 
-                         p.name, i, table.tostring(e))
+         local x = e(lx)
+         if type(x)=='table' and x.tag=='Error' then failed=true end
+         table.insert (r, x)
+      else -- Invalid parser definition, this is not a parsing error, it must fail.
+         return gg.parse_error (lx,"Sequence `%s': element #%i is neither a string "..
+                         "nor a parser: %s", p.name, i, table.tostring(e))
       end
    end
    return r
@@ -148,7 +169,7 @@ function parse_error(lx, fmt, ...)
       local idx  = string.rep (" ", li[2]).."^"
       msg = string.format("%s\n>>> %s\n>>> %s", msg, srcline, idx)
    end
-   error(msg)
+   return { tag='Error', msg }
 end
    
 -------------------------------------------------------------------------------
@@ -185,6 +206,7 @@ function sequence (p)
    -- Parsing method
    -------------------------------------------------------------------
    function p:parse (lx)
+
       -- Raw parsing:
       local fli = lx:lineinfo_right()
       local seq = raw_parse_sequence (lx, self)
@@ -213,7 +235,7 @@ function sequence (p)
          p.name = p[1] .. " ... " .. p[#p]
       else p.name = p[1] .. " ..." end
    else -- can't find a decent name
-      p.name = "<anonymous>"
+      p.name = "unnamed_sequence"
    end
 
    return p
@@ -469,7 +491,7 @@ function expr (p)
          -- Check for non-associative operators, and complain if applicable. 
          -----------------------------------------
          elseif p2.assoc=="none" and p2.prec==prec then
-            parse_error (lx, "non-associative operator!")
+            return parse_error (lx, "non-associative operator!")
 
          -----------------------------------------
          -- No infix operator suitable at that precedence
@@ -578,12 +600,16 @@ function list (p)
 
       -- if there's a terminator to start with, don't bother trying
       if not peek_is_in (self.terminators) then 
-         repeat table.insert (x, self.primary (lx)) -- read one element
+         repeat
+             local item = self.primary(lx)
+             table.insert (x, item) -- read one element
          until
-            -- First reason to stop: There's a separator list specified,
-            -- and next token isn't one. Otherwise, consume it with [lx:next()]
+            -- Don't go on after an error
+            type(item)=='table' and item.tag=='Error' or
+            -- There's a separator list specified, and next token isn't in it.
+            -- Otherwise, consume it with [lx:next()]
             self.separators and not(peek_is_in (self.separators) and lx:next()) or
-            -- Other reason to stop: terminator token ahead
+            -- Terminator token ahead
             peek_is_in (self.terminators) or
             -- Last reason: end of file reached
             lx:peek().tag=="Eof"

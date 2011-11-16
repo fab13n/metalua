@@ -85,7 +85,7 @@ function opt_id (lx)
    if lx:is_keyword (a, "-{") then
       local v = gg.sequence{ "-{", splice_content, "}" } (lx) [1]
       if v.tag ~= "Id" and v.tag ~= "Splice" then
-         gg.parse_error(lx,"Bad id splice")
+         return gg.parse_error(lx, "Bad id splice")
       end
       return v
    elseif a.tag == "Id" then return lx:next()
@@ -146,7 +146,7 @@ function string (lx)
    if lx:is_keyword (a, "-{") then
       local v = gg.sequence{ "-{", splice_content, "}" } (lx) [1]
       if v.tag ~= "" and v.tag ~= "Splice" then
-         gg.parse_error(lx,"Bad string splice")
+         return gg.parse_error(lx,"Bad string splice")
       end
       return v
    elseif a.tag == "String" then return lx:next()
@@ -172,11 +172,14 @@ function skip_initial_sharp_comment (lx)
 end
 
 local function _chunk (lx)
-   if lx:peek().tag == 'Eof' then return { } -- handle empty files
+   if lx:peek().tag == 'Eof' then
+       return { } -- handle empty files
    else 
       skip_initial_sharp_comment (lx)
       local chunk = block (lx)
-      if lx:peek().tag ~= "Eof" then error "End-of-file expected" end
+      if lx:peek().tag ~= "Eof" then 
+          _G.table.insert(chunk, gg.parse_error(lx, "End-of-file expected"))
+      end
       return chunk
    end
 end
