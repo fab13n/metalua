@@ -113,25 +113,26 @@ comment_metatable  = new_metatable 'comment'
 token_metatable    = new_metatable 'token'
 
 function boundary_metatable :__tostring()
-    return string.format("<%s:%d:%d:(%d)>", self[4], self[1], self[2], self[3])
+    return string.format("<%s%s|L%d|C%d|K%d>", 
+                         self.comments and "C|" or "",
+                         self.source, self.line, self.column, self.offset)
 end
-
-function boundary_metatable :line()   return self[1] end
-function boundary_metatable :column() return self[2] end
-function boundary_metatable :offset() return self[3] end
-function boundary_metatable :source() return self[4] end
 
 function lineinfo_metatable :__tostring()
     local fli, lli = self.first, self.last
-    local line = fli[1]; if line~=lli[1] then line=line..'-'..lli[1] end
-    local coln = fli[2]; if coln~=lli[2] then coln=coln..'-'..lli[2] end
-    local offs = fli[3]; if offs~=lli[3] then offs=offs..'-'..lli[3] end
-
-    return string.format("<%s:%s:%s:(%s)>", fli[4], line, coln, offs)
+    local line   = fli.line;   if line~=lli.line     then line  =line  ..'-'..lli.line   end
+    local column = fli.column; if column~=lli.column then column=column..'-'..lli.column end
+    local offset = fli.offset; if offset~=lli.offset then offset=offset..'-'..lli.offset end
+    return string.format("<%s%s|L%s|C%s|K%s%s>", 
+                         fli.comments and "C|" or "",
+                         fli.source, line, column, offset,
+                         lli.comments and "|C" or "")
 end
 
+local nnb=1
 function new_boundary(line, column, offset, source)
-    return setmetatable({line, column, offset, source}, boundary_metatable)
+    local id = nnb; nnb = nnb+1
+    return setmetatable({line=line, column=column, offset=offset, source=source, id=id}, boundary_metatable)
 end
 
 function new_lineinfo(first, last)
@@ -148,21 +149,24 @@ function new_comment_line(text, lineinfo, nequals)
 end
 
 function new_comment(lines)
-    local lineinfo = new_lineinfo(lines[1].lineinfo.first, lines[#lines].lineinfo.last)
+    local first = lines[1].lineinfo.first
+    local last  = lines[#lines].lineinfo.last
+    local lineinfo = new_lineinfo(first, last)
     return setmetatable({lineinfo=lineinfo, unpack(lines)}, comment_metatable)
 end
 
 
 function new_token(tag, content, lineinfo)
-    --printf("TOKEN `%s{ %q, lineinfo = %s}", tag, content, tostring(lineinfo))
+    --printf("TOKEN `%s{ %q, lineinfo = %s} boundaries %d, %d", 
+    --       tag, content, tostring(lineinfo), lineinfo.first.id, lineinfo.last.id) 
     return setmetatable({tag=tag, lineinfo=lineinfo, content}, token_metatable)
 end
 
 function comment_metatable :text()
-    local last_line = self[1].lineinfo.last :line()
+    local last_line = self[1].lineinfo.last.line
     local acc = { }
     for i, line in ipairs(self) do
-        local nreturns = line.lineinfo.first  :line() - last_line
+        local nreturns = line.lineinfo.first.line - last_line
         table.insert(acc, ("\n"):rep(nreturns))
         table.insert(acc, line[1])
     end
@@ -203,12 +207,11 @@ function lexer:extract ()
          self.column_offset = i 
       end
 
-      -- lineinfo entries: [1]=line, [2]=column, [3]=char, [4]=filename
       local fli = new_boundary(first_line, loc-first_column_offset, loc, self.src_name)
       local lli = new_boundary(self.line, self.i-self.column_offset-1, self.i-1, self.src_name)
       local lineinfo = new_lineinfo(fli, lli)
-      --local a = { tag = tag, lineinfo = new_lineinfo(fli, lli), content } 
-      if lli[2]==-1 then lli[1], lli[2] = lli[1]-1, previous_line_length-1 end
+      -- TODO: seems off by one, previous_line_length not always available
+      if lli.column==-1 then lli.line, lli.column = lli.line-1, previous_line_length-1 end
       return new_token (tag, content, lineinfo)
    end --</function build_token>
 
@@ -218,19 +221,16 @@ function lexer:extract ()
        -- skip whitespaces
        self.i = self.src:match (self.patterns.spaces, self.i)
        if self.i>#self.src then return build_token("Eof", "eof") end
-       --printf("SPACE moved loc from %s to %s, k=%q", loc, self.i, self.src:sub(self.i, self.i))
        loc = self.i -- loc = position after whitespaces
        
        -- try every extractor until a token is found
        for _, extractor in ipairs(self.extractors) do
-           -- printf("method = %s", method)
            local tag, content, xtra = self [extractor] (self)
            if tag then
                local token = build_token(tag, content)
                if tag=='Comment' then -- accumulate comment
                    local comment = new_comment_line(content, token.lineinfo, xtra)
                    table.insert(attached_comments, comment)
-                   --printf("after comment, offset=%d, char=%q", self.i, self.src:sub(self.i, self.i+3))
                    break -- back to skipping spaces
                elseif #attached_comments>0 then -- attach previous comments to token
                    local comments = new_comment(attached_comments)
@@ -386,13 +386,13 @@ end
 -- token is returned.
 ----------------------------------------------------------------------
 function lexer:peek (n)
-   if not n then n=1 end
-   if n > #self.peeked then
-      for i = #self.peeked+1, n do
-         self.peeked [i] = self:extract()
-      end
-   end
-  return self.peeked [n]
+    if not n then n=1 end
+    if n > #self.peeked then
+        for i = #self.peeked+1, n do
+            self.peeked [i] = self:extract()
+        end
+    end
+    return self.peeked [n]
 end
 
 ----------------------------------------------------------------------
@@ -404,13 +404,10 @@ function lexer:next (n)
    n = n or 1
    self:peek (n)
    local a
-   for i=1,n do 
+   for i=1,n do
       a = _G.table.remove (self.peeked, 1) 
-      if a then 
-         --debugf ("lexer:next() ==> %s %s",
-         --        table.tostring(a), tostring(a))
-      end
-      self.lastline = a.lineinfo.last[1]
+      -- TODO: is this used anywhere? I think not
+      self.lastline = a.lineinfo.last.line
    end
    self.lineinfo_last = a.lineinfo.last
    return a or eof_token
@@ -435,9 +432,10 @@ function lexer:restore (s) self.i=s[1]; self.peeked=s[2] end
 function lexer:sync()
    local p1 = self.peeked[1]
    if p1 then 
-      li = p1.lineinfo.first
-      self.line, self.i = li[1], li[3]
-      self.column_offset = self.i - li[2]
+      local li_first = p1.lineinfo.first
+      if li_first.comments then li_first=li_first.comments.lineinfo.first end
+      self.line, self.i = li_first.line, li_first.offset
+      self.column_offset = self.i - li_first.column
       self.peeked = { }
       self.attached_comments = p1.lineinfo.first.comments or { }
    end
@@ -452,12 +450,6 @@ function lexer:takeover(old)
       old.line, old.column_offset, old.i, old.src, old.attached_comments
    return self
 end
-
--- function lexer:lineinfo()
--- 	if self.peeked[1] then return self.peeked[1].lineinfo.first
---     else return { self.line, self.i-self.column_offset, self.i } end
--- end
-
 
 ----------------------------------------------------------------------
 -- Return the current position in the sources. This position is between

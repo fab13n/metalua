@@ -245,7 +245,7 @@ function table.tostring(t, ...)
               return the_string
           end
       end
-      tostring_cache[x] = false
+      if x~=nil then tostring_cache[x] = false end -- nil is an illegal key
       return false
    end
 
@@ -308,7 +308,6 @@ function table.tostring(t, ...)
       local x = { }
       x["nil"] = function() acc "nil" end
       function x.number()   acc (tostring (adt)) end
-      --function x.string()   acc (string.format ("%q", adt)) end
       function x.string()   acc ((string.format ("%q", adt):gsub("\\\n", "\\n"))) end
       function x.boolean()  acc (adt and "true" or "false") end
       function x.table()

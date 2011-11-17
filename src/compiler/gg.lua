@@ -50,7 +50,7 @@ function parser_metatable.__call (parser, lx, ...)
       --        _G.table.tostring(x, "nohash", 80))
       --return x
    else
-      local li = lx:lineinfo_right() or { "?", "?", "?", "?" }
+      local li = lx:lineinfo_right() or lexer.new_lineinfo(-1, -1, -1, '?')
       local status, ast = pcall (parser.parse, parser, lx, ...)      
       if status then return ast else
          -- Try to replace the gg.lua location, in the error msg, with
@@ -59,7 +59,7 @@ function parser_metatable.__call (parser, lx, ...)
          -- Since the error is rethrown, these places are stacked. 
          error (string.format ("%s\n - (l.%s, c.%s, k.%s) in parser %s", 
                                ast :strmatch "gg.lua:%d+: (.*)" or ast,
-                               li[1], li[2], li[3], parser.name or parser.kind))
+                               li.line, li.column, li.offset, parser.name or parser.kind))
       end
    end
 end
@@ -137,15 +137,19 @@ end
 -- Generate a tracable parsing error (not implemented yet)
 -------------------------------------------------------------------------------
 function parse_error(lx, fmt, ...)
-   local li = lx:lineinfo_left() or {-1,-1,-1, "<unknown file>"}
-   local msg  = string.format("line %i, char %i: "..fmt, li[1], li[2], ...)   
+   local li = lx:lineinfo_left()
+   local line, column, offset
+   if li then line, column, offset = li.line, li.column, li.offset
+   else line, column, offset, src_name = -1, -1, -1 end
+
+   local msg  = string.format("line %i, char %i: "..fmt, line, column, ...)   
    local src = lx.src
-   if li[3]>0 and src then
-      local i, j = li[3], li[3]
+   if offset>0 and src then
+      local i, j = offset, offset
       while src:sub(i,i) ~= '\n' and i>=0    do i=i-1 end
       while src:sub(j,j) ~= '\n' and j<=#src do j=j+1 end      
       local srcline = src:sub (i+1, j-1)
-      local idx  = string.rep (" ", li[2]).."^"
+      local idx  = string.rep (" ", column).."^"
       msg = string.format("%s\n>>> %s\n>>> %s", msg, srcline, idx)
    end
    error(msg)
