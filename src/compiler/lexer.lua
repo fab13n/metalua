@@ -43,7 +43,7 @@ local debugf = function() end
 ----------------------------------------------------------------------
 lexer.patterns = {
    spaces              = "^[ \r\n\t]*()",
-   short_comment       = "^%-%-([^\n]*)()\n",
+   short_comment       = "^%-%-([^\n]*)\n()",
    final_short_comment = "^%-%-([^\n]*)()$",
    long_comment        = "^%-%-%[(=*)%[\n?(.-)%]%1%]()",
    long_string         = "^%[(=*)%[\n?(.-)%]%1%]()",
@@ -97,23 +97,29 @@ local function unescape_string (s)
 end
 
 lexer.extractors = {
-   "skip_whitespaces_and_comments",
+   "extract_long_comment", "extract_short_comment",
    "extract_short_string", "extract_word", "extract_number", 
    "extract_long_string", "extract_symbol" }
 
-lexer.token_metatable = { 
---         __tostring = function(a) 
---            return string.format ("`%s{'%s'}",a.tag, a[1]) 
---         end 
-} 
-      
-boundary_metatable = { }
 
-lineinfo_metatable =  { }
+local function new_metatable(name) 
+    local mt = { __type = 'metalua::lexer::'..name }; 
+    mt.__index = mt; return mt
+end
+      
+boundary_metatable = new_metatable 'boundary'
+lineinfo_metatable = new_metatable 'lineinfo'
+comment_metatable  = new_metatable 'comment'
+token_metatable    = new_metatable 'token'
 
 function boundary_metatable :__tostring()
     return string.format("<%s:%d:%d:(%d)>", self[4], self[1], self[2], self[3])
 end
+
+function boundary_metatable :line()   return self[1] end
+function boundary_metatable :column() return self[2] end
+function boundary_metatable :offset() return self[3] end
+function boundary_metatable :source() return self[4] end
 
 function lineinfo_metatable :__tostring()
     local fli, lli = self.first, self.last
@@ -124,10 +130,45 @@ function lineinfo_metatable :__tostring()
     return string.format("<%s:%s:%s:(%s)>", fli[4], line, coln, offs)
 end
 
+function new_boundary(line, column, offset, source)
+    return setmetatable({line, column, offset, source}, boundary_metatable)
+end
 
 function new_lineinfo(first, last)
+    assert(first.__type=='metalua::lexer::boundary')
+    assert(last.__type=='metalua::lexer::boundary')
     return setmetatable({first=first, last=last}, lineinfo_metatable)
 end
+
+function new_comment_line(text, lineinfo, nequals)
+    assert(type(text)=='string')
+    assert(lineinfo.__type=='metalua::lexer::lineinfo')
+    assert(nequals==nil or type(nequals)=='number')
+    return { lineinfo = lineinfo, text, nequals }
+end
+
+function new_comment(lines)
+    local lineinfo = new_lineinfo(lines[1].lineinfo.first, lines[#lines].lineinfo.last)
+    return setmetatable({lineinfo=lineinfo, unpack(lines)}, comment_metatable)
+end
+
+
+function new_token(tag, content, lineinfo)
+    --printf("TOKEN `%s{ %q, lineinfo = %s}", tag, content, tostring(lineinfo))
+    return setmetatable({tag=tag, lineinfo=lineinfo, content}, token_metatable)
+end
+
+function comment_metatable :text()
+    local last_line = self[1].lineinfo.last :line()
+    local acc = { }
+    for i, line in ipairs(self) do
+        local nreturns = line.lineinfo.first  :line() - last_line
+        table.insert(acc, ("\n"):rep(nreturns))
+        table.insert(acc, line[1])
+    end
+    return table.concat(acc)
+end
+
 
 ----------------------------------------------------------------------
 -- Really extract next token fron the raw string 
@@ -139,8 +180,7 @@ function lexer:extract ()
    local previous_i = self.i
    local loc = self.i
    local eof, token
-
-   -- Put line info, comments and metatable around the tag and content
+   -- Put lineinfo and metatable around the tag and content
    -- provided by extractors, thus returning a complete lexer token.
    -- first_line: line # at the beginning of token
    -- first_column_offset: char # of the last '\n' before beginning of token
@@ -164,78 +204,68 @@ function lexer:extract ()
       end
 
       -- lineinfo entries: [1]=line, [2]=column, [3]=char, [4]=filename
-      local fli = { first_line, loc-first_column_offset, loc, self.src_name }
-      local lli = { self.line, self.i-self.column_offset-1, self.i-1, self.src_name }
-      --Pluto barfes when the metatable is set:(
-      setmetatable(fli, boundary_metatable)
-      setmetatable(lli, boundary_metatable)
-      local a = { tag = tag, lineinfo = new_lineinfo(fli, lli), content } 
+      local fli = new_boundary(first_line, loc-first_column_offset, loc, self.src_name)
+      local lli = new_boundary(self.line, self.i-self.column_offset-1, self.i-1, self.src_name)
+      local lineinfo = new_lineinfo(fli, lli)
+      --local a = { tag = tag, lineinfo = new_lineinfo(fli, lli), content } 
       if lli[2]==-1 then lli[1], lli[2] = lli[1]-1, previous_line_length-1 end
-      if #self.attached_comments > 0 then 
-         a.lineinfo.comments = self.attached_comments 
-         fli.comments = self.attached_comments
-         if self.lineinfo_last then
-            self.lineinfo_last.comments = self.attached_comments
-         end
-      end
-      self.attached_comments = { }
-      return setmetatable (a, self.token_metatable)
+      return new_token (tag, content, lineinfo)
    end --</function build_token>
 
-   for ext_idx, extractor in ipairs(self.extractors) do
-      -- printf("method = %s", method)
-      local tag, content = self [extractor] (self)
-      -- [loc] is placed just after the leading whitespaces and comments;
-      -- for this to work, the whitespace extractor *must be* at index 1.
-      if ext_idx==1 then loc = self.i end
+   local attached_comments = { }
+   while true do -- loop until a non-comment token is found
 
-      if tag then 
-         --printf("`%s{ %q }\t%i", tag, content, loc);
-         return build_token (tag, content) 
-      end
-   end
+       -- skip whitespaces
+       self.i = self.src:match (self.patterns.spaces, self.i)
+       if self.i>#self.src then return build_token("Eof", "eof") end
+       --printf("SPACE moved loc from %s to %s, k=%q", loc, self.i, self.src:sub(self.i, self.i))
+       loc = self.i -- loc = position after whitespaces
+       
+       -- try every extractor until a token is found
+       for _, extractor in ipairs(self.extractors) do
+           -- printf("method = %s", method)
+           local tag, content, xtra = self [extractor] (self)
+           if tag then
+               local token = build_token(tag, content)
+               if tag=='Comment' then -- accumulate comment
+                   local comment = new_comment_line(content, token.lineinfo, xtra)
+                   table.insert(attached_comments, comment)
+                   --printf("after comment, offset=%d, char=%q", self.i, self.src:sub(self.i, self.i+3))
+                   break -- back to skipping spaces
+               elseif #attached_comments>0 then -- attach previous comments to token
+                   local comments = new_comment(attached_comments)
+                   token.lineinfo.first.comments = comments
+                   if self.lineinfo_last then 
+                       self.lineinfo_last.comments = comments 
+                   end
+                   attached_comments = { }
+                   return token
+               else -- token without comments
+                   return token
+               end
+           end -- if token found
+       end -- for each extractor
+   end -- while token is a comment
+end -- :extract()
 
-   error "None of the lexer extractors returned anything!"
-end   
+
+
 
 ----------------------------------------------------------------------
--- skip whites and comments
--- FIXME: doesn't take into account:
--- - unterminated long comments
--- - short comments at last line without a final \n
+-- extract a short comment
 ----------------------------------------------------------------------
-function lexer:skip_whitespaces_and_comments()
-   local table_insert = _G.table.insert
-   repeat -- loop as long as a space or comment chunk is found
-      local _, j
-      local again = false
-      local last_comment_content = nil
-      -- skip spaces
-      self.i = self.src:match (self.patterns.spaces, self.i)
-      -- skip a long comment if any
-      _, last_comment_content, j = 
-         self.src :match (self.patterns.long_comment, self.i)
-      if j then 
-         table_insert(self.attached_comments, 
-                         {last_comment_content, self.i, j, "long"})
-         self.i=j; again=true 
-      end
-      -- skip a short comment if any
-      last_comment_content, j = self.src:match (self.patterns.short_comment, self.i)
-      if j then
-         table_insert(self.attached_comments, 
-                         {last_comment_content, self.i, j, "short"})
-         self.i=j; again=true 
-      end
-      if self.i>#self.src then return "Eof", "eof" end
-   until not again
+function lexer:extract_short_comment()
+    -- TODO: handle final_short_comment
+    local content, j = self.src :match (self.patterns.short_comment, self.i)
+    if content then self.i=j; return 'Comment', content, nil end
+end
 
-   if self.src:match (self.patterns.final_short_comment, self.i) then 
-      return "Eof", "eof" end
-   --assert (not self.src:match(self.patterns.short_comment, self.i))
-   --assert (not self.src:match(self.patterns.long_comment, self.i))
-   -- --assert (not self.src:match(self.patterns.spaces, self.i))
-   return
+----------------------------------------------------------------------
+-- extract a long comment
+----------------------------------------------------------------------
+function lexer:extract_long_comment()
+    local equals, content, j = self.src:match (self.patterns.long_comment, self.i)
+    if j then self.i = j; return "Comment", content, #equals end
 end
 
 ----------------------------------------------------------------------

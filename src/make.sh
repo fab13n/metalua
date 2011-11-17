@@ -39,8 +39,8 @@ LUAC=$(which luac)
 
 # --- END OF USER-EDITABLE PART ---
 
-if [ -z ${LUA}  ] ; then echo "Error: no lua interpreter found"; fi
-if [ -z ${LUAC} ] ; then echo "Error: no lua compiler found"; fi
+if [ -z ${LUA}  ] ; then echo "Error: no lua interpreter found"; exit 1; fi
+if [ -z ${LUAC} ] ; then echo "Error: no lua compiler found"; exit 1; fi
 
 if [ -f ~/.metaluabuildrc ] ; then . ~/.metaluabuildrc; fi
 
@@ -76,8 +76,8 @@ chmod a+x ${BUILD_BIN}/metalua
 echo '*** Compiling the parts of the compiler written in plain Lua ***'
 
 cd compiler
-${LUAC} -o ${BUILD_LIB}/metalua/bytecode.luac lopcodes.lua lcode.lua ldump.lua compile.lua
-${LUAC} -o ${BUILD_LIB}/metalua/mlp.luac lexer.lua gg.lua mlp_lexer.lua mlp_misc.lua mlp_table.lua mlp_meta.lua mlp_expr.lua mlp_stat.lua mlp_ext.lua
+${LUAC} -o ${BUILD_LIB}/metalua/bytecode.luac lopcodes.lua lcode.lua ldump.lua compile.lua || exit 1
+${LUAC} -o ${BUILD_LIB}/metalua/mlp.luac lexer.lua gg.lua mlp_lexer.lua mlp_misc.lua mlp_table.lua mlp_meta.lua mlp_expr.lua mlp_stat.lua mlp_ext.lua || exit 1
 cd ..
 
 echo '*** Bootstrap the parts of the compiler written in metalua ***'
@@ -87,8 +87,8 @@ ${LUA} ${BASE}/build-utils/bootstrap.lua ${BASE}/compiler/metalua.mlua output=${
 
 echo '*** Finish the bootstrap: recompile the metalua parts of the compiler with itself ***'
 
-${BUILD_BIN}/metalua -vb -f compiler/mlc.mlua     -o ${BUILD_LIB}/metalua/mlc.luac
-${BUILD_BIN}/metalua -vb -f compiler/metalua.mlua -o ${BUILD_LIB}/metalua.luac
+${BUILD_BIN}/metalua -vb -f compiler/mlc.mlua     -o ${BUILD_LIB}/metalua/mlc.luac || exit 1
+${BUILD_BIN}/metalua -vb -f compiler/metalua.mlua -o ${BUILD_LIB}/metalua.luac || exit 1
 
 echo '*** Precompile metalua libraries ***'
 for SRC in $(find ${BUILD_LIB} -name '*.mlua'); do
