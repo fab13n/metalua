@@ -44,7 +44,12 @@ if [ -z ${LUAC} ] ; then echo "Error: no lua compiler found"; fi
 
 if [ -f ~/.metaluabuildrc ] ; then . ~/.metaluabuildrc; fi
 
-if [ -z "$LINEREADER" ] && which -s rlwrap; then LINEREADER=rlwrap; fi
+if [ -z "$LINEREADER" ] ; then LINEREADER=$(which rlwrap); fi
+
+if [ -z "$LINEREADER" ] ; then
+    echo "Warning, rlwrap not found, no line editor support for interactive mode"
+    echo "Consider performing the equivalent of 'sudo apt-get install rlwrap'."
+fi
 
 echo '*** Lua paths setup ***'
 
@@ -58,13 +63,13 @@ mkdir -p ${BUILD_LIB}
 cp -Rp lib/* ${BUILD_LIB}/
 # cp -Rp bin/* ${BUILD_BIN}/ # No binaries provided for unix (for now)
 
-echo '*** Generate a callable metalua shell script ***'
+echo '*** Generating a callable metalua shell script ***'
 
 cat > ${BUILD_BIN}/metalua <<EOF
 #!/bin/sh
 export LUA_PATH='?.luac;?.lua;${BUILD_LIB}/?.luac;${BUILD_LIB}/?.lua'
 export LUA_MPATH='?.mlua;${BUILD_LIB}/?.mlua'
-${LUA} ${BUILD_LIB}/metalua.luac \$*
+exec ${LINEREADER} ${LUA} ${BUILD_LIB}/metalua.luac \$*
 EOF
 chmod a+x ${BUILD_BIN}/metalua
 

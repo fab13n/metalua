@@ -127,7 +127,7 @@ local function transform (ast, parser, fli, lli)
    if type(ast) == 'table'then
       local ali = ast.lineinfo
       if not ali or ali.first~=fli or ali.last~=lli then
-         ast.lineinfo = { first = fli, last = lli }
+         ast.lineinfo = lexer.new_lineinfo(fli, lli)
       end
    end
    return ast

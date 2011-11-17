@@ -107,7 +107,27 @@ lexer.token_metatable = {
 --         end 
 } 
       
-lexer.lineinfo_metatable = { }
+boundary_metatable = { }
+
+lineinfo_metatable =  { }
+
+function boundary_metatable :__tostring()
+    return string.format("<%s:%d:%d:(%d)>", self[4], self[1], self[2], self[3])
+end
+
+function lineinfo_metatable :__tostring()
+    local fli, lli = self.first, self.last
+    local line = fli[1]; if line~=lli[1] then line=line..'-'..lli[1] end
+    local coln = fli[2]; if coln~=lli[2] then coln=coln..'-'..lli[2] end
+    local offs = fli[3]; if offs~=lli[3] then offs=offs..'-'..lli[3] end
+
+    return string.format("<%s:%s:%s:(%s)>", fli[4], line, coln, offs)
+end
+
+
+function new_lineinfo(first, last)
+    return setmetatable({first=first, last=last}, lineinfo_metatable)
+end
 
 ----------------------------------------------------------------------
 -- Really extract next token fron the raw string 
@@ -147,9 +167,9 @@ function lexer:extract ()
       local fli = { first_line, loc-first_column_offset, loc, self.src_name }
       local lli = { self.line, self.i-self.column_offset-1, self.i-1, self.src_name }
       --Pluto barfes when the metatable is set:(
-      setmetatable(fli, lexer.lineinfo_metatable)
-      setmetatable(lli, lexer.lineinfo_metatable)
-      local a = { tag = tag, lineinfo = { first=fli, last=lli }, content } 
+      setmetatable(fli, boundary_metatable)
+      setmetatable(lli, boundary_metatable)
+      local a = { tag = tag, lineinfo = new_lineinfo(fli, lli), content } 
       if lli[2]==-1 then lli[1], lli[2] = lli[1]-1, previous_line_length-1 end
       if #self.attached_comments > 0 then 
          a.lineinfo.comments = self.attached_comments 
