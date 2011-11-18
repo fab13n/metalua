@@ -19,7 +19,7 @@
 --   now disappered. remove them.
 ----------------------------------------------------------------------
 --
--- Copyright (c) 2006, Fabien Fleutot <metalua@gmail.com>.
+-- Copyright (c) 2006-2011, Fabien Fleutot <metalua@gmail.com>.
 --
 -- This software is released under the MIT Licence, see licence.txt
 -- for details.
@@ -37,8 +37,149 @@ lexer.__index=lexer
 local debugf = function() end
 --local debugf=printf
 
+
 ----------------------------------------------------------------------
--- Patterns used by [lexer:extract] to decompose the raw string into
+-- Create a new metatable, for a new class of objects.
+----------------------------------------------------------------------
+local function new_metatable(name) 
+    local mt = { __type = 'metalua::lexer::'..name }; 
+    mt.__index = mt; return mt
+end
+
+
+
+----------------------------------------------------------------------
+-- Position: represent a point in a source file.
+----------------------------------------------------------------------
+position_metatable = new_metatable 'position'
+
+local position_idx=1
+
+function new_position(line, column, offset, source)
+    local id = position_idx; position_idx = position_idx+1
+    return setmetatable({line=line, column=column, offset=offset, source=source, id=id}, position_metatable)
+end
+
+function position_metatable :__tostring()
+    return string.format("<%s%s|L%d|C%d|K%d>", 
+        self.comments and "C|" or "",
+        self.source, self.line, self.column, self.offset)
+end
+
+
+
+----------------------------------------------------------------------
+-- Position factory: convert offsets into line/column/offset positions.
+----------------------------------------------------------------------
+position_factory_metatable = new_metatable 'position_factory'
+
+function new_position_factory(src, src_name)
+   local lines = { 1 }
+   for idx in src :gmatch '\n()' do table.insert(lines, idx) end
+   table.insert(lines, #src+1)
+   return setmetatable({ src=src, src_name=src_name, line2offset=lines }, 
+       position_factory_metatable)
+end
+
+function position_factory_metatable :line_column (offset)
+   local line2offset = self.line2offset
+   local left  = self.last_left or 1
+   if offset<line2offset[left] then left=1 end
+   local right = left+1
+   if line2offset[right]<=offset then right = right+1 end
+   if line2offset[right]<=offset then right = #line2offset end
+   while true do
+      -- print ("trying lines "..left.."/"..right..", offsets "..line2offset[left]..
+      --        "/"..line2offset[right].." for offset "..offset)
+      -- assert(line2offset[left]<=offset)
+      -- assert(offset<line2offset[right])
+      -- assert(left<right)
+      if left+1==right then break end
+      local middle = (left+right)/2
+      if line2offset[middle]<=offset then left=middle else right=middle end
+   end
+   -- assert(left+1==right)
+   local line = left
+   local column = offset - line2offset[line] + 1
+   self.last_left = left
+   return new_position(line, column, offset, self.src_name)
+end
+
+
+
+----------------------------------------------------------------------
+-- Lineinfo: represent a node's range in a source file;
+-- embed information about prefix and suffix comments.
+----------------------------------------------------------------------
+lineinfo_metatable = new_metatable 'lineinfo'
+
+function new_lineinfo(first, last)
+    assert(first.__type=='metalua::lexer::position')
+    assert(last.__type=='metalua::lexer::position')
+    return setmetatable({first=first, last=last}, lineinfo_metatable)
+end
+
+function lineinfo_metatable :__tostring()
+    local fli, lli = self.first, self.last
+    local line   = fli.line;   if line~=lli.line     then line  =line  ..'-'..lli.line   end
+    local column = fli.column; if column~=lli.column then column=column..'-'..lli.column end
+    local offset = fli.offset; if offset~=lli.offset then offset=offset..'-'..lli.offset end
+    return string.format("<%s%s|L%s|C%s|K%s%s>", 
+                         fli.comments and "C|" or "",
+                         fli.source, line, column, offset,
+                         lli.comments and "|C" or "")
+end
+
+
+
+----------------------------------------------------------------------
+-- Token: atomic Lua language element, with a category, a content,
+-- and some lineinfo relating it to its original source.
+----------------------------------------------------------------------
+token_metatable = new_metatable 'token'
+
+function new_token(tag, content, lineinfo)
+    --printf("TOKEN `%s{ %q, lineinfo = %s} boundaries %d, %d", 
+    --       tag, content, tostring(lineinfo), lineinfo.first.id, lineinfo.last.id) 
+    return setmetatable({tag=tag, lineinfo=lineinfo, content}, token_metatable)
+end
+
+
+----------------------------------------------------------------------
+-- Comment: series of comment blocks with associated lineinfo.
+-- To be attached to the tokens just before and just after them.
+----------------------------------------------------------------------
+comment_metatable = new_metatable 'comment'
+
+function new_comment(lines)
+    local first = lines[1].lineinfo.first
+    local last  = lines[#lines].lineinfo.last
+    local lineinfo = new_lineinfo(first, last)
+    return setmetatable({lineinfo=lineinfo, unpack(lines)}, comment_metatable)
+end
+
+function comment_metatable :text()
+    local last_line = self[1].lineinfo.last.line
+    local acc = { }
+    for i, line in ipairs(self) do
+        local nreturns = line.lineinfo.first.line - last_line
+        table.insert(acc, ("\n"):rep(nreturns))
+        table.insert(acc, line[1])
+    end
+    return table.concat(acc)
+end
+
+function new_comment_line(text, lineinfo, nequals)
+    assert(type(text)=='string')
+    assert(lineinfo.__type=='metalua::lexer::lineinfo')
+    assert(nequals==nil or type(nequals)=='number')
+    return { lineinfo = lineinfo, text, nequals }
+end
+
+
+
+----------------------------------------------------------------------
+-- Patterns used by [lexer :extract] to decompose the raw string into
 -- correctly tagged tokens.
 ----------------------------------------------------------------------
 lexer.patterns = {
@@ -102,76 +243,7 @@ lexer.extractors = {
    "extract_long_string", "extract_symbol" }
 
 
-local function new_metatable(name) 
-    local mt = { __type = 'metalua::lexer::'..name }; 
-    mt.__index = mt; return mt
-end
       
-boundary_metatable = new_metatable 'boundary'
-lineinfo_metatable = new_metatable 'lineinfo'
-comment_metatable  = new_metatable 'comment'
-token_metatable    = new_metatable 'token'
-
-function boundary_metatable :__tostring()
-    return string.format("<%s%s|L%d|C%d|K%d>", 
-                         self.comments and "C|" or "",
-                         self.source, self.line, self.column, self.offset)
-end
-
-function lineinfo_metatable :__tostring()
-    local fli, lli = self.first, self.last
-    local line   = fli.line;   if line~=lli.line     then line  =line  ..'-'..lli.line   end
-    local column = fli.column; if column~=lli.column then column=column..'-'..lli.column end
-    local offset = fli.offset; if offset~=lli.offset then offset=offset..'-'..lli.offset end
-    return string.format("<%s%s|L%s|C%s|K%s%s>", 
-                         fli.comments and "C|" or "",
-                         fli.source, line, column, offset,
-                         lli.comments and "|C" or "")
-end
-
-local nnb=1
-function new_boundary(line, column, offset, source)
-    local id = nnb; nnb = nnb+1
-    return setmetatable({line=line, column=column, offset=offset, source=source, id=id}, boundary_metatable)
-end
-
-function new_lineinfo(first, last)
-    assert(first.__type=='metalua::lexer::boundary')
-    assert(last.__type=='metalua::lexer::boundary')
-    return setmetatable({first=first, last=last}, lineinfo_metatable)
-end
-
-function new_comment_line(text, lineinfo, nequals)
-    assert(type(text)=='string')
-    assert(lineinfo.__type=='metalua::lexer::lineinfo')
-    assert(nequals==nil or type(nequals)=='number')
-    return { lineinfo = lineinfo, text, nequals }
-end
-
-function new_comment(lines)
-    local first = lines[1].lineinfo.first
-    local last  = lines[#lines].lineinfo.last
-    local lineinfo = new_lineinfo(first, last)
-    return setmetatable({lineinfo=lineinfo, unpack(lines)}, comment_metatable)
-end
-
-
-function new_token(tag, content, lineinfo)
-    --printf("TOKEN `%s{ %q, lineinfo = %s} boundaries %d, %d", 
-    --       tag, content, tostring(lineinfo), lineinfo.first.id, lineinfo.last.id) 
-    return setmetatable({tag=tag, lineinfo=lineinfo, content}, token_metatable)
-end
-
-function comment_metatable :text()
-    local last_line = self[1].lineinfo.last.line
-    local acc = { }
-    for i, line in ipairs(self) do
-        local nreturns = line.lineinfo.first.line - last_line
-        table.insert(acc, ("\n"):rep(nreturns))
-        table.insert(acc, line[1])
-    end
-    return table.concat(acc)
-end
 
 
 ----------------------------------------------------------------------
@@ -180,7 +252,7 @@ end
 -- loc: offset of the position just after spaces and comments
 -- previous_i: offset in src before extraction began
 ----------------------------------------------------------------------
-function lexer:extract ()
+function lexer :extract ()
    local previous_i = self.i
    local loc = self.i
    local eof, token
@@ -207,8 +279,8 @@ function lexer:extract ()
          self.column_offset = i 
       end
 
-      local fli = new_boundary(first_line, loc-first_column_offset, loc, self.src_name)
-      local lli = new_boundary(self.line, self.i-self.column_offset-1, self.i-1, self.src_name)
+      local fli = new_position(first_line, loc-first_column_offset, loc, self.src_name)
+      local lli = new_position(self.line, self.i-self.column_offset-1, self.i-1, self.src_name)
       local lineinfo = new_lineinfo(fli, lli)
       -- TODO: seems off by one, previous_line_length not always available
       if lli.column==-1 then lli.line, lli.column = lli.line-1, previous_line_length-1 end
@@ -228,9 +300,18 @@ function lexer:extract ()
            local tag, content, xtra = self [extractor] (self)
            if tag then
                local token = build_token(tag, content)
-               if tag=='Comment' then -- accumulate comment
-                   local comment = new_comment_line(content, token.lineinfo, xtra)
-                   table.insert(attached_comments, comment)
+               if tag=='Comment' then
+                   local prev_comment = attached_comments[#attached_comments]
+                   if not xtra and prev_comment and not prev_comment[2] and
+                       prev_comment.lineinfo.last.line==token.lineinfo.first.line+1 then
+                       -- concat with previous comment
+                       printf ('CONCAT %q and %q', prev_comment[1], token[1])
+                       prev_comment[1] = prev_comment.."\n"..token[1] -- TODO quadratic, BAD!
+                       prev_comment.lineinfo.last = token.last
+                   else -- accumulate comment
+                       local comment = new_comment_line(content, token.lineinfo, xtra)
+                       table.insert(attached_comments, comment)
+                   end
                    break -- back to skipping spaces
                elseif #attached_comments>0 then -- attach previous comments to token
                    local comments = new_comment(attached_comments)
@@ -254,7 +335,7 @@ end -- :extract()
 ----------------------------------------------------------------------
 -- extract a short comment
 ----------------------------------------------------------------------
-function lexer:extract_short_comment()
+function lexer :extract_short_comment()
     -- TODO: handle final_short_comment
     local content, j = self.src :match (self.patterns.short_comment, self.i)
     if content then self.i=j; return 'Comment', content, nil end
@@ -263,7 +344,7 @@ end
 ----------------------------------------------------------------------
 -- extract a long comment
 ----------------------------------------------------------------------
-function lexer:extract_long_comment()
+function lexer :extract_long_comment()
     local equals, content, j = self.src:match (self.patterns.long_comment, self.i)
     if j then self.i = j; return "Comment", content, #equals end
 end
@@ -271,7 +352,7 @@ end
 ----------------------------------------------------------------------
 -- extract a '...' or "..." short string
 ----------------------------------------------------------------------
-function lexer:extract_short_string()
+function lexer :extract_short_string()
    -- [k] is the first unread char, [self.i] points to [k] in [self.src]
    local j, k = self.i, self.src :sub (self.i,self.i)
    if k~="'" and k~='"' then return end
@@ -300,7 +381,7 @@ end
 ----------------------------------------------------------------------
 --
 ----------------------------------------------------------------------
-function lexer:extract_word()
+function lexer :extract_word()
    -- Id / keyword
    local word, j = self.src:match (self.patterns.word, self.i)
    if word then
@@ -313,7 +394,7 @@ end
 ----------------------------------------------------------------------
 --
 ----------------------------------------------------------------------
-function lexer:extract_number()
+function lexer :extract_number()
    -- Number
    local j = self.src:match(self.patterns.number_hex, self.i)
    if not j then
@@ -333,7 +414,7 @@ end
 ----------------------------------------------------------------------
 --
 ----------------------------------------------------------------------
-function lexer:extract_long_string()
+function lexer :extract_long_string()
    -- Long string
    local _, content, j = self.src:match (self.patterns.long_string, self.i)
    if j then self.i = j; return "String", content end
@@ -342,7 +423,7 @@ end
 ----------------------------------------------------------------------
 --
 ----------------------------------------------------------------------
-function lexer:extract_symbol()
+function lexer :extract_symbol()
    -- compound symbol
    local k = self.src:sub (self.i,self.i)
    local symk = self.sym [k]
@@ -364,10 +445,10 @@ end
 ----------------------------------------------------------------------
 -- Add a keyword to the list of keywords recognized by the lexer.
 ----------------------------------------------------------------------
-function lexer:add (w, ...)
-   assert(not ..., "lexer:add() takes only one arg, although possibly a table")
+function lexer :add (w, ...)
+   assert(not ..., "lexer :add() takes only one arg, although possibly a table")
    if type (w) == "table" then
-      for _, x in ipairs (w) do self:add (x) end
+      for _, x in ipairs (w) do self :add (x) end
    else
       if w:match (self.patterns.word .. "$") then self.alpha [w] = true
       elseif w:match "^%p%p+$" then 
@@ -385,11 +466,11 @@ end
 -- [n] defaults to 1. If it goes pass the end of the stream, an EOF
 -- token is returned.
 ----------------------------------------------------------------------
-function lexer:peek (n)
+function lexer :peek (n)
     if not n then n=1 end
     if n > #self.peeked then
         for i = #self.peeked+1, n do
-            self.peeked [i] = self:extract()
+            self.peeked [i] = self :extract()
         end
     end
     return self.peeked [n]
@@ -400,9 +481,9 @@ end
 -- previous tokens. [n] defaults to 1. If it goes pass the end of the
 -- stream, an EOF token is returned.
 ----------------------------------------------------------------------
-function lexer:next (n)
+function lexer :next (n)
    n = n or 1
-   self:peek (n)
+   self :peek (n)
    local a
    for i=1,n do
       a = _G.table.remove (self.peeked, 1) 
@@ -417,19 +498,19 @@ end
 -- Returns an object which saves the stream's current state.
 ----------------------------------------------------------------------
 -- FIXME there are more fields than that to save
-function lexer:save () return { self.i; _G.table.cat(self.peeked) } end
+function lexer :save () return { self.i; _G.table.cat(self.peeked) } end
 
 ----------------------------------------------------------------------
 -- Restore the stream's state, as saved by method [save].
 ----------------------------------------------------------------------
 -- FIXME there are more fields than that to restore
-function lexer:restore (s) self.i=s[1]; self.peeked=s[2] end
+function lexer :restore (s) self.i=s[1]; self.peeked=s[2] end
 
 ----------------------------------------------------------------------
 -- Resynchronize: cancel any token in self.peeked, by emptying the
 -- list and resetting the indexes
 ----------------------------------------------------------------------
-function lexer:sync()
+function lexer :sync()
    local p1 = self.peeked[1]
    if p1 then 
       local li_first = p1.lineinfo.first
@@ -444,10 +525,11 @@ end
 ----------------------------------------------------------------------
 -- Take the source and offset of an old lexer.
 ----------------------------------------------------------------------
-function lexer:takeover(old)
-   self:sync()
-   self.line, self.column_offset, self.i, self.src, self.attached_comments =
-      old.line, old.column_offset, old.i, old.src, old.attached_comments
+function lexer :takeover(old)
+   self :sync()
+   for _, field in ipairs{ 'i', 'src', 'attached_comments', 'posfact' } do
+       self[field] = old[field]
+   end
    return self
 end
 
@@ -463,18 +545,18 @@ end
 --      \____                    \____
 --           :lineinfo_left()         :lineinfo_right()
 ----------------------------------------------------------------------
-function lexer:lineinfo_right()
-   return self:peek(1).lineinfo.first
+function lexer :lineinfo_right()
+   return self :peek(1).lineinfo.first
 end
 
-function lexer:lineinfo_left()
+function lexer :lineinfo_left()
    return self.lineinfo_last
 end
 
 ----------------------------------------------------------------------
 -- Create a new lexstream.
 ----------------------------------------------------------------------
-function lexer:newstream (src_or_stream, name)
+function lexer :newstream (src_or_stream, name)
    name = name or "?"
    if type(src_or_stream)=='table' then -- it's a stream
       return setmetatable ({ }, self) :takeover (src_or_stream)
@@ -488,7 +570,8 @@ function lexer:newstream (src_or_stream, name)
          line          = 1;      -- Current line number
          column_offset = 0;      -- distance from beginning of file to last '\n'
          attached_comments = { },-- comments accumulator
-         lineinfo_last = { 1, 1, 1, name }
+         lineinfo_last = { 1, 1, 1, name },
+         posfact       = new_position_factory (src_or_stream)
       }
       setmetatable (stream, self)
 
@@ -509,7 +592,7 @@ end
 -- is one of the ... args, then returns it (it's truth value is
 -- true). If no a keyword or not in ..., return nil.
 ----------------------------------------------------------------------
-function lexer:is_keyword (a, ...)
+function lexer :is_keyword (a, ...)
    if not a or a.tag ~= "Keyword" then return false end
    local words = {...}
    if #words == 0 then return a[1] end
@@ -523,9 +606,9 @@ end
 -- Cause an error if the next token isn't a keyword whose content
 -- is listed among ... args (which have to be strings).
 ----------------------------------------------------------------------
-function lexer:check (...)
+function lexer :check (...)
    local words = {...}
-   local a = self:next()
+   local a = self :next()
    local function err ()
       error ("Got " .. tostring (a) .. 
              ", expected one of these keywords : '" ..
@@ -542,7 +625,7 @@ end
 ----------------------------------------------------------------------
 -- 
 ----------------------------------------------------------------------
-function lexer:clone()
+function lexer :clone()
    local clone = {
       alpha = table.deep_copy(self.alpha),
       sym   = table.deep_copy(self.sym) }
