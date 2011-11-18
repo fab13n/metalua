@@ -56,6 +56,10 @@ position_metatable = new_metatable 'position'
 local position_idx=1
 
 function new_position(line, column, offset, source)
+    -- assert(type(line)=='number')
+    -- assert(type(column)=='number')
+    -- assert(type(offset)=='number')
+    -- assert(type(source)=='string')
     local id = position_idx; position_idx = position_idx+1
     return setmetatable({line=line, column=column, offset=offset, source=source, id=id}, position_metatable)
 end
@@ -74,35 +78,42 @@ end
 position_factory_metatable = new_metatable 'position_factory'
 
 function new_position_factory(src, src_name)
-   local lines = { 1 }
-   for idx in src :gmatch '\n()' do table.insert(lines, idx) end
-   table.insert(lines, #src+1)
-   return setmetatable({ src=src, src_name=src_name, line2offset=lines }, 
-       position_factory_metatable)
+    -- assert(type(src)=='string')
+    -- assert(type(src_name)=='string')
+    local lines = { 1 }
+    for offset in src :gmatch '\n()' do table.insert(lines, offset) end
+    local max = #src+1
+    table.insert(lines, max)
+    return setmetatable({ src_name=src_name, line2offset=lines, max=max }, 
+        position_factory_metatable)
 end
 
-function position_factory_metatable :line_column (offset)
-   local line2offset = self.line2offset
-   local left  = self.last_left or 1
-   if offset<line2offset[left] then left=1 end
-   local right = left+1
-   if line2offset[right]<=offset then right = right+1 end
-   if line2offset[right]<=offset then right = #line2offset end
-   while true do
-      -- print ("trying lines "..left.."/"..right..", offsets "..line2offset[left]..
-      --        "/"..line2offset[right].." for offset "..offset)
-      -- assert(line2offset[left]<=offset)
-      -- assert(offset<line2offset[right])
-      -- assert(left<right)
-      if left+1==right then break end
-      local middle = (left+right)/2
-      if line2offset[middle]<=offset then left=middle else right=middle end
-   end
-   -- assert(left+1==right)
-   local line = left
-   local column = offset - line2offset[line] + 1
-   self.last_left = left
-   return new_position(line, column, offset, self.src_name)
+function position_factory_metatable :get_position (offset)
+    -- assert(type(offset)=='number')
+    assert(offset<self.max)
+    local line2offset = self.line2offset
+    local left  = self.last_left or 1
+    if offset<line2offset[left] then left=1 end
+    local right = left+1
+    if line2offset[right]<=offset then right = right+1 end
+    if line2offset[right]<=offset then right = #line2offset end
+    while true do
+        -- print ("  trying lines "..left.."/"..right..", offsets "..line2offset[left]..
+        --        "/"..line2offset[right].." for offset "..offset)
+        -- assert(line2offset[left]<=offset)
+        -- assert(offset<line2offset[right])
+        -- assert(left<right)
+        if left+1==right then break end
+        local middle = math.floor((left+right)/2)
+        if line2offset[middle]<=offset then left=middle else right=middle end
+    end
+    -- assert(left+1==right)
+    -- printf("found that offset %d is between %d and %d, hence on line %d",
+    --    offset, line2offset[left], line2offset[right], left)
+    local line = left
+    local column = offset - line2offset[line] + 1
+    self.last_left = left
+    return new_position(line, column, offset, self.src_name)
 end
 
 
@@ -184,8 +195,8 @@ end
 ----------------------------------------------------------------------
 lexer.patterns = {
    spaces              = "^[ \r\n\t]*()",
-   short_comment       = "^%-%-([^\n]*)\n()",
-   final_short_comment = "^%-%-([^\n]*)()$",
+   short_comment       = "^%-%-([^\n]*)\n?()",
+   --final_short_comment = "^%-%-([^\n]*)()$",
    long_comment        = "^%-%-%[(=*)%[\n?(.-)%]%1%]()",
    long_string         = "^%[(=*)%[\n?(.-)%]%1%]()",
    number_mantissa     = { "^%d+%.?%d*()", "^%d*%.%d+()" },
@@ -243,8 +254,6 @@ lexer.extractors = {
    "extract_long_string", "extract_symbol" }
 
 
-      
-
 
 ----------------------------------------------------------------------
 -- Really extract next token fron the raw string 
@@ -253,77 +262,46 @@ lexer.extractors = {
 -- previous_i: offset in src before extraction began
 ----------------------------------------------------------------------
 function lexer :extract ()
-   local previous_i = self.i
-   local loc = self.i
-   local eof, token
-   -- Put lineinfo and metatable around the tag and content
-   -- provided by extractors, thus returning a complete lexer token.
-   -- first_line: line # at the beginning of token
-   -- first_column_offset: char # of the last '\n' before beginning of token
-   -- i: scans from beginning of prefix spaces/comments to end of token.
-   local function build_token (tag, content)
-      assert (tag and content)
-      local i, first_line, first_column_offset, previous_line_length =
-         previous_i, self.line, self.column_offset, nil
-
-      -- update self.line and first_line. i := indexes of '\n' chars
-      while true do
-         i = self.src :find ("\n", i+1, true)
-         if not i or i>self.i then break end -- no more '\n' until end of token
-         previous_line_length = i - self.column_offset
-         if loc and i <= loc then -- '\n' before beginning of token
-            first_column_offset = i
-            first_line = first_line+1 
-         end
-         self.line   = self.line+1 
-         self.column_offset = i 
-      end
-
-      local fli = new_position(first_line, loc-first_column_offset, loc, self.src_name)
-      local lli = new_position(self.line, self.i-self.column_offset-1, self.i-1, self.src_name)
-      local lineinfo = new_lineinfo(fli, lli)
-      -- TODO: seems off by one, previous_line_length not always available
-      if lli.column==-1 then lli.line, lli.column = lli.line-1, previous_line_length-1 end
-      return new_token (tag, content, lineinfo)
-   end --</function build_token>
-
    local attached_comments = { }
    while true do -- loop until a non-comment token is found
 
        -- skip whitespaces
        self.i = self.src:match (self.patterns.spaces, self.i)
-       if self.i>#self.src then return build_token("Eof", "eof") end
-       loc = self.i -- loc = position after whitespaces
+       if self.i>#self.src then return new_token("Eof", "eof", self.posfact :get_position (#self.src)) end
+       local i_first = self.i -- loc = position after whitespaces
        
        -- try every extractor until a token is found
        for _, extractor in ipairs(self.extractors) do
            local tag, content, xtra = self [extractor] (self)
            if tag then
-               local token = build_token(tag, content)
+               local fli = self.posfact :get_position (i_first)
+               local lli = self.posfact :get_position (self.i-1)
+               local lineinfo = new_lineinfo(fli, lli)
                if tag=='Comment' then
                    local prev_comment = attached_comments[#attached_comments]
-                   if not xtra and prev_comment and not prev_comment[2] and
-                       prev_comment.lineinfo.last.line==token.lineinfo.first.line+1 then
+                   if not xtra -- new comment is short
+                   and prev_comment and not prev_comment[2] -- prev comment is short
+                   and prev_comment.lineinfo.last.line+1==fli.line then -- adjascent lines
                        -- concat with previous comment
-                       printf ('CONCAT %q and %q', prev_comment[1], token[1])
-                       prev_comment[1] = prev_comment.."\n"..token[1] -- TODO quadratic, BAD!
-                       prev_comment.lineinfo.last = token.last
+                       prev_comment[1] = prev_comment[1].."\n"..content -- TODO quadratic, BAD!
+                       prev_comment.lineinfo.last = lli
                    else -- accumulate comment
-                       local comment = new_comment_line(content, token.lineinfo, xtra)
+                       local comment = new_comment_line(content, lineinfo, xtra)
                        table.insert(attached_comments, comment)
                    end
                    break -- back to skipping spaces
-               elseif #attached_comments>0 then -- attach previous comments to token
-                   local comments = new_comment(attached_comments)
-                   token.lineinfo.first.comments = comments
-                   if self.lineinfo_last then 
-                       self.lineinfo_last.comments = comments 
+               else -- not a comment: real token, then
+                   local token = new_token(tag, content, lineinfo)
+                   if #attached_comments>0 then -- attach previous comments to token
+                       local comments = new_comment(attached_comments)
+                       token.lineinfo.first.comments = comments
+                       if self.lineinfo_last then 
+                           self.lineinfo_last.comments = comments 
+                       end
+                       attached_comments = { }
                    end
-                   attached_comments = { }
                    return token
-               else -- token without comments
-                   return token
-               end
+               end -- if token is a comment
            end -- if token found
        end -- for each extractor
    end -- while token is a comment
@@ -515,7 +493,7 @@ function lexer :sync()
    if p1 then 
       local li_first = p1.lineinfo.first
       if li_first.comments then li_first=li_first.comments.lineinfo.first end
-      self.line, self.i = li_first.line, li_first.offset
+      self.i = li_first.offset
       self.column_offset = self.i - li_first.column
       self.peeked = { }
       self.attached_comments = p1.lineinfo.first.comments or { }
@@ -526,7 +504,7 @@ end
 -- Take the source and offset of an old lexer.
 ----------------------------------------------------------------------
 function lexer :takeover(old)
-   self :sync()
+   self :sync(); old :sync()
    for _, field in ipairs{ 'i', 'src', 'attached_comments', 'posfact' } do
        self[field] = old[field]
    end
@@ -567,11 +545,9 @@ function lexer :newstream (src_or_stream, name)
          src           = src;    -- The source, as a single string
          peeked        = { };    -- Already peeked, but not discarded yet, tokens
          i             = 1;      -- Character offset in src
-         line          = 1;      -- Current line number
-         column_offset = 0;      -- distance from beginning of file to last '\n'
          attached_comments = { },-- comments accumulator
-         lineinfo_last = { 1, 1, 1, name },
-         posfact       = new_position_factory (src_or_stream)
+         lineinfo_last = new_position(1, 1, 1, name),
+         posfact       = new_position_factory (src_or_stream, name)
       }
       setmetatable (stream, self)
 

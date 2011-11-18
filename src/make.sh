@@ -82,8 +82,8 @@ cd ..
 
 echo '*** Bootstrap the parts of the compiler written in metalua ***'
 
-${LUA} ${BASE}/build-utils/bootstrap.lua ${BASE}/compiler/mlc.mlua output=${BUILD_LIB}/metalua/mlc.luac
-${LUA} ${BASE}/build-utils/bootstrap.lua ${BASE}/compiler/metalua.mlua output=${BUILD_LIB}/metalua.luac
+${LUA} ${BASE}/build-utils/bootstrap.lua ${BASE}/compiler/mlc.mlua output=${BUILD_LIB}/metalua/mlc.luac || exit 1
+${LUA} ${BASE}/build-utils/bootstrap.lua ${BASE}/compiler/metalua.mlua output=${BUILD_LIB}/metalua.luac || exit 1
 
 echo '*** Finish the bootstrap: recompile the metalua parts of the compiler with itself ***'
 
