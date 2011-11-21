@@ -206,7 +206,7 @@ function walk.traverse.stat (cfg, x, ...)
    | { tag=tag, ...} if walk.tags.stat[tag]-> 
       walk.malformed (cfg, x, unpack (log))
    | _ ->  
-      walk.unknonw (cfg, x, unpack (log))
+      walk.unknown (cfg, x, unpack (log))
    end
 end
 
@@ -234,7 +234,7 @@ function walk.traverse.expr (cfg, x, ...)
    | { tag=tag, ...} if walk.tags.expr[tag]-> 
       walk.malformed (cfg, x, unpack (log))
    | _ ->  
-      walk.unknonw (cfg, x, unpack (log))
+      walk.unknown (cfg, x, unpack (log))
    end
 end
 
@@ -247,6 +247,21 @@ function walk.traverse.expr_list (cfg, x, ...)
    assert(type(x)=='table', "traverse.expr_list() expects a table")
    -- x doesn't appear in the log
    for y in ivalues(x) do walk.expr(cfg, y, ...) end
+end
+
+
+function walk.malformed(cfg, x, ...)
+    local f = cfg.malformed or cfg.error
+    if f then f(x, ...) else
+        error ("Malformed node of tag "..(x.tag or '(nil)'))
+    end
+end
+
+function walk.unknown(cfg, x, ...)
+    local f = cfg.unknown or cfg.error
+    if f then f(x, ...) else
+        error ("Unknown node tag "..(x.tag or '(nil)'))
+    end
 end
 
 ----------------------------------------------------------------------
@@ -279,8 +294,7 @@ end
 ----------------------------------------------------------------------
 -- Declare [walk.stat], [walk.expr], [walk.block] and [walk.expr_list]
 ----------------------------------------------------------------------
-for w in values{ "stat", "expr", "block", "expr_list",
-   "malformed", "unknown" } do
+for w in values{ "stat", "expr", "block", "expr_list" } do
    walk[w] = walker_builder (w, walk.traverse[w])
 end
 

@@ -34,6 +34,9 @@ function bindings(ast)
       else occur_dict [id_name] = { id } end
    end
 
+   --Do not choke on partial ASTs which contain `Error{} nodes
+   function cfg.error(x) end
+
    function cfg.scope.down() scope:push() end
    function cfg.scope.up()   scope:pop()  end
 
