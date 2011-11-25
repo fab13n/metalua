@@ -691,7 +691,7 @@ map to the original sources. This section describes how {\tt
 \paragraph{lineinfo}
 Each node generated from a parser comes from a substring of a source
 file. for instance, if you compile {\tt src="a(); b()"}, the node
-\verb|node=`Call{ `Id "b" }| representing the call to function {\tt b}
+{\tt node = `Call\{ `Id "b" \}} representing the call to function {\tt b}
 comes from the substring at offsets 6...8. As such, these two
 positions 6 and 8 will be stored as {\tt node.lineinfo.first} and {\tt
   node.lineinfo.last} respectively. Every node coming from a {\tt gg}
@@ -701,7 +701,7 @@ parser will have these positions {\tt lineinfo.first} and {\tt
 {\tt lineinfo} nodes have a dedicated \verb|__tostring| method, so
 that they don't mess up the display of an AST more than necessary.
 
-\paragaph{position}
+\paragraph{position}
 As we've seen above, the main purpose of a {\tt lineinfo} is to store
 a pair of positions. However, those positions aren't represented as
 simple numbers: they are structures with fields {\tt line}, {\tt
@@ -716,8 +716,8 @@ about the comments which were before and after the node in the source
 respectively. If a node {\tt n} was preceded by some comments, then
 {\tt n.lineinfo.first.comments} contain information about these
 comments. Similarly, if {\tt n} was followed by some comments,
-information about these can be retrieved as {\tt
-n.lineinfo.last.comments}. 
+information about these can be retrieved as\\
+{\tt n.lineinfo.last.comments}. 
 
 \paragraph{comments}
 There can be several comments preceding of following a node, and
@@ -730,10 +730,11 @@ comments can therefore be retrieved as \verb|comments[1]|,
   lineinfo}. It has, under index 1, its text, without the \verb|--| or
 \verb|--[==[...]==]| markers.
 
-Several consecutive \verb|--| lines are counted as a  single
-comment. For instance, \verb|"-- x\n-- y\n"| is a single comment whose
-text is \verb|" x\n y". However, \verb|"-- x\n\n-- y\n"| are two
-separate comments, do to the empty line separating them.
+Several consecutive ``\verb|--|'' short comment lines are counted as a
+single comment. For instance, \verb|"-- x\n-- y\n"| is a single
+comment whose text is \verb|" x\n y"|. However,
+\verb|"-- x\n\n-- y\n"| are two separate comments, because of the
+empty line separating them.
 
 
 
