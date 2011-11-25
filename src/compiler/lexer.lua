@@ -230,7 +230,9 @@ local function unescape_string (s)
       	 error ("Illegal escape sequence '\\"..digits..
                 "' in string: ASCII codes must be in [0..255]") 
       end
-      return backslashes .. string.char (code)
+      local c = string.char (code)
+      if c == '\\' then c = '\\\\' end -- parsed by unesc_letter (test: "\092b" --> "\\b")
+      return backslashes .. c
    end
 
    -- Take a letter [x], and returns the character represented by the 
