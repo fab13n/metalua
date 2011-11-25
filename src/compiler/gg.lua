@@ -96,7 +96,7 @@ local function raw_parse_sequence (lx, p)
          if not lx:is_keyword (lx:next(), e) then
             parse_error (lx, "A keyword was expected, probably `%s'.", e) end
       elseif is_parser (e) then
-         table.insert (r, e (lx)) 
+         table.insert(r, (e(lx)))
       else 
          gg.parse_error (lx,"Sequence `%s': element #%i is neither a string "..
                          "nor a parser: %s", 
@@ -669,11 +669,12 @@ function onkeyword (p)
    -------------------------------------------------------------------
    function p:parse(lx)
       if lx:is_keyword (lx:peek(), unpack(self.keywords)) then
-         --local fli = lx:lineinfo_right()
+         local fli = lx:lineinfo_right()
          if not self.peek then lx:next() end
          local content = self.primary (lx)
-         --local lli = lx:lineinfo_left()
-         local fli, lli = content.lineinfo.first, content.lineinfo.last
+         local lli = lx:lineinfo_left()
+         local li = content.lineinfo or { }
+         fli, lli = li.first or fli, li.last or lli
          return transform (content, p, fli, lli)
       else return false end
    end
