@@ -557,7 +557,7 @@ function lexer :newstream (src_or_stream, name)
       return stream
    else
       assert(false, ":newstream() takes a source string or a stream, not a "..
-                    type(src_or_stream))
+          type(src_or_stream))
    end
 end
 
