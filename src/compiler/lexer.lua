@@ -265,11 +265,23 @@ lexer.extractors = {
 ----------------------------------------------------------------------
 function lexer :extract ()
    local attached_comments = { }
+   local function gen_token(...)
+      local token = new_token(...)
+      if #attached_comments>0 then -- attach previous comments to token
+         local comments = new_comment(attached_comments)
+         token.lineinfo.first.comments = comments
+         if self.lineinfo_last then 
+            self.lineinfo_last.comments = comments 
+         end
+         attached_comments = { }
+      end
+      return token
+   end
    while true do -- loop until a non-comment token is found
 
        -- skip whitespaces
        self.i = self.src:match (self.patterns.spaces, self.i)
-       if self.i>#self.src then return new_token("Eof", "eof", self.posfact :get_position (#self.src)) end
+       if self.i>#self.src then return gen_token("Eof", "eof", self.posfact :get_position (#self.src)) end
        local i_first = self.i -- loc = position after whitespaces
        
        -- try every extractor until a token is found
@@ -293,16 +305,7 @@ function lexer :extract ()
                    end
                    break -- back to skipping spaces
                else -- not a comment: real token, then
-                   local token = new_token(tag, content, lineinfo)
-                   if #attached_comments>0 then -- attach previous comments to token
-                       local comments = new_comment(attached_comments)
-                       token.lineinfo.first.comments = comments
-                       if self.lineinfo_last then 
-                           self.lineinfo_last.comments = comments 
-                       end
-                       attached_comments = { }
-                   end
-                   return token
+                   return gen_token(tag, content, lineinfo)
                end -- if token is a comment
            end -- if token found
        end -- for each extractor
