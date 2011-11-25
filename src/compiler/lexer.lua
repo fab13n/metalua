@@ -258,7 +258,7 @@ lexer.extractors = {
 
 
 ----------------------------------------------------------------------
--- Really extract next token fron the raw string 
+-- Really extract next token from the raw string 
 -- (and update the index).
 -- loc: offset of the position just after spaces and comments
 -- previous_i: offset in src before extraction began
@@ -467,11 +467,11 @@ function lexer :next (n)
    local a
    for i=1,n do
       a = _G.table.remove (self.peeked, 1) 
-      -- TODO: is this used anywhere? I think not
-      self.lastline = a.lineinfo.last.line
+      -- TODO: is this used anywhere? I think not.  a.lineinfo.last may be nil.
+      --self.lastline = a.lineinfo.last.line
    end
    self.lineinfo_last = a.lineinfo.last
-   return a or eof_token
+   return a
 end
 
 ----------------------------------------------------------------------
