@@ -216,18 +216,18 @@ local function unescape_string (s)
    local function unesc_digits (backslashes, digits)
       if #backslashes%2==0 then
          -- Even number of backslashes, they escape each other, not the digits.
-         -- Return them so that unesc_letter() can treaat them
+         -- Return them so that unesc_letter() can treat them
          return backslashes..digits
       else
          -- Remove the odd backslash, which escapes the number sequence.
          -- The rest will be returned and parsed by unesc_letter()
          backslashes = backslashes :sub (1,-2)
       end
-      local k, j, i = digits:reverse():byte(1, 3)
+      local k, j, i = digits :reverse() :byte(1, 3)
       local z = _G.string.byte "0"
       local code = (k or z) + 10*(j or z) + 100*(i or z) - 111*z
       if code > 255 then 
-      	 error ("Illegal escape sequence '\\"..digits..
+         error ("Illegal escape sequence '\\"..digits..
                 "' in string: ASCII codes must be in [0..255]") 
       end
       local c = string.char (code)
@@ -313,7 +313,7 @@ end -- :extract()
 
 
 ----------------------------------------------------------------------
--- extract a short comment
+-- Extract a short comment.
 ----------------------------------------------------------------------
 function lexer :extract_short_comment()
     -- TODO: handle final_short_comment
@@ -322,7 +322,7 @@ function lexer :extract_short_comment()
 end
 
 ----------------------------------------------------------------------
--- extract a long comment
+-- Extract a long comment.
 ----------------------------------------------------------------------
 function lexer :extract_long_comment()
     local equals, content, j = self.src:match (self.patterns.long_comment, self.i)
@@ -330,96 +330,82 @@ function lexer :extract_long_comment()
 end
 
 ----------------------------------------------------------------------
--- extract a '...' or "..." short string
+-- Extract a '...' or "..." short string.
 ----------------------------------------------------------------------
 function lexer :extract_short_string()
-   -- [k] is the first unread char, [self.i] points to [k] in [self.src]
-   local j, k = self.i, self.src :sub (self.i,self.i)
-   if k~="'" and k~='"' then return end
+   local k = self.src :sub (self.i,self.i)   -- first char
+   if k~=[[']] and k~=[["]] then return end  -- no match
    local i = self.i + 1
    local j = i
    while true do
-      -- k = opening char: either simple-quote or double-quote
-      -- i = index of beginning-of-string
-      -- x = next "interesting" character
-      -- j = position after interesting char
-      -- y = char just after x
-      local x, y
-      x, j, y = self.src :match ("([\\\r\n"..k.."])()(.?)", j)
-      if x == '\\' then j=j+1  -- don't parse escaped char
-      elseif x == k then break -- unescaped end of string
-      else -- eof or '\r' or '\n' reached before end of string
-         assert (not x or x=="\r" or x=="\n")
+      local x; x, j = self.src :match ("([\\\r\n"..k.."])()", j)  -- next interesting char
+      if x == '\\' then j=j+1  -- escaped char
+      elseif x == k then break -- end of string
+      else
+         assert (not x or x=='\r' or x=='\n')
          error "Unterminated string"
       end
    end
    self.i = j
 
-   return "String", unescape_string (self.src:sub (i,j-2))
+   return 'String', unescape_string (self.src :sub (i,j-2))
 end
 
 ----------------------------------------------------------------------
---
+-- Extract Id or Keyword.
 ----------------------------------------------------------------------
 function lexer :extract_word()
-   -- Id / keyword
    local word, j = self.src:match (self.patterns.word, self.i)
    if word then
       self.i = j
-      if self.alpha [word] then return "Keyword", word
-      else return "Id", word end
+      return (self.alpha [word] and 'Keyword' or 'Id'), word
    end
 end
 
 ----------------------------------------------------------------------
---
+-- Extract Number.
 ----------------------------------------------------------------------
 function lexer :extract_number()
-   -- Number
    local j = self.src:match(self.patterns.number_hex, self.i)
    if not j then
       j = self.src:match (self.patterns.number_mantissa[1], self.i) or
           self.src:match (self.patterns.number_mantissa[2], self.i)
       if j then
-         j = self.src:match (self.patterns.number_exponant, j) or j;
+         j = self.src:match (self.patterns.number_exponant, j) or j
       end
    end
    if not j then return end
-   -- Number found, interpret with tonumber() and return it
-   local n = tonumber (self.src:sub (self.i, j-1))
+   local n = tonumber (self.src :sub (self.i, j-1))
    self.i = j
-   return "Number", n
+   return 'Number', n
 end
 
 ----------------------------------------------------------------------
---
+-- Extract long string.
 ----------------------------------------------------------------------
 function lexer :extract_long_string()
-   -- Long string
-   local _, content, j = self.src:match (self.patterns.long_string, self.i)
-   if j then self.i = j; return "String", content end
+   local _, content, j = self.src :match (self.patterns.long_string, self.i)
+   if j then self.i = j; return 'String', content end
 end
 
 ----------------------------------------------------------------------
---
+-- Extract symbol.
 ----------------------------------------------------------------------
 function lexer :extract_symbol()
-   -- compound symbol
    local k = self.src:sub (self.i,self.i)
-   local symk = self.sym [k]
+   local symk = self.sym [k]  -- symbols starting with `k`
    if not symk then 
       self.i = self.i + 1
-      return "Keyword", k
+      return 'Keyword', k
    end
    for _, sym in pairs (symk) do
       if sym == self.src:sub (self.i, self.i + #sym - 1) then 
-         self.i = self.i + #sym; 
-         return "Keyword", sym
+         self.i = self.i + #sym
+         return 'Keyword', sym
       end
    end
-   -- single char symbol
    self.i = self.i+1
-   return "Keyword", k
+   return 'Keyword', k
 end
 
 ----------------------------------------------------------------------
