@@ -63,11 +63,13 @@ checkeq(lex[[return]], [[`Keyword<?|K1-6>{return}`Eof<?|K7>{eof}]])
 
 -- string tests
 checkeq(lex[["\092b"]],  [[`String<?|K1-7>{\\b}`Eof<?|K8>{eof}]]) -- was bug
+checkeq(lex[["\x5Cb"]],  [[`String<?|K1-7>{\\b}`Eof<?|K8>{eof}]]) -- [5.2]
 checkeq(lex[["\0\t\090\100\\\1004"]],  [[`String<?|K1-21>{\000	Zd\\d4}`Eof<?|K22>{eof}]]) -- decimal/escape
 
 -- Lua 5.2
 checkeq(lex'"a\\z \n ."', [[`String<?|K1-9>{a.}`Eof<?|K10>{eof}]])  -- \z
 checkeq(lex'"\\z"', [[`String<?|K1-4>{}`Eof<?|K5>{eof}]])  -- \z
+checkeq(lex[["\x00\\\xfF\\xAB"]], [[`String<?|K1-17>{\000\\]]..'\255'..[[\\xAB}`Eof<?|K18>{eof}]])
 
 assert(lex(readfile(arg[0]))) -- lex self
 

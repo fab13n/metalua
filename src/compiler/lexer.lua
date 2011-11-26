@@ -230,7 +230,19 @@ local function unescape_string (s)
       end
       local c = string.char (code)
       if c == '\\' then c = '\\\\' end -- parsed by unesc_letter (test: "\092b" --> "\\b")
-      return backslashes .. c
+      return backslashes..c
+   end
+
+   -- Turn hex digits of escape sequence into char.
+   local function unesc_hex(backslashes, digits)
+     if #backslashes%2==0 then
+       return backslashes..'x'..digits
+     else
+       backslashes = backslashes :sub (1,-2)
+     end
+     local c = string.char(tonumber(digits,16))
+     if c == '\\' then c = '\\\\' end -- parsed by unesc_letter (test: "\x5cb" --> "\\b")
+     return backslashes..c
    end
 
    -- Take a letter [x], and returns the character represented by the 
@@ -244,6 +256,7 @@ local function unescape_string (s)
    end
 
    s = s:gsub ("(\\+)([0-9][0-9]?[0-9]?)", unesc_digits)
+   s = s:gsub ("(\\+)x([0-9a-fA-F][0-9a-fA-F])", unesc_hex) -- Lua 5.2
    s = s:gsub ("\\z%s*", "")  -- Lua 5.2
    s = s:gsub ("\\(%D)",unesc_letter)
    return s
