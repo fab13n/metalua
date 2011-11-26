@@ -83,6 +83,7 @@ checkeq(t[2][1], 0xB)
 checkeq(t[3][1], 0xfF)
 checkeq(t[4][1], '-')
 checkeq(t[5][1], 0xFf)
+-- 5.2 hex floats
 checkeq(t[6][1], 1.5) -- 0x1.8
 checkeq(t[7][1], 3) -- 0x1.8P1
 checkeq(t[8][1], 3) -- 0x1.8p+01
@@ -94,6 +95,10 @@ checkeq(t[10][1], 'eof')
 checkeq(lex'"a\\z \n ."', [[`String<?|K1-9>{a.}`Eof<?|K10>{eof}]])  -- \z
 checkeq(lex'"\\z"', [[`String<?|K1-4>{}`Eof<?|K5>{eof}]])  -- \z
 checkeq(lex[["\x00\\\xfF\\xAB"]], [[`String<?|K1-17>{\000\\]]..'\255'..[[\\xAB}`Eof<?|K18>{eof}]])
+
+-- Lua 5.2 goto and ::
+checkeq(lex'goto a1 ::a1 ::', [[`Keyword<?|K1-4>{goto}`Id<?|K6-7>{a1}]]..
+   [[`Keyword<?|K9-10>{::}`Id<?|K11-12>{a1}`Keyword<?|K14-15>{::}`Eof<?|K16>{eof}]])
 
 
 assert(lex(readfile(arg[0]))) -- lex self
