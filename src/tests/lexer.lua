@@ -34,7 +34,7 @@ local function tokfmt(tok)
   return [[`]] .. tok.tag .. tostring(tok.lineinfo):gsub('%|L[^%|]*%|C[^%|]*', '') .. '{' .. fmt(tok[1]) .. '}'
 end
 
--- utility function to lex code, returning string representation.
+-- utility function to lex code
 local function lex(code)
   local sm = LX:newstream(code)
   local toks = {}
@@ -46,6 +46,16 @@ local function lex(code)
     end
   end
   return table.concat(toks)
+end
+local function tlex(code)
+  local sm = LX:newstream(code)
+  local toks = {}
+  while 1 do
+    local tok = sm:next()
+    toks[#toks+1] = tok
+    if tok.tag == 'Eof' then break end
+  end
+return toks
 end
 local function plex(code)
   return pcall(lex, code)
@@ -66,10 +76,25 @@ checkeq(lex[["\092b"]],  [[`String<?|K1-7>{\\b}`Eof<?|K8>{eof}]]) -- was bug
 checkeq(lex[["\x5Cb"]],  [[`String<?|K1-7>{\\b}`Eof<?|K8>{eof}]]) -- [5.2]
 checkeq(lex[["\0\t\090\100\\\1004"]],  [[`String<?|K1-21>{\000	Zd\\d4}`Eof<?|K22>{eof}]]) -- decimal/escape
 
+-- number tests, hex (including Lua 5.2)
+local t = tlex[[0xa 0xB 0xfF -0xFf 0x1.8 0x1.8P1 0x1.8p+01 0x.8p-1]]
+checkeq(t[1][1], 0xa)
+checkeq(t[2][1], 0xB)
+checkeq(t[3][1], 0xfF)
+checkeq(t[4][1], '-')
+checkeq(t[5][1], 0xFf)
+checkeq(t[6][1], 1.5) -- 0x1.8
+checkeq(t[7][1], 3) -- 0x1.8P1
+checkeq(t[8][1], 3) -- 0x1.8p+01
+checkeq(t[9][1], 0.25) -- 0x0.8p-1
+checkeq(t[10][1], 'eof')
+
+
 -- Lua 5.2
 checkeq(lex'"a\\z \n ."', [[`String<?|K1-9>{a.}`Eof<?|K10>{eof}]])  -- \z
 checkeq(lex'"\\z"', [[`String<?|K1-4>{}`Eof<?|K5>{eof}]])  -- \z
 checkeq(lex[["\x00\\\xfF\\xAB"]], [[`String<?|K1-17>{\000\\]]..'\255'..[[\\xAB}`Eof<?|K18>{eof}]])
+
 
 assert(lex(readfile(arg[0]))) -- lex self
 

@@ -198,8 +198,10 @@ lexer.patterns = {
    long_comment        = "^%-%-%[(=*)%[\n?(.-)%]%1%]()",
    long_string         = "^%[(=*)%[\n?(.-)%]%1%]()",
    number_mantissa     = { "^%d+%.?%d*()", "^%d*%.%d+()" },
+   number_mantissa_hex = { "^%x+%.?%x*()", "^%x*%.%x+()" }, --Lua5.1 and Lua5.2
    number_exponant     = "^[eE][%+%-]?%d+()",
-   number_hex          = "^0[xX]%x+()",
+   number_exponant_hex = "^[pP][%+%-]?%d+()", --Lua5.2
+   number_hex          = "^0[xX]()",
    word                = "^([%a_][%w_]*)()"
 }
 
@@ -391,7 +393,13 @@ end
 ----------------------------------------------------------------------
 function lexer :extract_number()
    local j = self.src:match(self.patterns.number_hex, self.i)
-   if not j then
+   if j then
+      j = self.src:match (self.patterns.number_mantissa_hex[1], j) or
+          self.src:match (self.patterns.number_mantissa_hex[2], j)
+      if j then
+         j = self.src:match (self.patterns.number_exponant_hex, j) or j
+      end
+   else
       j = self.src:match (self.patterns.number_mantissa[1], self.i) or
           self.src:match (self.patterns.number_mantissa[2], self.i)
       if j then
@@ -400,6 +408,7 @@ function lexer :extract_number()
    end
    if not j then return end
    local n = tonumber (self.src :sub (self.i, j-1))
+      -- :TODO: tonumber on Lua5.2 floating hex may or may not work on Lua5.1
    self.i = j
    return 'Number', n
 end
