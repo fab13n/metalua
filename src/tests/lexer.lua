@@ -65,6 +65,10 @@ checkeq(lex[[return]], [[`Keyword<?|K1-6>{return}`Eof<?|K7>{eof}]])
 checkeq(lex[["\092b"]],  [[`String<?|K1-7>{\\b}`Eof<?|K8>{eof}]]) -- was bug
 checkeq(lex[["\0\t\090\100\\\1004"]],  [[`String<?|K1-21>{\000	Zd\\d4}`Eof<?|K22>{eof}]]) -- decimal/escape
 
+-- Lua 5.2
+checkeq(lex'"a\\z \n ."', [[`String<?|K1-9>{a.}`Eof<?|K10>{eof}]])  -- \z
+checkeq(lex'"\\z"', [[`String<?|K1-4>{}`Eof<?|K5>{eof}]])  -- \z
+
 assert(lex(readfile(arg[0]))) -- lex self
 
 print 'DONE'

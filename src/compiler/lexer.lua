@@ -243,9 +243,10 @@ local function unescape_string (s)
       return t[x] or error([[Unknown escape sequence '\]]..x..[[']])
    end
 
+   s = s:gsub ("(\\+)([0-9][0-9]?[0-9]?)", unesc_digits)
+   s = s:gsub ("\\z%s*", "")  -- Lua 5.2
+   s = s:gsub ("\\(%D)",unesc_letter)
    return s
-      :gsub ("(\\+)([0-9][0-9]?[0-9]?)", unesc_digits)
-      :gsub ("\\(%D)",unesc_letter)
 end
 
 lexer.extractors = {
@@ -343,8 +344,13 @@ function lexer :extract_short_string()
    local i = self.i + 1
    local j = i
    while true do
-      local x; x, j = self.src :match ("([\\\r\n"..k.."])()", j)  -- next interesting char
-      if x == '\\' then j=j+1  -- escaped char
+      local x,y; x, j, y = self.src :match ("([\\\r\n"..k.."])()(.?)", j)  -- next interesting char
+      if x == '\\' then
+        if y == 'z' then -- Lua 5.2 \z
+          j = self.src :match ("^%s*()", j+1)
+        else
+          j=j+1  -- escaped char
+        end
       elseif x == k then break -- end of string
       else
          assert (not x or x=='\r' or x=='\n')
