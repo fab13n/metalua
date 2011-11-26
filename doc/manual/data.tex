@@ -5,7 +5,7 @@
 (ADT is also the usual accronym for Abstract DataType. However, I'll
 never talk about abstract datatypes in this manual, so there's no
 reason to get confused about it. ADT always refers to algebraic
-datatypes). 
+datatypes).
 
 Metalua's distinctive feature is its ability to easily work on program
 source codes as trees, and this include a proper syntax for tree
@@ -39,9 +39,9 @@ side (\verb+cdr+ in Lisp). These will be represented in Lua as
 (1, 2, 3) will be represented as:
 
 \begin{verbatim}
-{ tag="Cons", 1, 
-  { tag="Cons", 2, 
-    { tag="Cons", 3, 
+{ tag="Cons", 1,
+  { tag="Cons", 2,
+    { tag="Cons", 3,
       { tag="Nil" } } } }
 \end{verbatim}
 
@@ -50,7 +50,7 @@ side (\verb+cdr+ in Lisp). These will be represented in Lua as
 Here is a more programming language oriented example: imagine that we
 are working on a symbolic calculator. We will have to work this:
 \begin{itemize}
-\item litteral numbers, represented as integers;
+\item literal numbers, represented as integers;
 \item symbolic variables, represented by the string of their
   symbol;
 \item formulae, i.e. numbers, variables an/or sub-formulae
@@ -66,10 +66,10 @@ on that data type. The datatype is given by the name put in the
 \verb+Number+, \verb+Var+ or \verb+Formula+. The formula $e^{i\pi}+1$
 would be encoded as:
 \begin{verbatim}
-{ tag="Formula", "Addition", 
-  { tag="Formula", "Exponent", 
+{ tag="Formula", "Addition",
+  { tag="Formula", "Exponent",
     { tag="Variable", "e" },
-    { tag="Formula", "Multiplication", 
+    { tag="Formula", "Multiplication",
       { tag="Variable", "i" },
       { tag="Variable", "pi" } } },
   { tag="Number", 1 } }
@@ -96,10 +96,10 @@ readable way:
 
 With this syntax sugar, the $e^{i\pi}+1$ example above would read:
 \begin{verbatim}
-`Formula{ "Addition", 
-   `Formula"{ "Exponent", 
+`Formula{ "Addition",
+   `Formula"{ "Exponent",
       `Variable "e",
-      `Formula{ "Multiplication", 
+      `Formula{ "Multiplication",
                 `Variable "i",
                 `Variable "pi" } },
    `Number 1 }
@@ -114,7 +114,7 @@ For the record, the metalua (AST) representation of the code {\tt"1+e\^\ (i*pi)"
 is:
 \begin{verbatim}
 `Op{ "add", `Number 1,
-     `Op{ "pow", `Id "e", 
+     `Op{ "pow", `Id "e",
           `Op{ "mul", `Id "i", `Id "pi" } } }
 \end{verbatim}
 
@@ -138,7 +138,7 @@ manipulation, and a thorough knowledge of them is generally not
 needed. Metaprogrammers should know their general form, but it is
 reasonnable to rely on a cheat-sheet to remember the exact details of
 AST structures. Such a summary is provided
-in appendix of this tutorial, as a reference when dealing with them.
+in an appendix of this tutorial, as a reference when dealing with them.
 
 In the rest of this section, we will present the translation from Lua
 source to their corresponding AST.
@@ -167,7 +167,7 @@ and IO). For instance, \verb|2+2| is an expression which evaluates to
 4, but \verb|four=2+2| is a statement, which sets the value of
 variable \verb|four| but has no value itself.
 
-\paragraph{Number constants} 
+\paragraph{Number constants}
 A number is represented by an AST with tag \verb+Number+ and the
 number value as its sole child. For instance, \verb+6+ is represented
 by \verb+`Number 6+\footnote{As explained in the section about ADT,
@@ -238,32 +238,32 @@ The following table associates a Lua operator to its AST name:
 \begin{center}
 \begin{tabular}{|c|c||c|c||c|c||c|c|}
   \hline
-  \bf Op. & \bf AST & 
-  \bf Op. & \bf AST & 
-  \bf Op. & \bf AST & 
+  \bf Op. & \bf AST &
+  \bf Op. & \bf AST &
+  \bf Op. & \bf AST &
   \bf Op. & \bf AST \\
-  
+
   \hline\hline %%%%%%%%%%%%%%%%%
-  \verb|+|   & \verb+"add"+    & 
-  \verb+-+   & \verb+"sub"+    & 
-  \verb+*+   & \verb+"mul"+    & 
+  \verb|+|   & \verb+"add"+    &
+  \verb+-+   & \verb+"sub"+    &
+  \verb+*+   & \verb+"mul"+    &
   \verb+/+   & \verb+"div"+    \\
   \hline %%%%%%%%%%%%%%%%%%%%%%%
-  \verb+%+   & \verb+"mod"+    & 
-  \verb+^+   & \verb+"pow"+    & 
-  \verb+..+  & \verb+"concat"+ & 
+  \verb+%+   & \verb+"mod"+    &
+  \verb+^+   & \verb+"pow"+    &
+  \verb+..+  & \verb+"concat"+ &
   \verb+==+  & \verb+"eq"+     \\
   \hline %%%%%%%%%%%%%%%%%%%%%%%
   \verb+<+   & \verb+"lt"+     &
-  \verb+<=+  & \verb+"le"+     & 
-  \verb+and+ & \verb+"and"+    & 
+  \verb+<=+  & \verb+"le"+     &
+  \verb+and+ & \verb+"and"+    &
   \verb+or+  & \verb+"or"+     \\
   \hline %%%%%%%%%%%%%%%%%%%%%%%
 \end{tabular}
 \end{center}
 
-Operator names are the sames as the corresponding Lua metatable entry,
-without the prefix {\tt"\_\,\_"}. There are no operator for operators
+Operator names are the same as the corresponding Lua metatable entry,
+without the prefix {\tt"\_\,\_"}. There are no operators for
 \verb+~=+, \verb+>=+ and \verb+>+: they can be simulated by swapping
 the arguments of \verb+<=+ and \verb+<+, or adding a \verb+not+ to
 operator \verb+==+.
@@ -274,7 +274,7 @@ operator \verb+==+.
   \verb|`Op{ 'add', `Number 2, `Number 2 }|;
 \item \verb|1+2*3| is represented as:\\[-2em]
 \begin{verbatim}
-`Op{ 'add', `Number 1, 
+`Op{ 'add', `Number 1,
      `Op{ 'mul', `Number 2, `Number 3 } }
 \end{verbatim}
 \item \verb|(1+2)*3| is represented as:\\[-2em]
@@ -300,13 +300,13 @@ a Lua unary operator to its AST:
 \begin{center}
 \begin{tabular}{|c|c||c|c||c|c|}
   \hline
-  \bf Op. & \bf AST & 
-  \bf Op. & \bf AST & 
+  \bf Op. & \bf AST &
+  \bf Op. & \bf AST &
   \bf Op. & \bf AST \\
-  
+
   \hline\hline %%%%%%%%%%%%%%
-  \verb+-+   & \verb+"unm"+ & 
-  \verb+#+   & \verb+"len"+ & 
+  \verb+-+   & \verb+"unm"+ &
+  \verb+#+   & \verb+"len"+ &
   \verb+not+ & \verb+"not"+ \\
   \hline %%%%%%%%%%%%%%%%%%%%
 \end{tabular}
@@ -321,7 +321,7 @@ a Lua unary operator to its AST:
   \verb|`Op{ 'len', `Id "x" }|
 \end{itemize}
 
-\paragraph{Indexed access}
+\paragraph{Indexed accesses}
 They are represented by an AST with tag \verb+Index+, the table's AST
 as first child, and the key's AST as second child.
 
@@ -334,13 +334,13 @@ as first child, and the key's AST as second child.
   \verb+`Index{ `Id "x", `String "y" }+
 \end{itemize}
 
-Notice that index AST can also appear as left-hand side of
-assignments, as shall be shown in the subsection dedicated to
+Notice that an index AST can also appear as the left-hand side of
+an assignment, as shall be shown in the subsection dedicated to
 statements.
 
-\paragraph{Function call}
-Function call AST have the tag \verb+Call+, the called function's AST
-as first child, and its arguments as remaining children.
+\paragraph{Function calls}
+A function call AST has the tag \verb+Call+, the called function's AST
+as the first child, and its arguments as the remaining children.
 
 \subparagraph{Examples}
 \begin{itemize}
@@ -351,11 +351,11 @@ as first child, and its arguments as remaining children.
   \verb+`Call{ `Id "f", `Id "x", `Dots }+.
 \end{itemize}
 
-Notice that function calls can be used as expressions, but also as statements. 
+Notice that function calls can be used as expressions, but also as statements.
 
-\paragraph{Method invocation}
-Method invocation AST have the tag \verb+Invoke+, the object's AST as
-first child, the string name of the method as a second child, and
+\paragraph{Method invocations}
+A method invocation AST has the tag \verb+Invoke+, the object's AST as
+the first child, the string name of the method as the second child, and
 the arguments as remaining children.
 
 \subparagraph{Examples}
@@ -369,19 +369,19 @@ the arguments as remaining children.
 
 Notice that method invocations can be used as expressions, but also as
 statements.  Notice also that ``{\tt function o:m (x) return x end}'' is
-not a method invocation, but syntax sugar for statement
-``{\tt o["f"] = function (self, x) return x end}''. See the paragraph
-about assignment in statements subsection for its AST representation.
+not a method invocation, but syntax sugar for the statement ``{\tt
+o["f"] = function (self, x) return x end}''. See the paragraph about
+assignment in the statements subsection for its AST representation.
 
 
-\paragraph{Function definition}
+\paragraph{Function definitions}
 A function definition consists of a list of parameters and a block of
 statements. The parameter list, which can be empty, contains only
 variable names, represented by their \verb+`Id{...}+ AST, except for
 the last element of the list, which can also be a dots AST \verb+`Dots+
 (to indicate that the function is a vararg function).
 
-The block is a list of statement AST, optionnaly terminated with a
+The block is a list of statement AST, optionally terminated with a
 \verb+`Return{...}+ or \verb+`Break+ pseudo-statement. These
 pseudo-statements will be described in the statements subsection.
 
@@ -399,19 +399,19 @@ The function definition is encoded as
 
 \item \verb+function (x, y) foo(x); bar(y) end+ is represented as:
 \begin{verbatim}
-`Function{ { `Id x, `Id y } 
+`Function{ { `Id x, `Id y }
            { `Call{ `Id "foo", `Id "x" },
              `Call{ `Id "bar", `Id "y" } } }
 \end{verbatim}
- 
+
 \item \verb+function (fmt, ...) print (string.format (fmt, ...)) end+
   is represented as:
 \begin{verbatim}
-`Function{ { `Id "fmt", `Dots } 
+`Function{ { `Id "fmt", `Dots }
            { `Call{ `Id "print",
                     `Call{ `Index{ `Id "string",
-                                   `String "format" }, 
-                           `Id "fmt", 
+                                   `String "format" },
+                           `Id "fmt",
                            `Dots } } } }
 \end{verbatim}
 
@@ -419,7 +419,7 @@ The function definition is encoded as
   statement: it is actually syntax sugar for the assignment {\tt f =
     function (x) return x end}, and as such, is represented as:
 \begin{verbatim}
-`Let{ { `Id "f" }, 
+`Let{ { `Id "f" },
       { `Function{ {`Id 'x'} {`Return{`Id 'x'} } } } }
 \end{verbatim}
   (see assignment in the statements subsection for more details);
@@ -430,7 +430,7 @@ The function definition is encoded as
 
 In Lua, parentheses are sometimes semantically meaningful: when the
 parenthesised expression returns multiple values, putting it between
-parentheses foreces it to return only one value. For instance, ``{\tt
+parentheses forces it to return only one value. For instance, ``{\tt
   local function f() return 1, 2, 3 end; return \{ f() \}}'' will
 return ``{\tt\{1, 2, 3\}}'', whereas ``{\tt local function f() return
   1, 2, 3 end; return \{ (f()) \}}'' will return ``{\tt\{ 1 \}}''
@@ -440,7 +440,7 @@ Parentheses are represented in the AST as a node ``{\tt`Paren\{
   \}}''. The second example above has the following AST:
 
 \begin{verbatim}
-{ `Localrec{ { `Id "f" },  
+{ `Localrec{ { `Id "f" },
              { `Function{ { },
                           `Return{ `Number 1,
                                    `Number 2,
@@ -451,15 +451,15 @@ Parentheses are represented in the AST as a node ``{\tt`Paren\{
 \subsubsection{Statements}
 
 Statements are instructions which modify the state of the
-computer. There are simple statement, such as variable assignment,
-local variable declaration, function calls and method invocation;
+computer. There are simple statements, such as variable assignments,
+local variable declarations, function calls and method invocations;
 there are also control structure statements, which take simpler
-statement and modify their action: these are if/then/else,
+statements and modify their action: these are if/then/else,
 repeat/until, while/do/end, for/do/end and do/end statements.
 
-\paragraph{Assignment}
-Variable assignment \verb+a, b, c = foo, bar+ is represetned by AST
-\verb+`Set{ lhs, rhs }+, with {\tt lhs} being a list of variables or
+\paragraph{Assignments}
+A variable assignment \verb+a, b, c = foo, bar+ is represented by the
+AST \verb+`Set{ lhs, rhs }+, with {\tt lhs} being a list of variables or
 table indexes, and {\tt rhs} the list of values assigned to them.
 
 \subparagraph{Examples}
@@ -474,26 +474,26 @@ table indexes, and {\tt rhs} the list of values assigned to them.
 \item \verb+a = 1, 2, 3+ is represented as:\\
   \verb+`Set{ { `Id "a" }, { `Number 1, `Number 2, `Number 3 } }+;
 
-\item \verb+function f(x) return x end+ is syntax sugar for:\\
-  \verb+f = function (x) return x end+. As such, is represented as:\\[-2em]
+\item \verb+function f(x) return x end+ is syntactic sugar for:\\
+  \verb+f = function (x) return x end+. As such, it is represented as:\\[-2em]
 \begin{verbatim}
-`Set{ { `Id "f" }, 
+`Set{ { `Id "f" },
       { `Function{ {`Id 'x'}  {`Return{ `Id "x" } } } } }
 \end{verbatim}
 
-\item \verb+function o:m(x) return x end+ is syntax sugar for:\\
+\item \verb+function o:m(x) return x end+ is syntactic sugar for:\\
   \verb+o["f"] = function (self, x) return x end+, and as such, is
   represented as:\\[-2em]
 \begin{verbatim}
-`Set{ { `Index{ `Id "o", `String "f" } }, 
-      { `Function{ { `Id "self, "`Id x } 
+`Set{ { `Index{ `Id "o", `String "f" } },
+      { `Function{ { `Id "self, "`Id x }
                    { `Return{ `Id "x" } } } } }
 \end{verbatim}
 
 \end{itemize}
 
-\paragraph{Local declaration}
-Local declaration \verb+local a, b, c = foo, bar+ works just as
+\paragraph{Local declarations}
+A local declaration \verb+local a, b, c = foo, bar+ works just as an
 assignment, except that the tag is \verb+Local+, and it is allowed to
 have an empty list as values.
 
@@ -508,7 +508,7 @@ have an empty list as values.
 
 \end{itemize}
 
-\paragraph{Recursive local declaration}
+\paragraph{Recursive local declarations}
 In a local declaration, the scope of local variables starts {\em
   after} the statement. Therefore, it is not possible to refer to a
 variable inside the value it receives, and
@@ -516,20 +516,20 @@ variable inside the value it receives, and
 ``{\tt local f = function (x) f(x) end}'': in the latter, the \verb|f|
 call inside the function definition probably refers to some global
 variable, whereas in the former, it refers to the local variable
-currently being defined (f this therefore a forever looping function).
+currently being defined (f is therefore a function looping forever).
 
 To handle this, the AST syntax defines a special \verb|`Localrec|
-local declaration statement, in which the variables enter in scope
+local declaration statement, in which the variables enter into scope
 {\em before} their content is evaluated. Therefore, the AST
 corresponding to {\tt local function f(x) f(x) end} is:
 \begin{verbatim}
-`Localrec{ { `Id "f" }, 
-           { `Function{ { `Id x } 
+`Localrec{ { `Id "f" },
+           { `Function{ { `Id x }
                         { `Call{ `Id "f", `Id "x" } } } } }
 \end{verbatim}
 
-\caveat{In the current implementation, both variable names list and
-  values list have to be of lenght 1. This is enough to represent
+\caveat{In the current implementation, both variable name lists and
+  value lists have to be of lenght 1. This is enough to represent
   {\tt local function ... end}, but should be generalized in the
   final version of Metalua.}
 
@@ -552,10 +552,9 @@ contain. As a list, the block itself has no \verb|tag| field.
   `Return{ `Id "x", `Id "y" } }
 \end{verbatim}
 
-\paragraph{Do statement}
-These represent \verb|do ... end| statements, which limit local
-variables scope. They are represented as
-blocks with a \verb|Do| tag.
+\paragraph{Do statements}
+These represent \verb|do ... end| statements, which limit the scope of
+local variables. They are represented as blocks with a \verb|Do| tag.
 
 \subparagraph{Example}
 \verb|do foo(x); bar(y); return x,y end| is represented as:
@@ -565,11 +564,11 @@ blocks with a \verb|Do| tag.
      `Return{ `Id "x", `Id "y" } }
 \end{verbatim}
 
-\paragraph{While statement}
+\paragraph{While statements}
 \verb|while <foo> do <bar1>; <bar2>; ... end| is represented as \\
 \verb|`While{ <foo>, { <bar1>, <bar2>, ... } }|.
 
-\paragraph{Repeat statement} 
+\paragraph{Repeat statements}
 \verb|repeat <bar1>; <bar2>; ... until <foo>| is represented as \\
 \verb|`Repeat{ { <bar1>, <bar2>, ... }, <foo> }|.
 
@@ -579,7 +578,7 @@ blocks with a \verb|Do| tag.
 represented as {\tt `Fornum\{ `Id "x", <first>, <last>, <step>, \{
   <foo>, <bar>, ... \} \}}.
 
-The \verb|step| parameter can be omitted if equal to 1.
+The \verb|step| parameter can be omitted if it is equal to 1.
 
 \begin{verbatim}
 for x1, x2... in e1, e2... do
@@ -588,13 +587,13 @@ for x1, x2... in e1, e2... do
   ...
 end
 \end{verbatim}
-isrepresented as:\\ 
+is represented as:\\
 {\tt `Forin\{ \{`Id "x1",`Id "x2",...\}, \{ <e1>, <e2>,... \} \{
  <foo>, <bar>, ... \} \}}.
 
 \paragraph{If statements}
 ``If'' statements are composed of a series of (condition, block)
-pairs, and optionnaly of a last default ``else'' block. The conditions
+pairs, and optionally of a last default ``else'' block. The conditions
 and blocks are simply listed in an \verb|`If{ ... }| ADT. Notice that
 an ``if'' statement without a final ``else'' block will have an even
 number of children, whereas a statement with a final ``else'' block
@@ -617,25 +616,25 @@ will have an odd number of children.
 
 \item
 \begin{verbatim}
-if     <foo1> then <bar1>; <baz1> 
-elseif <foo2> then <bar2>; <baz2> 
-else               <bar3>; <baz3> end+ 
+if     <foo1> then <bar1>; <baz1>
+elseif <foo2> then <bar2>; <baz2>
+else               <bar3>; <baz3> end+
 \end{verbatim}
 is represented as:
 \begin{verbatim}
-`If{ <foo1>, { <bar1>, <baz1> }, 
+`If{ <foo1>, { <bar1>, <baz1> },
      <foo2>, { <bar2>, <baz2> },
              { <bar3>, <baz3> } }
 \end{verbatim}
 
 \end{itemize}
 
-\paragraph{Breaks and returns} 
+\paragraph{Breaks and returns}
 Breaks are represented by the childless \verb|`Break| AST. Returns are
 retpresented by the (possibly empty) list of returned values.
 
 \subparagraph{Example}
-{\tt return 1, 2, 3} is represented as:\\ 
+{\tt return 1, 2, 3} is represented as:\\
 {\tt`Return\{ `Number 1, `Number 2, `Number 3 \}}.
 
 \subsubsection{Extensions with no syntax}
@@ -651,13 +650,13 @@ indicate a target for goto statements.  A very common idiom is ``{\tt
   local x = mlp.gensym(); ... `Label\{ x \} }''. You just jump to that
 label with ``{\tt `Goto\{ x \} }''.
 
-Identifiers, string AST or plain strings are equivalent: 
+Identifiers, string AST or plain strings are equivalent:
 ``{\tt`Label\{ `Id "foo"\}}'' is synonymous for ``{\tt`Label\{ `String
   "foo"\}}'' and ``{\tt`Label "foo"}''. The same equivalences apply
-for gotos, of course.
+to gotos, of course.
 
 Labels are local to a function; you can safely jump out of a block,
-but if you jump {\em inside} a block, you're likely to get into unspecified
+but if you jump {\em into} a block, you're likely to get into unspecified
 trouble, as local variables will be in a random state.
 
 \paragraph{Statements in expressions}
