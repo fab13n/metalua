@@ -83,14 +83,14 @@ function new_position_factory(src, src_name)
     local lines = { 1 }
     for offset in src :gmatch '\n()' do table.insert(lines, offset) end
     local max = #src+1
-    table.insert(lines, max)
+    table.insert(lines, max+1) -- +1 includes Eof
     return setmetatable({ src_name=src_name, line2offset=lines, max=max }, 
         position_factory_metatable)
 end
 
 function position_factory_metatable :get_position (offset)
     -- assert(type(offset)=='number')
-    assert(offset<self.max)
+    assert(offset<=self.max)
     local line2offset = self.line2offset
     local left  = self.last_left or 1
     if offset<line2offset[left] then left=1 end
@@ -270,7 +270,7 @@ function lexer :extract ()
       if #attached_comments>0 then -- attach previous comments to token
          local comments = new_comment(attached_comments)
          token.lineinfo.first.comments = comments
-         if self.lineinfo_last then 
+         if self.lineinfo_last then
             self.lineinfo_last.comments = comments 
          end
          attached_comments = { }
@@ -281,7 +281,11 @@ function lexer :extract ()
 
        -- skip whitespaces
        self.i = self.src:match (self.patterns.spaces, self.i)
-       if self.i>#self.src then return gen_token("Eof", "eof", self.posfact :get_position (#self.src)) end
+       if self.i>#self.src then
+         local fli = self.posfact :get_position (#self.src+1)
+         local lli = self.posfact :get_position (#self.src+1) -- ok?
+         return gen_token("Eof", "eof", new_lineinfo(fli, lli))
+       end
        local i_first = self.i -- loc = position after whitespaces
        
        -- try every extractor until a token is found
