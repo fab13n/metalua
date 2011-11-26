@@ -28,8 +28,6 @@
 
 module ("lexer", package.seeall)
 
-require 'metalua.runtime'
-
 
 lexer = { alpha={ }, sym={ } }
 lexer.__index=lexer
@@ -597,6 +595,7 @@ end
 -- 
 ----------------------------------------------------------------------
 function lexer :clone()
+   require 'metalua.runtime'
    local clone = {
       alpha = table.deep_copy(self.alpha),
       sym   = table.deep_copy(self.sym) }
