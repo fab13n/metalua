@@ -37,6 +37,12 @@ local debugf = function() end
 
 
 ----------------------------------------------------------------------
+-- Some locale settings produce bad results, e.g. French locale
+-- expects float numbers to use commas instead of periods.
+----------------------------------------------------------------------
+os.setlocale('C')
+
+----------------------------------------------------------------------
 -- Create a new metatable, for a new class of objects.
 ----------------------------------------------------------------------
 local function new_metatable(name) 
