@@ -12,13 +12,13 @@ The design of H tries to respect metalua's core principles:
 \begin{itemize}
 \item Nothing taboo under the hood: the underlying mechanisms of the
   language must remain simple enough to be intelligible to their
-  intended users. Black magic should be banned from the desing. This
+  intended users. Black magic should be banned from the design. This
   rules out hygienic macros as a primitive: these either rely on very
   advanced and hard to predict mechanisms, or severely limit the
   manipulation tools available to the macro authors.
 \item Simple by default: advanced users should know what happens under
   the hood, but more casual users should be able to simply turn the
-  ignition and drive. It should be possible to use H, for regular
+  ignition and drive. It should be possible to use H for regular
   macros, without much understanding of its advanced principles and
   implementation.
 \item Everything's a regular program: again, most macro systems
@@ -34,7 +34,7 @@ The design of H tries to respect metalua's core principles:
 
 \paragraph{Inside captures}
 There are two kind of captures, inside a macro and outside a
-macro. People often think about inside captures, in parts because the
+macro. People often think about inside captures, in part because the
 C preprocessor is subject to it. It happens when a macro inserts user
 code in a quote, and the quote declares a local variable that shadows
 a user one:
@@ -68,7 +68,7 @@ local foo = -{ `Stat{ +{ block:
 }, +{result} } }
 \end{Verbatim}
 
-This is fixed by renaming automatically all local variables in the
+This is fixed by automatically renaming all local variables in the
 macro with fresh names. H provides an AST walker which does
 that. However, it needs to rename only macro code, not user-provided
 code; therefore the macro writer has to somehow mark the user
@@ -157,7 +157,7 @@ local table = { 1, 2, 3 }
                         (-{`Id '.2.X.table'}.tostring(table)))
 \end{Verbatim}
 
-To make this work, we need to introduce, somewhere where no variable
+To make this work, we need to introduce, someplace where no variable
 is captured, the following local statement:
 \begin{Verbatim}
 local -{`Id '.1.X.printf'}, -{`Id '.2.X.table'} = printf, table

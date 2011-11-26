@@ -2,13 +2,13 @@
 Metalua is essentially Lua + code generation at compile time +
 extensible syntax. However, there are a couple of additional
 constructs, considered of general interest, which have been added to
-Lua's original syntax. These are presented in this section
+Lua's original syntax. These are presented in this section.
 
 \subsection{Anonymous functions}
 Lua lets you use anonymous functions. However, when programming in a
 functional style, where there are a lot of short anonymous functions
 simply returning an expression, the default syntax becomes
-cumbersome. Metalua being functional-styel friendly, it offers a
+cumbersome. Metalua being functional-style friendly, it offers a
 terser idiom: ``{\tt function(arg1, arg2, argn) return some\_expr
   end}'' can be written:\\
 ``{\tt|arg1,arg2,argn| some\_exp}''.
@@ -46,8 +46,8 @@ dedicated section later in this manual.
 
 \subsection{Metalevel shifters}
 
-These to dual notations are the core of metaprogramming: one
-transforms code into a manipulaeble representation, and the other
+These two dual notations are the core of metaprogramming: one
+transforms code into a manipulable representation, and the other
 transforms the representation back into code. They are noted
 {\tt+\{...\}} and {\tt-\{...\}}, and due to their central role in
 metalua, their use can't be summed up adequately here: they are fully
