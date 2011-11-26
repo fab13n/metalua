@@ -35,7 +35,7 @@ end
 x = { f(), f(), f() }
 \end{verbatim}
 
-The extension offers a way to expand intermediate response: they ahve
+The extension offers a way to expand intermediate response: they have
 to be followed by {\tt...}. In the example above, {\tt y = \{f()...,
   f()..., f()...\}} would expand as {\tt\{1, 2, 3, 1, 2, 3, 1, 2,
   3\}}.
@@ -44,7 +44,7 @@ Comprehensions are naturally expanded, i.e. another way to write {\tt
   y} would have been {\tt y = \{i for i=1,3; i for i=1,3; i for
   i=1,3\}} (notice however that we had to separate elements with
 semicolons rather than commas: if we didn't, the {\tt i} of the second
-loop would have been tekane as a third parameter to the first for loop
+loop would have been taken as a third parameter to the first for loop
 header).
 
 Sub-sampling is done with indexes, by using the comma to separate
@@ -66,7 +66,7 @@ Beware of a lexing issue: if you write ``{\tt[1...n]}'', it will be
 interpreted as number {\tt 1.} followed by operator {\tt..}: put a
 space between literal numbers and operators starting with a dot.
 
-Notice taht there are now two substancially different operators with
+Notice that there are now two substancially different operators with
 very similar syntaxes: the original index operator, which returns a
 single element, and the sub-sampling operators, which returns a list
 of elements. If you want to returna single element list, you can

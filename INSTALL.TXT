@@ -31,12 +31,29 @@ Unix
 - get the sources
 - cd metalua/src
 - set these variables or modify them in make.sh:
-  * BUILD: a directory in which metalua should be built. Must be writable by the user.
+  * BUILD: a directory in which metalua should be built.
+    Must be writable by the user.
   * INSTALL_BIN: where metalua will be copied
-  * INSTALL_LIB: where (meta)lua libs will be copied. Should be referenced in your LUA_PATH.
+  * INSTALL_LIB: where (meta)lua libs will be copied. Should be
+    referenced in your LUA_PATH.
 - run ./make.sh, under your UID
-- a ./make-install.sh script should have been generated, run it. If you want to isntall it
-  in a directory that doesn't belong to you, you might want to run it as root.
+- a ./make-install.sh script should have been generated, run it. If you
+  want to install it in a directory that doesn't belong to you, you
+  might want to run it as root.
+- if you don't want to edit make.sh, this will do:
+  DESTDIR=/opt/metalua/git-1 \
+  INSTALL_BIN=/usr/local/bin \
+  INSTALL_LIB=/usr/local/lib/lua/5.1 \
+  ./make.sh
+  If this run is successful, do:
+  DESTDIR=/opt/metalua/git-1 \
+  INSTALL_BIN=/usr/local/bin \
+  INSTALL_LIB=/usr/local/lib/lua/5.1 \
+  ./make-install.sh
+  if no packaging is required, just leave out the "DESTDIR=... \" line.
+  If you want metalua to reside in the same space as distribution
+  supplied files in "/usr" instead of "/usr/local", you propably want to
+  leave out "local/" in the paths above.
 
 Test drive
 ----------

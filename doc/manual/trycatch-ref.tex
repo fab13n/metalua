@@ -28,7 +28,7 @@ When such a statement is executed:
 \item the protected code is executed
 \item if its execution causes an error, the error message is matched
   against all exception patterns, until one matches or the last one is
-  reached (see the \verb+match+ extension for patterns
+  reached (see the \verb+match+ extension for pattern
   semantics). Patterns can include guard clauses. The block
   corresponding to the first matching pattern is executed. If no
   pattern matches, the error will be rethrown.
@@ -68,10 +68,10 @@ end
  programming pattern in which an object's lifetime is strictly
  associated with a given lexical scope. For instance, if a file is
  opened in a given scope, it must be closed as soon as this scope is
- leaved, even if it's leaved due to a {\tt return} or an error. The
+ left, even if it's left due to a {\tt return} or an error. The
  ``finally'' block allows this, but since it's a very common use case,
  there is a dedicated extension ``with/do'': you initialize some resource
- behind the ``with'' keyword, and it will be closed after the ``do''
+ after the ``with'' keyword, and it will be closed after the ``do''
  block is left. The only constraint is that the resources must have a
  {\tt:close()} method which releases them. Here is a usage example:
 

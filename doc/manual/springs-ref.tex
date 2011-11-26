@@ -2,7 +2,7 @@
 
 \subsection{Origins and purpose}
 Springs (Serialization through Pluto for RINGS) is an extension of Lua Rings and
-Pluto: Lua Rings allow to create new Lua states from within Lua, but offers
+Pluto: Lua Rings allow to create new Lua states from within Lua, but offer
 limited communication between them: a master universe can only send instruction
 to a slave universe through a ``{\tt dostring}'', and the slave universe can
 only send back strings, integers and booleans as results. Since Pluto allows to
@@ -18,7 +18,7 @@ The underlying projects can be found on the web:
 \item \verb|<http://www.keplerproject.org/rings/>|
 \item \verb|<http://luaforge.net/projects/pluto/>|
 \end{itemize}
-Notice however that the Pluto version used in metalua has significantly patched
+Notice however that the Pluto version used in metalua is significantly patched
 and debugged by Ivko Stanilov.
 
 \subsection{API}
@@ -36,7 +36,7 @@ extended by spring with:
   easily. For instance:\\
   \verb|r:pcall('table.concat', {'a', 'b', 'c'}, ',')|
 \item {\tt :call()} is similar to :pcall(), except that in case of error, it
-  actually throws the error in the sender universe's context. Therefore, it
+  actually throws the error in the senders universe's context. Therefore, it
   doesn't return a success status as does pcall(). For instance: \\
   \verb|assert('xxx' == r:call('string.rep', 'x', 3))|
 \end{itemize}
