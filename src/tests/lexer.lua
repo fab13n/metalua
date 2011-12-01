@@ -18,6 +18,12 @@ local function checkeq(a, b)
   end
 end
 
+local function checkmatch(a, b)
+  if not a:match(b) then
+    error('not match:\n' .. tostring(a) .. '\n' .. tostring(b), 2)
+  end
+end
+
 -- reads file to string (with limited error handling)
 local function readfile(filename)
   local fh = assert(io.open(filename, 'rb'))
@@ -102,5 +108,23 @@ checkeq(lex'goto a1 ::a1 ::', [[`Keyword<?|K1-4>{goto}`Id<?|K6-7>{a1}]]..
 
 
 assert(lex(readfile(arg[0]))) -- lex self
+
+-- checks of unescape_string
+local p = function(s) local ok, o = pcall(tlex, s); return ok and o[1][1] or o end
+checkmatch(p[['\']], 'Unterminated')
+checkeq(p[['\\a\\\t']], [[\a\]]..'\t')
+checkeq(p[['\\116']], [[\116]])
+checkeq(p[['\\\116']], [[\t]])
+checkeq(p[['\092\116']], [[\t]]) -- was bug
+checkeq(p[['\x5c\x74']], [[\t]]) -- 5.2 hex
+-- Lua 5.2
+checkeq(p[['\z\z \
+a\z  ']], [[
+
+a]])
+checkeq(p[['\\z']], [[\z]])  -- was bug
+checkmatch(p[['\xaz']], 'Unknown escape')
+checkmatch(p[['\999']], 'must be in.*255')
+checkeq(p[['\z\32']], ' ') -- was bug
 
 print 'DONE'

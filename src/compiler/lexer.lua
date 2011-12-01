@@ -252,6 +252,15 @@ local function unescape_string (s)
      if c == '\\' then c = '\\\\' end -- parsed by unesc_letter (test: "\x5cb" --> "\\b")
      return backslashes..c
    end
+   
+   -- Handle Lua 5.2 \z sequences
+   local function unesc_z(backslashes, more)
+     if #backslashes%2==0 then
+       return backslashes..more
+     else
+       return backslashes :sub (1,-2)
+     end
+   end
 
    -- Take a letter [x], and returns the character represented by the 
    -- sequence ['\\'..x], e.g. [unesc_letter "n" == "\n"].
@@ -263,10 +272,10 @@ local function unescape_string (s)
       return t[x] or error([[Unknown escape sequence '\]]..x..[[']])
    end
 
-   s = s:gsub ("(\\+)([0-9][0-9]?[0-9]?)", unesc_digits)
-   s = s:gsub ("(\\+)x([0-9a-fA-F][0-9a-fA-F])", unesc_hex) -- Lua 5.2
-   s = s:gsub ("\\z%s*", "")  -- Lua 5.2
-   s = s:gsub ("\\(%D)",unesc_letter)
+   s = s: gsub ("(\\+)(z%s*)", unesc_z)  -- Lua 5.2
+   s = s: gsub ("(\\+)([0-9][0-9]?[0-9]?)", unesc_digits)
+   s = s: gsub ("(\\+)x([0-9a-fA-F][0-9a-fA-F])", unesc_hex) -- Lua 5.2
+   s = s: gsub ("\\(%D)",unesc_letter)
    return s
 end
 
