@@ -43,7 +43,7 @@ function mlc_xcall.server (luafilename, astfilename, metabugs)
    local status, ast
    local function compile() return mlc.luafile_to_ast (luafilename) end
    if mlc.metabugs then 
-      print 'mlc_xcall.server/metabugs'
+      --print 'mlc_xcall.server/metabugs'
       --status, ast = xpcall (compile, debug.traceback)
       --status, ast = xpcall (compile, debug.traceback)
       local function tb(msg)

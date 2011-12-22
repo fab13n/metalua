@@ -57,7 +57,7 @@ trouble. More specifically:
     pattern;
   \end{itemize}
 \item variables are valid patterns, and match everything. Moreover,
-  the term matched by the variable captures it, i.e. in the
+  the term matched by a variable captures it, i.e. in the
   corresponding block, that variable is set to the
   matched term.
 \end{itemize}
@@ -176,7 +176,7 @@ end ... end -- (16 times)
 ~\\~\\
 
 Notice that the relative order of tests and assignments is meaningful:
-we cannot put all assignments on one side, and all tests on an
+we cannot put all assignments on one side, and all tests on the
 other, e.g. \verb|v2 = v1.tag| on line 3 doesn't make sense if
 \verb|type(v1) == table| on line 2 fails.
 
@@ -193,7 +193,7 @@ is described in the bullet list above:
 \begin{Verbatim}[fontsize=\scriptsize]
 
       -------------------------------------------------------------------
-      -- Turn a pattern into a list of conditions and assignations,
+      -- Turn a pattern into a list of conditions and assignments,
       -- stored into [acc]. [n] is the depth of the subpattern into the
       -- toplevel pattern; [tested_term] is the AST of the term to be 
       -- tested; [pattern] is the AST of a pattern, or a subtree of that
@@ -228,7 +228,7 @@ This function relies on the following helper functions:
 \item {\tt var($n$)} generates the variable name ``\verb|v|$n$'', which
   is used to store the tested term at depth level $n$. Indeed,
   sub-patterns in table fields are matched against sub-terms of the
-  tested term. It also remembers of the biggest $n$  it ever received, 
+  tested term. It also remembers the biggest $n$ ever received, 
   and stores it into \verb|max_n| (this will be used to know which
   local vars have to be generated, see below);
 \item {\tt accumulate()} just stores an additional code snippet in a
@@ -248,7 +248,7 @@ anti-quoted identifier.
 As written above, our collapsing function will be kept as simple
 as possible, and will not try to minimize the amount of generated
 code. It takes as parameters {\tt n}, the index of the quote currently
-collapsed in the accumulator, and {\tt inner\_term} the statement
+collapsed in the accumulator, and {\tt inner\_term}, the statement
 block to put inside the innermost part of the test. It calls itself
 recursively, so that the collapsed term is built inside out (generally
 speaking, working with trees, including AST, involves a lot of
@@ -258,10 +258,10 @@ recursive functions). \verb|acc| is the list filled by the
 \begin{Verbatim}[fontsize=\scriptsize]
 
       -------------------------------------------------------------------
-      -- Turn a list of tests and assignations into [acc] into a
+      -- Turn a list of tests and assignments into [acc] into a
       -- single term of nested conditionals and assignments.
       -- [inner_term] is the AST of a term to be put into the innermost
-      -- conditionnal, after all assignments. [n] is the index in [acc]
+      -- conditional, after all assignments. [n] is the index in [acc]
       -- of the term currently parsed.
       -- 
       -- This is a recursive function, which builds the inner part of
@@ -378,7 +378,7 @@ compile all (pattern, block) pairs:
 \end{Verbatim}
 
 There is one point to notice in this quote: \verb|body| is used where
-a statement is expected, although it contains a {\em list} if
+a statement is expected, although it contains a {\em list} of
 statements rather than a single statement. Metalua is designed to
 accept this, i.e. if {\tt a, b, c, d} are statements, AST {\tt
 `Do\{  a, b, c, d \}} and {\tt`Do\{ a, \{ b, c \}, d\} } are
@@ -387,7 +387,7 @@ operator.
 
 \subsubsection{Syntax extension}
 To use this, we provide a syntax inspired by OCaml\footnote{It is
-  actually the same syntax as OCaml's, except that we introduced an
+  actually the same syntax as OCaml's, except that we introduce an
   explicit {\tt end} terminator, to stay homogeneous with Lua.}: 
 
 \begin{Verbatim}[fontsize=\scriptsize]
@@ -423,21 +423,21 @@ mlp.stat:add{ "match", mlp.expr, "with", gg.optkeyword "|",
 
 \noindent Now, if you try this\ldots\ it won't work! Indeed, Metalua
 needs to know what keywords might terminate a block of statements. In
-this case, it doesn't know that ``\verb+|+'' can terminate a block. We
-need therefore to add the following statement:
+this case, it doesn't know that ``\verb+|+'' can terminate a block.
+Therefore we need to add the following statement:
 
 \begin{Verbatim}[fontsize=\scriptsize]
 
 mlp.block.terminators:add "|"
 \end{Verbatim}
 
-\noindent Finally that's it, we have implemented a working pattern
+\noindent That's it, we have implemented a working pattern
 matching system in 75 lines of code!
 
 \subsubsection{Possible improvements}
 Here are a couple of suggestions to further improve the pattern
 matching system presented above. Some of these proposals can be
-implemented very quickly, some others more complex; all of them
+implemented very quickly, others are more complex; all of them
 present some practical interest.
 
 The code of the basic version, as presented here, is available at
@@ -451,21 +451,21 @@ doing it will help you get gently into the code.
 hand-written programs, but they're a bliss for machine-generated
 code. They would slightly simplify the code of pattern matching as
 presented above; but for many extension proposals listed below, they
-will make reasonnably easy some things which would otherwise be
-awfully contrived. Exercice: simplify the implementation above as much
+will make some things reasonably easy, which would otherwise be
+awfully contrived. Exercise: simplify the implementation above as much
 as possible by using gotos.
 
 Labels and gotos in metalua ASTs are represented as {\tt`Label\{ id
   \}} and {\tt`Goto\{ id \}} respectively, with {\tt id} an
 identifier, typically generated by {\tt mlp.gensym()}. It is always
-safe to jump out of a block; jumping into a block is not guaranteed
-against weird interactions with local variables and upvalues.
+safe to jump out of a block; jumping into a block is not safe
+regarding weird interactions with local variables and upvalues.
 
 \paragraph{{\tt collapse()} optimization} Instead of nesting if
 statements systematically, two nested {\tt if}s without {\tt else}
 branches can be simplified in a single branch with an {\tt and}
 operator. Not sure it would change the bytecode's efficiency, but
-that's a good exercice of AST manipulation.
+that's a good exercise of AST manipulation.
 
 \paragraph{Superfluous assignments} When parsing a table entry, we
 assign it to a variable, then recursively call {\tt parse\_pattern()}
@@ -482,7 +482,7 @@ elements. However, if the last element of the pattern is {\tt`Dots}
 
 \paragraph{Adding guards}
 It is sometimes desirable to add arbitrary conditions for a pattern to
-match, conditions which might no be expressed by a pattern. OCaml
+match, conditions which might not be expressable by a pattern. OCaml
 allows to add them with a ``\verb|when|'' keyword:
 \begin{Verbatim}[fontsize=\scriptsize]
 
@@ -498,8 +498,8 @@ reservation.
 
 \paragraph{More bindings}
 The way pattern matching is currently implemented, one can either bind
-a subterm to a variable, or check its structure against a sub-pattern,
-not both simultaneously. OCaml provides an ``\verb|as|'' operator,
+a subterm to a variable or check its structure against a sub-pattern,
+but not both simultaneously. OCaml provides an ``\verb|as|'' operator,
 which allows to do both (Haskell calls it ``\verb|@|''). For instance,
 in the following example, any ADT whose tag is \verb|"RepeatMe"| will
 be replaced by two occurrences of itself, while others will remain
@@ -525,7 +525,7 @@ The {\tt+} operator might prove tricky to implement, if you don't
 convert your code generator to gotos and labels first.
 
 \paragraph{Linear bindings}
-We should check, when compiling a pattern, that it is left-linear,
+When compiling a pattern we should check that it is left-linear,
 i.e. that variables don't appear more than once in the pattern. People
 might be tempted to write things like this to check whether a tree is
 symmetric:
@@ -572,9 +572,9 @@ simple {\tt let}s is as efficient as before! Moreover, there is an (easy)
 scoping issue: the variables assigned belong to the scope of the
 surrounding block.
 
-\paragraph{Pattern matchings as expressions}
-Pattern matching are currently statements, and take statements as
-right-hand sides of cases. We could allow pattern matchings where
+\paragraph{Pattern matching as expressions}
+Pattern matches are currently statements, and take statements as
+right-hand sides of cases. We could allow pattern matches where
 expressions are expected: these would take expressions instead of
 statements as right-hand sides. Two ways to implement this: the dirty
 one (hack with functions to change match statements into expressions),
@@ -587,14 +587,14 @@ That's something language designers love to do, for largely mystic
 reasons: writing a language's compiler in the language itself. Here,
 the idea is to re-implement the pattern matching extension by using
 pattern matching, and compile it with the older version. Comparing the
-firsrt and second versions of the code will give you an idea of how
+first and second versions of the code will give you an idea of how
 much code clarification is brought to you by the pattern matching
 extension.
 
 \paragraph{Pattern conjunction} Another feature to take from OCaml is
 multiple patterns for a single block. Instead of associating one
 block with one pattern, cases associate a block with a (non-empty)
-list of patterns. All of these patterns have to bond the same
+list of patterns. All of these patterns have to bind the same
 variables, except for {\tt\_}. The first pattern in the list to match
 the tested term does the binding. Patterns are separated by
 ``\verb+|+''. Example:
@@ -615,16 +615,16 @@ is a challenging proposal:
 \begin{itemize}
 \item Realize, if you didn't already, that Metalua's ADT are
   isomorphic to XML, if you identify string-keys in tables with
-  attributes, and limit there content to strings and number. For
+  attributes, and limit their content to strings and number. For
   instance, ``{\tt <foo bar=3><baz/>eek</foo>}'' easily maps to ``{\tt
     `foo\{ bar=3, `baz, "eek" \}}'';
-\item compare what ML-style pattern matching does with what XSLT
-  does (and with what you'd like it to do);
+\item compare what ML-style pattern matching does with XSLT
+  (and what you'd like it to do);
 \item design, implement, publish. You might want to google
   ``CDuce''\footnote{\url{http://www.cduce.org}} for neat ideas.
 \end{itemize}
 
-If you do this, I'd be really interested to put back your contribution
+If you do this, I'd really be interested to put back your contribution
 in the next version of Metalua!
 
 \subsubsection{Correction}

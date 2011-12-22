@@ -105,7 +105,7 @@ function mlc.convert (x, src_fmt, dst_fmt, name)
       local li = lx:lineinfo_left()
       error (string.format (
          "Parsing error in %s line %s, column %i, char %s: \n%s",
-         name or "<nofilename>", li[1], li[2], li[3], x), 2)
+         name or "<nofilename>", li.line, li.column, li.offset, x), 2)
       return nil
    end
    

@@ -1,8 +1,8 @@
 \section{Concepts}
 
 \paragraph{Lua}
-Lua\footnote{\url{http://www.lua.org}} is an very clean and powerful
-language, with everything the discrimiating hacker will love: advanced
+Lua\footnote{\url{http://www.lua.org}} is a very clean and powerful
+language, with everything the discriminating hacker will love: advanced
 data structures, true function closures, coroutines (a.k.a collaborative
 multithreading), powerful runtime introspection and metaprogramming
 abilities, ultra-easy integration with C.
@@ -17,10 +17,10 @@ with single or multiple inheritance, or a prototype based system
 the kind of more advanced and baroque things that only CLOS users
 could dream of...
 
-Basically, Lua could be though of as Scheme, with:
+Basically, Lua could be thought of as Scheme, with:
 \begin{itemize}
 \item a conventional syntax (similar to Pascal's or Ruby's);
-\item the associative table as basic datatype instead of the list;
+\item the associative table as the basic datatype instead of the list;
 \item no full continuations (although coroutines are actually one-shot
   semi-continuations);
 \item no macro system.
@@ -29,7 +29,7 @@ Basically, Lua could be though of as Scheme, with:
 \paragraph{Metalua}
 Metalua is an extension of Lua, which essentially addresses the lack
 of a macro system, by providing compile-time metaprogramming (CTMP)
-and the ability for user to extend the syntax from within Lua.
+and the ability for users to extend the syntax from within Lua.
 
 Runtime metaprogramming (RTMP) allows a program to inspect itself
 while running: an object can thus enumerate its fields and methods,
@@ -46,7 +46,7 @@ maintenance issues that ensue.
 
 \paragraph{Metaprogramming}
 A compiler is essentially a system which takes sources (generally as
-a set of ASCII files), turn them into a practical-to-play-with data
+a set of ASCII files), turns them into a practical-to-play-with data
 structure, does stuff on it, then feeds it to a bytecode or machine
 code producer. The source and byte-code stages are bad abstraction
 levels to do anything practical: the sensible way to represent code,
@@ -81,7 +81,7 @@ book\footnote{Programming in Lua, 2nd edition.\\
   ISBN 85-903798-2-5 Paperback, 328 pages\\
   Distributed by Ingram and Baker \& Taylor.}, 
 a.k.a. ``the blue PiL'', probably one of the best programming books
-since K\&R's ``The C Language''. Suffice to say that a seasonned
+since K\&R's ``The C Language''. Suffice it to say that a seasoned
 programmer will be able to program in Lua in a couple of hours,
 although some advanced features (coroutines, function environments,
 function closures, metatables, runtime introspection) might take
@@ -146,7 +146,7 @@ CTMP-enabled languages:
 \item Languages built from scratch, such as
   converge\footnote{\url{http://convergepl.org}} or
   Logix\footnote{\url{http://http://www.livelogix.net/logix/index.html}}, have
-  to bear with the very long (often decade) maturing time required by a
+  to bear with the very long (often decades) maturing time required by a
   programming language. Moreover, they lack the existing libraries and
   developpers that come with an already succesful language.
 
@@ -159,7 +159,7 @@ CTMP-enabled languages:
   approach of giving powerful generic tools rather than ready-made
   closed features to its users.
 \item Its excellent supports for runtime metaprogramming.
-\item Its syntax, despite (or due to its) being very readable and easy
+\item Its syntax, despite (or due to) being very readable and easy
   to learn, is also extremely simple to parse. This means no extra
   technology gets in the way of handling syntax (no BNF-like
   specialized language, no byzantine rules and exceptions). Even more
@@ -187,7 +187,7 @@ design goals:
 \end{itemize}
 
 Finally, it's difficult to talk about a macro-enabled language without making
-Lisp comparisons. Metalua borrows a lot to Scheme's love for empowering
+Lisp comparisons. Metalua borrows a lot of Scheme's love for empowering
 minimalism, through Lua. However, in many other respects, it's closer to Common
 Lisp: where Scheme insists on doing The Right Thing, CL and metalua assume that
 the programmer knows better than the compiler. Therefore, when a powerful but

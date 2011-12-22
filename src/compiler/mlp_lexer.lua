@@ -21,10 +21,13 @@ local mlp_lexer = lexer.lexer:clone()
 
 local keywords = {
     "and", "break", "do", "else", "elseif",
-    "end", "false", "for", "function", "if",
+    "end", "false", "for", "function",
+    "goto", -- Lua5.2
+    "if",
     "in", "local", "nil", "not", "or", "repeat",
     "return", "then", "true", "until", "while",
-    "...", "..", "==", ">=", "<=", "~=", 
+    "...", "..", "==", ">=", "<=", "~=",
+    "::", -- Lua5,2
     "+{", "-{" }
  
 for w in values(keywords) do mlp_lexer:add(w) end

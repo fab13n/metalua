@@ -52,9 +52,9 @@ other patterns and blocks are ignored. If no pattern matches, an error
 {\tt"mismatch"} is raised. However, we'll see it's easy to add a catch-all
 pattern at the end of the match, when we want it to be failproof.
 
-\subsection{Patterns definition}
+\subsection{Pattern definitions}
 
-\paragraph{Atomic litterals}
+\paragraph{Atomic literals}
 Syntactically, a pattern is mostly identical to the values it matches: numbers,
 booleans and strings, when used as patterns, match identical values.
 
@@ -98,10 +98,10 @@ end
 \end{verbatim}
 
 When a variable appears several times in a single pattern, all the elements they
-match must be equal, in the sense of the "==" operator. Fore instance, pattern \{
+match must be equal, in the sense of the "==" operator. For instance, pattern \{
   x, x \} will match value \{ 1, 1 \}, but not \{ 1, 2 \}. Both values would be
 matched by pattern \{ x, y \}, though. A special identifier is "\_", which doesn't
-bind its content. Even if it appears more than once in the pattern, metched
+bind its content. Even if it appears more than once in the pattern, matched
 value parts aren't required to be equal. The pattern "\_" is therefore the
 simplest catch-all one, and a match statement with a "{\tt| \_ ->}" final
 statement will never throw a "mismatch" error.

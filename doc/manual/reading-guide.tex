@@ -14,11 +14,11 @@ address, and why you might want to read them immediately---or not.
 \item{\bf Meta-programming in metalua:} this chapter exposes the generic principles
   of static meta-programming: meta-levels in sources, AST representation of
   code, meta-operators. You need to read this carefully if you plan to write any
-  non-trivial meta-programming code and you've never used languages like, Common
+  non-trivial meta-programming code and you've never used languages like Common
   Lisp, camlp4 or Converge. If you're familiar with one of these, a cursory look
   over this chapter might be enough for you.
 \item{\bf Standard meta-programming libraries:} these are the tools that will allow
-  you to manipulate code effectively; the more advanced an extension you want to
+  you to effectively manipulate code; the more advanced an extension you want to
   write the more of these you'll want to know.
   \begin{itemize}
   \item{\bf mlp} is the dynamically extensible metalua parser. You need to know it
@@ -29,9 +29,9 @@ address, and why you might want to read them immediately---or not.
   \item{\bf match} is an extension supporting structural pattern matching (which has
     almost nothing to do with regular expressions on strings). It's a construct
     taken from the ML language familly, which lets you manipulate advanced data
-    structures in vrey powerful ways. It's extremely helpful, among others, when
+    structures in very powerful ways. It's extremely helpful, among others, when
     working with AST, i.e. for most interesting meta-programs.
-  \item{\bf walk} is a code walker generator: smomething akin to a visitor pattern,
+  \item{\bf walk} is a code walker generator: something akin to a visitor pattern,
     which will help you to write code analysers or transformers. Whenever you
     want to find and transform all return statements in an AST, rename some
     conflicting local variables, check for the presence of nested for loops
@@ -39,14 +39,14 @@ address, and why you might want to read them immediately---or not.
     faster. 
   \item{\bf hygiene} offers hygienic macros, i.e. protects you from accidental
     variable captures. As opposed to e.g. Scheme, macro writing is not limited
-    to a term rewriting system in metalua, which lets more power to the
-    programmer, but prevents from completely automating macro hygienization. If
-    you wrote an extension and you want to raise it to production-quality,
-    you'll need among others to protect its users from variable captures, and
-    you'll need to hygienize it. If you don't feel like cluttering your code
+    to a term rewriting system in metalua, which gives more power to the
+    programmer, but prohibits completely automating macro hygienization. If
+    you wrote an extension and you wanted to raise it to production-quality,
+    you'd need among others to protect its users from variable captures, and
+    you'd need to hygienize it. If you don't feel like cluttering your code
     with dozens of {\tt gensym} calls, you'll want to use the macro hygienizer.
   \item{\bf dollar:} if you wrote a macro, but don't feel the need to give it a
-    dedicated syntax extension, this library will let you call this macro as a
+    dedicated syntax extension, this library will let you call the macro as a
     regular function call, except that it will be prefixed with a ``{\tt\$}''.
   \end{itemize}
   \item{\bf General purpose libraries:} Lua strives at staying minimalist, and does
@@ -55,8 +55,8 @@ address, and why you might want to read them immediately---or not.
     needs quite some support to run, and relies on a number of imported and
     custom-built libraries. Most of them can be reused for many other purposes
     including yours.\\
-    A whole category of metalua users, who want to use third party libraries
-    rather than reinventing their own wheels, will be primarily interested by
+    A whole category of metalua users who want to use third party libraries,
+    rather than reinventing their own wheels, will be primarily interested in
     these.
     \begin{itemize}
     \item{\bf metalua.runtime:} extensions to Lua core libraries: base, table,
@@ -69,13 +69,13 @@ address, and why you might want to read them immediately---or not.
       for metalua programs.
     \item{\bf springs} brings together Lua Ring's handling of separate Lua universes
       with Pluto's communication capabilities.
-    \item{\bf clist} offers an extended tables-as-list interface: lists by
+    \item{\bf clist} offers an extended tables-as-lists interface: lists by
       comprehension {\em \`a la} Haskell or Python, list chunks etc.
     \item{\bf xglobal} makes global variables declaration mandatory, for safer
-      programming, with almost no runtime overhead, and a syntax consistant qith
+      programming, with almost no runtime overhead, and a syntax consistant with
       local variables declaration.
     \item{\bf anaphoric} introduces anaphoric control structures, akin to Common
-      Lisp's {\tt aif}-familly macros.
+      Lisp's {\tt aif}-family macros.
     \item{\bf trycatch} provides a proper exception system, with reliable finally
       blocks and exception catching by structural pattern matching.
     \item{\bf log} eases the terminal logging of variables, mainly for those from

@@ -22,3 +22,10 @@ all:
 
 install:
 	cd src && ./make-install.sh
+
+doc: doc-pdf doc-html
+
+doc-pdf: doc/manual/metalua-manual.pdf
+
+doc/manual/metalua-manual.pdf: doc/manual/*.tex
+	cd doc/manual && pdflatex metalua-manual.tex

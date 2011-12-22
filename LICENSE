@@ -4,11 +4,21 @@ Copyright (c) 2006-2997 Fabien Fleutot <metalua@gmail.com>
 
 Metalua is available under the MIT licence.
 
-Significant parts of the compiler borrow code from other projects,
-all released under the MIT license:
-- Lua                           <http://www.lua.org>
+To compile and use Metalua, you need to have installed the following
+project, released under the MIT public licence:
+
+- Lua 5.1 <http://www.lua.org>
+
+Significant parts of the compiler borrow code from the following project,
+released under the MIT license:
+
 - Kein-Hong Man's     Yueliang  <http://luaforge.net/projects/yueliang>
-- Tomás Guisasola's   Lua Rings <http://www.keplerproject.org/rings>
+
+Previous versions of Metalua used to embed the following projects,
+all under MIT licence (hese dependencies have been removed to turn
+Metalua into a pure Lua project, simplifying the port to non-Unix OSes):
+
+- Tomas Guisasola's   Lua Rings <http://www.keplerproject.org/rings>
 - Ben Sunshine-Hill's Pluto     <http://freshmeat.net/projects/pluto>
 - Thomas Reuben's     Bitlib    <http://luaforge.net/projects/bitlib>
 

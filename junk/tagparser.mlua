@@ -1,0 +1,83 @@
+require 'metalua.compiler'
+Q = require 'metalua.treequery'
+
+--- Test whether a comment is special.
+function is_special(comments)
+    return comments and comments[1][1] :sub(1, 1) == '-'
+end
+
+--- Extract the text of the comment attached to an AST,
+--  return nil if there isn't any.
+function get_comment(ast)
+    local li = ast.lineinfo
+    if not li then return nil end
+    local c = li.first.comments
+    if not is_special(c) then -- no prefix special comment
+        c = li.last.comments
+        if c.lineinfo.first.line~=li.last.line then return nil end -- no suffix comment on same line
+        if not is_special(c) then return nil end -- suffix not special
+    end
+    return (c :text() :match("^%-+(.*)$")) -- special comment found, remove prefix dashes
+end
+
+M = { }
+
+function M.find_tagsign(lx)
+    local tk
+    repeat tk = lx :next()
+    until lx :is_keyword (tk, '@') or tk.tag=='Eof'
+    return tk.tag~='Eof'
+end
+
+function M.attribute_value(lx)
+    local tk = lx :next() 
+    return tk[1]
+end
+
+M.attribute = gg.sequence{
+    mlp.id,
+    gg.onkeyword{ '=', M.attribute_value },
+    builder = |x| { x[1][1], x[2] or x[1][1]}
+}
+
+M.attributes = gg.list{ 
+    primary     = M.attribute,
+    separators  = ",",
+    terminators = "]",
+    builder = function(x)
+        local r = { }
+        for _, pair in ipairs(x) do
+            printf("pair = %s", table.tostring(pair))
+            r[pair[1]] = pair[2]
+        end
+        return r
+    end
+}
+
+M.tag = gg.sequence{
+    M.find_tagsign,
+    mlp.id,
+    gg.onkeyword{ '[', 
+        gg.sequence{
+            M.attributes,
+            ']',
+            builder = |x| x[1]
+    }},
+    builder = |x| { x[2][1], x[3] or { } }
+}
+
+M.tags = gg.list{ primary = M.tag }
+
+M.lexer = lexer.lexer :clone()
+
+function parse_comment(txt)
+    local lx = M.lexer :newstream (txt)
+    assert(lx)
+    return M.tags(lx)
+end
+    
+
+ast = mlc.luafile_to_ast[[/home/fabien/src/scratch/test.lua]]
+
+lx = M.lexer:newstream[[ blah blah @tagname[x=y,z="t r o i s"] ]]
+x  = M.tag(lx)
