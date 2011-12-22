@@ -57,6 +57,10 @@ function mlc_xcall.server (luafilename, astfilename, metabugs)
       --status, ast = xpcall (compile, debug.traceback)
       status, ast = xpcall (compile, tb)
    else status, ast = pcall (compile) end
+   if status then 
+      local check_status, check_msg = pcall (mlc.check_ast, 'block', ast)
+      if not check_status then status, ast = false, check_msg end
+   end
    local out = io.open (astfilename, 'w')
    if status then -- success
       out:write (serialize (ast))

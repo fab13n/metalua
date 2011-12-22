@@ -82,13 +82,15 @@ cd ..
 
 echo '*** Bootstrap the parts of the compiler written in metalua ***'
 
-${LUA} ${BASE}/build-utils/bootstrap.lua ${BASE}/compiler/mlc.mlua output=${BUILD_LIB}/metalua/mlc.luac || exit 1
-${LUA} ${BASE}/build-utils/bootstrap.lua ${BASE}/compiler/metalua.mlua output=${BUILD_LIB}/metalua.luac || exit 1
+${LUA} ${BASE}/build-utils/bootstrap.lua ${BASE}/compiler/mlc.mlua output=${BUILD_LIB}/metalua/mlc.luac
+${LUA} ${BASE}/build-utils/bootstrap.lua ${BASE}/compiler/metalua.mlua output=${BUILD_LIB}/metalua.luac
+${LUA} ${BASE}/build-utils/bootstrap.lua ${BASE}/lib/metalua/treequery/walk.mlua output=${BUILD_LIB}/metalua/treequery/walk.luac
 
 echo '*** Finish the bootstrap: recompile the metalua parts of the compiler with itself ***'
 
-${BUILD_BIN}/metalua -vb -f compiler/mlc.mlua     -o ${BUILD_LIB}/metalua/mlc.luac || exit 1
-${BUILD_BIN}/metalua -vb -f compiler/metalua.mlua -o ${BUILD_LIB}/metalua.luac || exit 1
+${BUILD_BIN}/metalua -vb -f compiler/mlc.mlua     -o ${BUILD_LIB}/metalua/mlc.luac
+${BUILD_BIN}/metalua -vb -f compiler/metalua.mlua -o ${BUILD_LIB}/metalua.luac
+${BUILD_BIN}/metalua -vb -f lib/metalua/treequery/walk.mlua -o ${BUILD_LIB}/metalua/treequery/walk.luac
 
 echo '*** Precompile metalua libraries ***'
 for SRC in $(find ${BUILD_LIB} -name '*.mlua'); do

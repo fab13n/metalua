@@ -26,7 +26,7 @@ function reached_eof(lx, msg)
 end
 
 printf ("Metalua, interactive REPLoop.\n"..
-        "(c) 2006-2008 <metalua@gmail.com>")
+        "(c) 2006-2011 <metalua@gmail.com>")
 
 function run()
    local lines = { }
@@ -45,23 +45,30 @@ function run()
       lx  = mlc.lexstream_of_luastring(src) 
       success, ast = pcall(mlc.ast_of_lexstream, lx)
       if success then
-         success, f = pcall(mlc.function_of_ast, ast, '=stdin')
-         if success then
-            results = { pcall(f) }
-            success = table.remove (results, 1)
-            if success then
-               -- Success!
-               table.iforeach(|x| table.print(x, LINE_WIDTH), results)
-               lines = { }
-            else
-               print "Evaluation error:"
-               print (results[1])
-               lines = { }
-            end
+         local check_status, check_msg = pcall(mlc.check_ast, ast)
+         if not check_status then
+             print "Invalid AST:"
+             print (check_msg)
+             lines = { }
          else
-            print "Can't compile into bytecode:"
-            print (f)
-            lines = { }
+             success, f = pcall(mlc.function_of_ast, ast, '=stdin')
+             if success then
+                 results = { xpcall(f, debug.traceback) }
+                 success = table.remove (results, 1)
+                 if success then
+                     -- Success!
+                     table.iforeach(|x| table.print(x, LINE_WIDTH), results)
+                     lines = { }
+                 else
+                     print "Evaluation error:"
+                     print (results[1])
+                     lines = { }
+                 end
+             else
+                 print "Can't compile into bytecode:"
+                 print (f)
+                 lines = { }
+             end
          end
       else
          -- If lx has been read entirely, try to read another

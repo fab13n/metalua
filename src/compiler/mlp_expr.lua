@@ -118,7 +118,7 @@ function id_or_literal (lx)
       else
          msg = "Unexpected expr token " .. _G.table.tostring (a, 'nohash')
       end
-      gg.parse_error (lx, msg)
+      return gg.parse_error (lx, msg)
    end
    return a
 end

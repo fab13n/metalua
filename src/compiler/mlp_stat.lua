@@ -56,6 +56,7 @@ block = gg.list {
    primary     = function (lx)
       -- FIXME use gg.optkeyword()
       local x = stat (lx)
+      if PRINT_PARSED_STAT then print("STAT: ".._G.table.tostring(x, 'nohash')) end
       if lx:is_keyword (lx:peek(), ";") then lx:next() end
       return x
    end }
@@ -169,7 +170,7 @@ local function assign_or_call_stat_parser (lx)
    else 
       assert (#e > 0)
       if #e > 1 then 
-         gg.parse_error (lx, 
+         return gg.parse_error (lx, 
             "comma is not a valid statement separator; statement can be "..
             "separated by semicolons, or not separated at all") end
       if e[1].tag ~= "Call" and e[1].tag ~= "Invoke" then
@@ -180,7 +181,7 @@ local function assign_or_call_stat_parser (lx)
             typename = "is an arithmetic operation"
          else typename = "is of type '"..(e[1].tag or "<list>").."'" end
 
-         gg.parse_error (lx, "This expression " .. typename ..
+         return gg.parse_error (lx, "This expression " .. typename ..
             "; a statement was expected, and only function and method call "..
             "expressions can be used as statements");
       end
@@ -223,4 +224,5 @@ stat = gg.multisequence {
 stat.assignments = {
    ["="] = "Set" }
 
+stat.dontfail = true
 function stat.assignments:add(k, v) self[k] = v end
