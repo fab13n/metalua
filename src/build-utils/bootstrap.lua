@@ -21,30 +21,30 @@ package.preload['metalua.mlc'] = function()
    mlc = { } 
    mlc.metabugs = false
 
-   function mlc.function_of_ast (ast)
+   function mlc.ast_to_function (ast)
       local  proto = bytecode.metalua_compile (ast)
       local  dump  = bytecode.dump_string (proto)
       local  func  = string.undump(dump) 
       return func
    end
    
-   function mlc.ast_of_luastring (src)
+   function mlc.luastring_to_ast (src)
       local  lx  = mlp.lexer:newstream (src)
       local  ast = mlp.chunk (lx)
       return ast
    end
    
-   function mlc.function_of_luastring (src)
-      local  ast  = mlc.ast_of_luastring (src)
-      local  func = mlc.function_of_ast(ast)
+   function mlc.luastring_to_function (src)
+      local  ast  = mlc.luastring_to_ast (src)
+      local  func = mlc.ast_to_function(ast)
       return func
    end
 
-   function mlc.function_of_luafile (name)
-      local f   = io.open(name, 'r')
+   function mlc.luafile_to_function (name)
+      local f   = io.open(name, 'rb')
       local src = f:read '*a'
       f:close()
-      return mlc.function_of_luastring (src, "@"..name)
+      return mlc.luastring_to_function (src, "@"..name)
    end
 
    -- don't let require() fork a separate process for *.mlua compilations.
@@ -66,7 +66,7 @@ local function compile_file (src_filename)
    print("Compiling "..src_filename.."... ")
    local src_file     = io.open (src_filename, 'r')
    local src          = src_file:read '*a'; src_file:close()
-   local ast          = mlc.ast_of_luastring (src)
+   local ast          = mlc.luastring_to_ast (src)
    local proto        = bytecode.metalua_compile (ast, '@'..src_filename)
    local dump         = bytecode.dump_string (proto)
    local dst_filename = cfg.output or error "no output file name specified"

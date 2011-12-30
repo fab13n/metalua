@@ -196,7 +196,7 @@ local function main (...)
       table.insert(code, 1, +{require'metalua.runtime'})
    end
 
-   local bytecode = mlc.luacstring_of_ast (code)
+   local bytecode = mlc.ast_to_luacstring (code)
    code = nil
 
    -------------------------------------------------------------------
@@ -227,7 +227,7 @@ local function main (...)
    -- Run compiled code
    if cfg.run then
       verb_print "Running"
-      local f = mlc.function_of_luacstring (bytecode)
+      local f = mlc.luacstring_to_function (bytecode)
       bytecode = nil
       -- FIXME: isolate execution in a ring
       -- FIXME: check for failures

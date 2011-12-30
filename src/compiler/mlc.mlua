@@ -28,12 +28,14 @@ mlc.metabugs = false
 
 --------------------------------------------------------------------------------
 -- Order of the transformations. if 'a' is on the left of 'b', then a 'a' can
--- be transformed into a 'b' (but not the other way around). Since the table
--- is transposed, the test is 'if mlc.order.a > mlc.order.b then error(...) end'
+-- be transformed into a 'b' (but not the other way around).
+-- mlc.sequence goes for numbers to format names, mlc.order goes from format
+-- names to numbers.
 --------------------------------------------------------------------------------
-mlc.order = table.transpose{ 
+mlc.sequence = {
    'luafile',  'luastring', 'lexstream', 'ast', 'proto', 
    'luacstring', 'function' }
+mlc.order = table.transpose(mlc.sequence)
 
 -- Check whether a structure of nested tables is a valid AST.
 -- Currently thows an error if it isn't.
@@ -69,114 +71,70 @@ local function check_ast(kind, ast)
 end
 
 mlc.check_ast = check_ast
---------------------------------------------------------------------------------
--- The macro 'POINT(point_name, expected_type)' creates an entry point in the
--- 'mlc.convert' function. When we convert a 'a' into a 'b', FIXME
---------------------------------------------------------------------------------
--{ block:
-   jump_to_point = `If{ }
-   function point_builder(args)
-      local name, point_type, code = unpack(args)
-      table.insert(jump_to_point, +{src_fmt == -{name}}) -- if source format is 'name'
-      table.insert(jump_to_point, { `Goto{name} })       -- then jump to label  'name'
-      return {
-         ---------------------------------------------------
-         -- Stop if this is the destination format
-         ---------------------------------------------------
-         +{stat: if dst_fmt == -{name} then return x end },
-         ---------------------------------------------------
-         -- Start here if the source format matches
-         ---------------------------------------------------
-         `Label{ name },
-         -- +{print(" *** point "..-{name})}, -- debug trace
-         ---------------------------------------------------
-         -- Check that the type matches
-         ---------------------------------------------------
-         +{stat: assert (-{point_type} == type(x), "Invalid source type") },
-         -- perform transformation operations to the next type
-         }
-   end
-   mlp.lexer:add 'POINT'
-   mlp.stat:add{ 'POINT', mlp.string, ',', mlp.string, builder = point_builder }
-} -- end of meta-block
 
-function mlc.convert (x, src_fmt, dst_fmt, name)
-   -- printf(" *** Convert a %s into a %s", src_fmt, dst_fmt)
-
-   -{ jump_to_point }
-
-   error "Can't perform this conversion (bad src name)"
-
-   POINT 'luafile', 'string' -- x is the src file's name
-
-   if not name then name = '@'..x end
-   local f, msg = io.open(x, "rb")
-   if not f then error("While trying to open file '"..x.."': "..msg) end
-   x = f:read'*a'
-   f:close()
-   
-   POINT 'luastring', 'string' -- x is the source
-
-   x = mlp.lexer:newstream(x, name)      
-   
-   POINT 'lexstream', 'table' -- x is the lexeme stream
-
-   local status -- status = compilation success
-   local lx=x
-   if mlc.metabugs
-   -- If metabugs is true, errors should be attributed to a parser bug.
-   then status, x = true, mlp.chunk (lx)
-   -- If metabugs is false, errors should be attributed to an invalid entry.
-   else status, x = pcall (mlp.chunk, lx) end
-   -- FIXME: this test seems wrong ??? Or is it the message?
-   --[[
-   if status and lx:peek().tag ~= "Eof"
-   then status, x = false, "Premature Eof" 
-   elseif status and lx:peek().tag == "End"
-   then status, x = false, "Unexpected 'end' keyword" end
-   --]]
-   if not status and x then 
-      -- x = error msg; get rid of ???
-      x = x:strmatch "[^:]+:[0-9]+: (.*)" or x
-      local li = lx:lineinfo_left()
-      error (string.format (
-         "Parsing error in %s line %s, column %i, char %s: \n%s",
-         name or "<nofilename>", li.line, li.column, li.offset, x), 2)
-      return nil
-   end
-   
-   if x then x.source = name end -- TODO [EVE] store debug info in the special part of ast
-
-   POINT 'ast', 'table' -- x is the AST
-   x = bytecode.metalua_compile(x, name or x.source) 
-   POINT 'proto', 'table' 
-   x = bytecode.dump_string (x)
-   POINT 'luacstring', 'string' -- normally x is a bytecode dump
-   x = string.undump(x, name)
-   POINT 'function', 'function' 
-   error "Can't perform this conversion (bad dst name)"
+function mlc.luafile_to_luastring(x, name)
+    name = name or '@'..x
+    local f, msg = io.open (x, 'rb')
+    if not f then return f, msg end
+    local r = f :read '*a'
+    f :close()
+    return r, name
 end
 
---------------------------------------------------------------------------------
--- Dynamically compose a conversion function from a function name
--- xxx_of_yyy() or yyy_to_xxx().
---------------------------------------------------------------------------------
-function mlc.__index(_, name)   
-   local  dst, src = name:strmatch '^([a-z]+)_of_([a-z]+)$'
-   if not dst then src, dst = name:strmatch '^([a-z]+)_to_([a-z]+)$' end
-   if not (src and dst) then return nil end -- not a converter
-   local  osrc, odst = mlc.order[src], mlc.order[dst] -- check existence of formats
-   if not osrc then error ("unknown source format "..src) end
-   if not odst then error ("unknown destination format "..src) end
-   if osrc > odst then error "Can't convert in this direction" end
-   return |x, name| mlc.convert(x, src, dst, name) 
+function mlc.luastring_to_lexstream(src, name)
+    local r = mlp.lexer :newstream (src, name)
+    return r, name
 end
+
+function mlc.lexstream_to_ast(lx, name)
+    if PRINT_PARSED_STAT then
+        print("About to parse a lexstream, starting with "..tostring(lx:peek()))
+    end
+    local r = mlp.chunk(lx)    
+    r.source = name
+    return r, name
+end
+
+function mlc.ast_to_proto(ast, name)
+    name = name or ast.source
+    return bytecode.metalua_compile(ast, name), name
+end
+
+function mlc.proto_to_luacstring(proto, name)
+    return bytecode.dump_string(proto), name
+end
+
+function mlc.luacstring_to_function(bc, name)
+    return string.undump(bc, name)
+end
+
+-- Create all sensible combinations
+for i=1,#mlc.sequence do
+    for j=i+2, #mlc.sequence do
+        local dst_name = mlc.sequence[i].."_to_"..mlc.sequence[j]
+        local functions = { }
+        --local n = { }
+        for k=i, j-1 do
+            local name =  mlc.sequence[k].."_to_"..mlc.sequence[k+1]
+            local f = assert(mlc[name])
+            table.insert (functions, f)
+            --table.insert(n, name)
+        end
+        mlc[dst_name] = function(a, b)
+            for _, f in ipairs(functions) do
+                a, b = f(a, b)
+            end
+            return a, b
+        end
+        --printf("Created mlc.%s out of %s", dst_name, table.concat(n, ', '))
+    end
+end
+
 
 --------------------------------------------------------------------------------
 -- This case isn't handled by the __index method, as it goes "in the wrong direction"
 --------------------------------------------------------------------------------
 mlc.function_to_luacstring = string.dump
-mlc.luacstring_of_function = string.dump
 
 --------------------------------------------------------------------------------
 -- These are drop-in replacement for loadfile() and loadstring(). The
@@ -195,7 +153,7 @@ function loadstring(str, name)
    local n = str:match '^#![^\n]*\n()'
    if n then str=str:sub(n, -1) end
    -- FIXME: handle erroneous returns (return nil + error msg)
-   local success, f = pcall (mlc.function_of_luastring, str, name)
+   local success, f = pcall (mlc.luastring_to_function, str, name)
    if success then return f else return nil, f end
 end
 

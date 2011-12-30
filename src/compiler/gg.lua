@@ -46,33 +46,12 @@ module("gg", package.seeall)
 --
 -------------------------------------------------------------------------------
 local parser_metatable = { }
---[[
-function parser_metatable.__call (parser, lx, ...)
-   --printf ("Call parser %q of type %q", parser.name or "?", parser.kind)
-   if mlc.metabugs then 
-      return parser:parse (lx, ...) 
-      --local x = parser:parse (lx, ...) 
-      --printf ("Result of parser %q: %s", 
-      --        parser.name or "?",
-      --        _G.table.tostring(x, "nohash", 80))
-      --return x
-   else
-      local li = lx:lineinfo_right() or lexer.new_lineinfo(-1, -1, -1, '?')
-      local status, ast = pcall (parser.parse, parser, lx, ...)      
-      if status then return ast else
-         -- Try to replace the gg.lua location, in the error msg, with
-         -- the place where the current parser started handling the
-         -- lexstream.
-         -- Since the error is rethrown, these places are stacked. 
-         error (string.format ("%s\n - (l.%s, c.%s, k.%s) in parser %s", 
-                               ast :strmatch "gg.lua:%d+: (.*)" or ast,
-                               li.line, li.column, li.offset, parser.name or parser.kind))
-      end
-   end
-end
---]]
 
-function parser_metatable.__call (parser, lx, ...) return parser :parse(lx, ...) end
+function parser_metatable :__call (...) 
+    local r = self :parse(...) 
+    return r
+    --return self :parse(...) 
+end
 
 -------------------------------------------------------------------------------
 -- Turn a table into a parser, mainly by setting the metatable.
@@ -106,10 +85,11 @@ end
 -------------------------------------------------------------------------------
 local function raw_parse_sequence (lx, p)
    local r = { }
+   local failed = false
    for i=1, #p do
       e=p[i]
       if failed then
-         if type(e)=="string" then table.insert(r, {tag='Error', "Earlier error" }) end
+         if type(e)=="string" then table.insert(r, earlier_error(lx)) end
       elseif type(e) == "string" then
          if not lx :is_keyword (lx :next(), e) then
             table.insert(r, {tag='Error', "A keyword was expected, probably `"..e.."'."})
@@ -173,7 +153,25 @@ function parse_error(lx, fmt, ...)
       local idx  = string.rep (" ", column).."^"
       msg = string.format("%s\n>>> %s\n>>> %s", msg, srcline, idx)
    end
-   return { tag='Error', msg }
+   lx :kill()
+   assert (lx :peek().tag=='Eof')
+   --printf ("gg.parse_error(%q)", msg)
+   return { tag='Error', msg, error=true }
+end
+
+function wrap_error(lx, nchildren, tag, ...)
+    local li = lx :peek() .lineinfo
+    local r = { tag=tag or 'Error', lineinfo=li, error=true }
+    local children = {...}
+    for i=1, nchildren do
+        r[i] = children[i] or earlier_error(lx)
+    end
+    return r
+end
+
+function earlier_error(lx)
+    local li = lx and lx :peek().lineinfo
+    return { tag='Error', "earlier error", lineinfo=li, error=true }
 end
    
 -------------------------------------------------------------------------------

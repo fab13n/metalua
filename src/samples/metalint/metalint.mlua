@@ -87,7 +87,7 @@ end
 
 function parse_decl_file (filename)
    debug_print ("Loading decl file "..filename)
-   local src = mlc.luastring_of_luafile (filename)
+   local src = mlc.luafile_to_luastring(filename)
    return parse_decl_expr (src)
 end
 
@@ -170,7 +170,7 @@ local CHECKED_AST, CHECKED_NAME
 function check_src_file(name)
    debug_print ("Checking file "..name)
    CHECKED_NAME = name
-   CHECKED_AST  = mlc.ast_of_luafile (name)
+   CHECKED_AST  = mlc.luafile_to_ast (name)
    --$log(ast,'nohash')
    PARSING_OWN_DECL = true
    local x = try_load_decl('lib', name:gsub("%.m?lua$", ""))
@@ -221,7 +221,7 @@ local function replace_autolocals ()
    end
 
    if clopts_cfg.debug then table.print(CHECKED_AST, 'nohash', 60) end
-   local chunk = mlc.luacstring_of_ast (CHECKED_AST)
+   local chunk = mlc.ast_to_luacstring (CHECKED_AST)
    local f = io.open (CHECKED_NAME:gsub('%.m?lua', '')..'.luac', 'w')
    f:write(chunk)
    f:close()

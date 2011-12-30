@@ -166,6 +166,11 @@ function new_token(tag, content, lineinfo)
     return setmetatable({tag=tag, lineinfo=lineinfo, content}, token_metatable)
 end
 
+function token_metatable :__tostring()    
+    --return string.format("`%s{ %q, %s }", self.tag, self[1], tostring(self.lineinfo))
+    return string.format("`%s %q", self.tag, self[1])
+end
+
 
 ----------------------------------------------------------------------
 -- Comment: series of comment blocks with associated lineinfo.
@@ -655,4 +660,15 @@ function lexer :clone()
    setmetatable(clone, self)
    clone.__index = clone
    return clone
+end
+
+----------------------------------------------------------------------
+-- Cancel everything left in a lexer, all subsequent attempts at
+-- `:peek()` or `:next()` will return `Eof`.
+----------------------------------------------------------------------
+function lexer :kill()
+    self.i = #self.src+1
+    self.peeked = { }
+    self.attached_comments = { }
+    self.lineinfo_last = self.posfact :get_position (#self.src+1)
 end

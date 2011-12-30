@@ -30,7 +30,7 @@ module ("mlp", package.seeall)
 --------------------------------------------------------------------------------
 
 function splice (ast)
-   local f = mlc.function_of_ast(ast, '=splice')
+   local f = mlc.ast_to_function(ast, '=splice')
    local result=f()
    return result
 end

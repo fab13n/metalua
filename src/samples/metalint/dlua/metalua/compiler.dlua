@@ -323,33 +323,6 @@ end;
 
 module mlc
 
-  luastring_of_luafile;
-  lexstream_of_luafile;
-  ast_of_luafile;
-  proto_of_luafile;
-  luacstring_of_luafile;
-  function_of_luafile;
-
-  lexstream_of_luastring;
-  ast_of_luastring;
-  proto_of_luastring;
-  luacstring_of_luastring;
-  function_of_luastring;
-
-  ast_of_lexstream;
-  proto_of_lexstream;
-  luacstring_of_lexstream;
-  function_of_lexstream;
-
-  proto_of_ast;
-  luacstring_of_ast;
-  function_of_ast;
-
-  luacstring_of_proto;
-  function_of_proto;
-
-  function_of_luacstring;
-
   luafile_to_luastring;
   luafile_to_lexstream;
   luafile_to_ast;
@@ -377,10 +350,8 @@ module mlc
 
   luacstring_to_function;
 
-  luacstring_of_function;
   function_to_luacstring;
 
-  convert;
   module order
     function;
     luafile;

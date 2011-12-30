@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------------
--- Execute an `mlc.ast_of_*()' in a separate lua process.
+-- Execute an `mlc.*_to_ast()' in a separate lua process.
 -- Communication between processes goes through temporary files,
 -- for the sake of portability.
 --------------------------------------------------------------------------------

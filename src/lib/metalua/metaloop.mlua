@@ -42,8 +42,8 @@ function run()
          src = table.concat (lines, "\n")
       until #line>0
       
-      lx  = mlc.lexstream_of_luastring(src) 
-      success, ast = pcall(mlc.ast_of_lexstream, lx)
+      lx  = mlc.luastring_to_lexstream(src) 
+      success, ast = pcall(mlc.lexstream_to_ast, lx)
       if success then
          local check_status, check_msg = pcall(mlc.check_ast, ast)
          if not check_status then
@@ -51,7 +51,7 @@ function run()
              print (check_msg)
              lines = { }
          else
-             success, f = pcall(mlc.function_of_ast, ast, '=stdin')
+             success, f = pcall(mlc.ast_to_function, ast, '=stdin')
              if success then
                  results = { xpcall(f, debug.traceback) }
                  success = table.remove (results, 1)

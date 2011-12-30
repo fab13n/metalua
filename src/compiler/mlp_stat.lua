@@ -56,7 +56,6 @@ block = gg.list {
    primary     = function (lx)
       -- FIXME use gg.optkeyword()
       local x = stat (lx)
-      if PRINT_PARSED_STAT then print("STAT: ".._G.table.tostring(x, 'nohash')) end
       if lx:is_keyword (lx:peek(), ";") then lx:next() end
       return x
    end }
@@ -116,13 +115,18 @@ local func_name = gg.list{ id, separators = ".", builder = fn_builder }
 -- Function def parser helper: ( : id )?
 --------------------------------------------------------------------------------
 local method_name = gg.onkeyword{ name = "method invocation", ":", id, 
-   transformers = { function(x) return x and id2string(x) end } }
+   transformers = { function(x) return x and x.tag=='Id' and id2string(x) end } }
 
 --------------------------------------------------------------------------------
 -- Function def builder
 --------------------------------------------------------------------------------
 local function funcdef_builder(x)
-   local name, method, func = x[1], x[2], x[3]
+
+   local name   = x[1] or gg.earlier_error()
+   local method = x[2]
+   local func   = x[3] or gg.earlier_error()
+
+
    if method then 
       name = { tag="Index", name, method, lineinfo = {
          first = name.lineinfo.first,

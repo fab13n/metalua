@@ -52,13 +52,14 @@
 --require "mlp_meta"
 
 --------------------------------------------------------------------------------
--- These function wrappers (eta-expansions ctually) are just here to break
+-- These function wrappers (eta-expansions actually) are just here to break
 -- some circular dependencies between mlp_xxx.lua files.
 --------------------------------------------------------------------------------
-local function _expr (lx) return mlp.expr (lx)  end
-local function _table_content (lx) return mlp.table_content (lx) end
+local function _expr (lx) return  mlp.expr (lx) end
 local function block (lx) return mlp.block (lx) end
 local function stat  (lx) return mlp.stat (lx)  end
+
+local function _table_content (lx) return mlp.table_content (lx) end
 
 module ("mlp", package.seeall)
 

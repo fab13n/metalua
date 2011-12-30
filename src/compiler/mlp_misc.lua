@@ -1,4 +1,4 @@
-----------------------------------------------------------------------
+---------------------------------------------------------------------
 -- Metalua:  $Id: mlp_misc.lua,v 1.6 2006/11/15 09:07:50 fab13n Exp $
 --
 -- Summary: metalua parser, miscellaneous utility functions.
@@ -173,10 +173,13 @@ function skip_initial_sharp_comment (lx)
 end
 
 local function _chunk (lx)
+   if PRINT_PARSED_STAT then print "HI"; printf("about to chunk on %s", tostring(lx:peek())) end
    if lx:peek().tag == 'Eof' then
+       if PRINT_PARSED_STAT then print "at EOF" end
        return { } -- handle empty files
    else 
       skip_initial_sharp_comment (lx)
+      if PRINT_PARSED_STAT then printf("after skipping, at %s", tostring(lx:peek())) end
       local chunk = block (lx)
       if lx:peek().tag ~= "Eof" then 
           _G.table.insert(chunk, gg.parse_error(lx, "End-of-file expected"))
