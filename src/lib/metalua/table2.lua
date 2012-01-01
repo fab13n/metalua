@@ -174,6 +174,7 @@ function table.range(a,b,c)
    return result
 end
 
+
 -- FIXME: new_indent seems to be always nil?!
 -- FIXME: accumulator function should be configurable,
 -- so that print() doesn't need to bufferize the whole string
@@ -273,7 +274,7 @@ function table.tostring(t, ...)
          for k, v in pairs(adt) do
             if k=="tag" and has_tag then 
                -- this is the tag -> do nothing!
-            elseif type(k)=="number" and k<=alen and math.fmod(k,1)==0 then 
+            elseif type(k)=="number" and k<=alen and math.fmod(k,1)==0 and k>0 then 
                -- array-part pair -> do nothing!
             else
                has_hash = true
@@ -327,7 +328,7 @@ function table.tostring(t, ...)
             for k, v in pairs(adt) do
                -- pass if the key belongs to the array-part or is the "tag" field
                if not (k=="tag" and HANDLE_TAG) and 
-                  not (type(k)=="number" and k<=alen and math.fmod(k,1)==0) then
+                  not (type(k)=="number" and k<=alen and math.fmod(k,1)==0 and k>0) then
 
                   -- Is it the first time we parse a hash pair?
                   if not has_hash then 
@@ -341,7 +342,7 @@ function table.tostring(t, ...)
                   else expected_len = xlen (k, nested) + 
                                       xlen (v, nested) + #"[] = , " end
                   if has_hash and expected_len + current_offset > LINE_MAX
-                  then acc_newline() end
+                              then acc_newline() end
                   
                   -- Print the key
                   if is_id then acc(k); acc " = " 
