@@ -1,11 +1,14 @@
-require 'metalua.compiler'
+local convert = require 'metalua.compiler.convert'
 
-module ('metaloop', package.seeall)
-
+-- Keep these global:
 PRINT_AST  = true
 LINE_WIDTH = 60
 PROMPT     = "M> "
 PROMPT2    = ">> "
+
+local M = { }
+
+local readline
 
 do -- set readline() to a line reader, either editline otr a default
    local status, _ = pcall(require, 'editline')
@@ -21,14 +24,14 @@ do -- set readline() to a line reader, either editline otr a default
    end
 end
 
-function reached_eof(lx, msg)
+local function reached_eof(lx, msg)
    return lx:peek().tag=='Eof' or msg:find "token `Eof"
 end
 
-printf ("Metalua, interactive REPLoop.\n"..
-        "(c) 2006-2011 <metalua@gmail.com>")
 
-function run()
+function M.run()
+    printf ("Metalua, interactive REPLoop.\n"..
+            "(c) 2006-2012 <metalua@gmail.com>")
    local lines = { }
    while true do
       local src, lx, ast, f, results, success
@@ -42,22 +45,22 @@ function run()
          src = table.concat (lines, "\n")
       until #line>0
       
-      lx  = mlc.luastring_to_lexstream(src) 
+      lx  = convert.luastring_to_lexstream(src) 
       success, ast = pcall(mlc.lexstream_to_ast, lx)
       if success then
-         local check_status, check_msg = pcall(mlc.check_ast, ast)
+         local check_status, check_msg = pcall(convert.check_ast, ast)
          if not check_status then
              print "Invalid AST:"
              print (check_msg)
              lines = { }
          else
-             success, f = pcall(mlc.ast_to_function, ast, '=stdin')
+             success, f = pcall(convert.ast_to_function, ast, '=stdin')
              if success then
                  results = { xpcall(f, debug.traceback) }
                  success = table.remove (results, 1)
                  if success then
                      -- Success!
-                     table.iforeach(|x| table.print(x, LINE_WIDTH), results)
+                     table.foreach(|x| table.print(x, LINE_WIDTH), results)
                      lines = { }
                  else
                      print "Evaluation error:"
@@ -81,3 +84,5 @@ function run()
       end
    end
 end
+
+return M
