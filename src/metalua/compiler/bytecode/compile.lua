@@ -37,6 +37,7 @@
 ----------------------------------------------------------------------
 
 local luaK = require 'metalua.compiler.bytecode.lcode'
+local luaP = require 'metalua.compiler.bytecode.lopcodes'
 
 module (..., package.seeall)
 

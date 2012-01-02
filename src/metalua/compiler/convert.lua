@@ -20,7 +20,7 @@
 --------------------------------------------------------------------------------
 
 local bytecode = require 'metalua.compiler.bytecode'
-local mlp      = require 'metalua.compiler.parser.common'
+local mlp      = require 'metalua.compiler.parser'
 local M        = { }
 
 M.metabugs = false
@@ -82,7 +82,7 @@ function M.luafile_to_luastring(x, name)
 end
 
 function M.luastring_to_lexstream(src, name)
-    local r = mlp.lexer :newstream (src, name)
+    local r = mlp.lexer:newstream (src, name)
     return r, name
 end
 
