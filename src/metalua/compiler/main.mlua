@@ -1,6 +1,6 @@
---*-lua-*- Set as a metalua file because it requires some metalua libs
+--*-lua-*-
 
---require 'verbose_require'
+-- Main file for the metalua executable
 
 require 'metalua.compiler'
 require 'metalua.clopts'
@@ -247,8 +247,7 @@ local function main (...)
    -- Run REPL loop
    if cfg.interactive then
       verb_print "Starting REPL loop"
-      require 'metalua.metaloop'
-      metaloop.run()
+      require 'metalua.repl' .run()
    end
 
    verb_print "Done"

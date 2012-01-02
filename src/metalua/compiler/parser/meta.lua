@@ -21,7 +21,9 @@
 --
 --------------------------------------------------------------------------------
 
-module ("mlp", package.seeall)
+local gg       = require 'metalua.grammar.generator'
+local mlp      = require 'metalua.compiler.parser.common'
+local M        = { }
 
 --------------------------------------------------------------------------------
 -- External splicing: compile an AST into a chunk, load and evaluate
@@ -29,37 +31,38 @@ module ("mlp", package.seeall)
 -- an AST).
 --------------------------------------------------------------------------------
 
-function splice (ast)
-   local f = mlc.ast_to_function(ast, '=splice')
-   local result=f()
-   return result
+function M.splice (ast)
+    local convert = require 'metalua.compiler.convert'
+    local f = convert.ast_to_function(ast, '=splice')
+    local result=f()
+    return result
 end
 
 --------------------------------------------------------------------------------
 -- Going from an AST to an AST representing that AST
 -- the only key being lifted in this version is ["tag"]
 --------------------------------------------------------------------------------
-function quote (t)
-   --print("QUOTING:", _G.table.tostring(t, 60))
+function M.quote (t)
+   --print("QUOTING:", table.tostring(t, 60))
    local cases = { }
    function cases.table (t)
       local mt = { tag = "Table" }
-      --_G.table.insert (mt, { tag = "Pair", quote "quote", { tag = "True" } })
+      --table.insert (mt, { tag = "Pair", quote "quote", { tag = "True" } })
       if t.tag == "Splice" then
          assert (#t==1, "Invalid splice")
          local sp = t[1]
          return sp
       elseif t.tag then
-         _G.table.insert (mt, { tag = "Pair", quote "tag", quote (t.tag) })
+         table.insert (mt, { tag="Pair", M.quote "tag", M.quote(t.tag) })
       end
       for _, v in ipairs (t) do
-         _G.table.insert (mt, quote(v))
+         table.insert (mt, M.quote(v))
       end
       return mt
    end
    function cases.number (t) return { tag = "Number", t, quote = true } end
    function cases.string (t) return { tag = "String", t, quote = true } end
-   return cases [ type (t) ] (t)
+   return cases [type(t)] (t)
 end
 
 --------------------------------------------------------------------------------
@@ -68,12 +71,12 @@ end
 -- parsing data inside a quasiquote), [-{foo}] is replaced by
 -- [`Splice{foo}], which will be unpacked by [quote()].
 --------------------------------------------------------------------------------
-in_a_quote = false
+M.in_a_quote = false
 
 --------------------------------------------------------------------------------
 -- Parse the inside of a "-{ ... }"
 --------------------------------------------------------------------------------
-function splice_content (lx)
+function M.splice_content (lx)
    local parser_name = "expr"
    if lx:is_keyword (lx:peek(2), ":") then
       local a = lx:next()
@@ -82,7 +85,7 @@ function splice_content (lx)
       parser_name = a[1]
    end
    local ast = mlp[parser_name](lx)
-   if in_a_quote then
+   if M.in_a_quote then
       --printf("SPLICE_IN_QUOTE:\n%s", _G.table.tostring(ast, "nohash", 60))
       return { tag="Splice", ast }
    else
@@ -91,28 +94,29 @@ function splice_content (lx)
       elseif parser_name ~= "block" then
          error ("splice content must be an expr, stat or block") end
       --printf("EXEC THIS SPLICE:\n%s", _G.table.tostring(ast, "nohash", 60))
-      return splice (ast)
+      return M.splice (ast)
    end
 end
 
 --------------------------------------------------------------------------------
 -- Parse the inside of a "+{ ... }"
 --------------------------------------------------------------------------------
-function quote_content (lx)
+function M.quote_content (lx)
    local parser 
    if lx:is_keyword (lx:peek(2), ":") then -- +{parser: content }
-      parser = mlp[id(lx)[1]]
+      parser = mlp[mlp.id(lx)[1]]
       lx:next()
    else -- +{ content }
       parser = mlp.expr
    end
 
-   local prev_iq = in_a_quote
-   in_a_quote = true
+   local prev_iq = M.in_a_quote
+   M.in_a_quote = true
    --print("IN_A_QUOTE")
    local content = parser (lx)
-   local q_content = quote (content)
-   in_a_quote = prev_iq
+   local q_content = M.quote (content)
+   M.in_a_quote = prev_iq
    return q_content
 end
 
+return M

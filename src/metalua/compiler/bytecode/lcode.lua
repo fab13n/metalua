@@ -52,11 +52,13 @@
 --   luaK:sethvalue(o) (from lobject.h)
 ----------------------------------------------------------------------]]
 
-module("bytecode", package.seeall)
+local luaP = require 'metalua.compiler.bytecode.lopcodes'
+
+module(..., package.seeall)
 
 local function debugf() end
 
-luaK = {}
+local luaK = {}
 
 luaK.MAXSTACK    = 250        -- (llimits.h, used in lcode.lua)
 luaK.LUA_MULTRET = -1         -- (lua.h)
@@ -1032,3 +1034,5 @@ function luaK:setlist (fs, base, nelems, tostore)
    end
    fs.freereg = base + 1
 end
+
+return luaK

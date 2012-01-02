@@ -47,11 +47,11 @@
 --   endian form and field size and positions are hard-coded
 ----------------------------------------------------------------------]]
 
-module("bytecode", package.seeall)
+module(..., package.seeall)
 
 local function debugf() end
 
-luaP = { }
+local luaP = { }
 
 --[[
 ===========================================================================
@@ -438,3 +438,5 @@ luaP.opmodes = {
   "0000102", -- OP_CLOSURE
   "0000101"  -- OP_VARARG
 }
+
+return luaP

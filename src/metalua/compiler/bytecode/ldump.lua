@@ -56,7 +56,9 @@
 --   luaU:ttype(o) (from lobject.h)
 ----------------------------------------------------------------------]]
 
-module("bytecode", package.seeall)
+local luaP = require 'metalua.compiler.bytecode.lopcodes'
+
+module(..., package.seeall)
 
 format = { }
 format.header = string.dump(function()end):sub(1, 12)
@@ -70,7 +72,9 @@ assert(format.integral or format.number_size==8, "Number format not supported by
 assert(format.little_endian, "Big endian architectures not supported by dumper")
 
 --requires luaP
-luaU = {}
+luaU = { }
+
+luaU.format = format
 
 -- constants used by dumper
 luaU.LUA_TNIL     = 0
@@ -439,3 +443,5 @@ function dump_file (proto, filename)
    io.close(file)
    if UNIX_SHARPBANG then os.execute ("chmod a+x "..filename) end
 end
+
+return _M

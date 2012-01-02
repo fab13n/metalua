@@ -1,23 +1,18 @@
 ----------------------------------------------------------------------
--- Metalua:  $Id: mll.lua,v 1.3 2006/11/15 09:07:50 fab13n Exp $
---
--- Summary: Source file lexer. ~~Currently only works on strings.
--- Some API refactoring is needed.
---
+-- (Meta)lua-specific lexer, derived from the generic lexer.
 ----------------------------------------------------------------------
 --
--- Copyright (c) 2006-2007, Fabien Fleutot <metalua@gmail.com>.
+-- Copyright (c) 2006-2012, Fabien Fleutot <metalua@gmail.com>.
 --
 -- This software is released under the MIT Licence, see licence.txt
 -- for details.
 --
 ----------------------------------------------------------------------
 
-module ("mlp", package.seeall)
+local generic_lexer = require 'metalua.grammar.lexer'
+local M = { }
 
-require "lexer"
-
-local mlp_lexer = lexer.lexer:clone()
+M.lexer = generic_lexer.lexer :clone()
 
 local keywords = {
     "and", "break", "do", "else", "elseif",
@@ -30,6 +25,6 @@ local keywords = {
     "::", -- Lua5,2
     "+{", "-{" }
  
-for w in values(keywords) do mlp_lexer:add(w) end
+for w in values(keywords) do M.lexer :add (w) end
 
-_M.lexer = mlp_lexer
+return M

@@ -36,7 +36,9 @@
 --
 ----------------------------------------------------------------------
 
-module ("bytecode", package.seeall)
+local luaK = require 'metalua.compiler.bytecode.lcode'
+
+module (..., package.seeall)
 
 local debugf = function() end
 --local debugf=printf
@@ -1258,7 +1260,7 @@ end
 ------------------------------------------------------------------------
 -- Main function: ast --> proto
 ------------------------------------------------------------------------
-function metalua_compile (ast, source)
+function ast_to_proto (ast, source)
   local fs = open_func (nil)
   fs.f.is_vararg = VARARG_ISVARARG
   chunk (fs, ast)
@@ -1267,5 +1269,7 @@ function metalua_compile (ast, source)
   assert (fs.f.nups == 0)
   assert (fs.nestlevel == 0)
   if source then fs.f.source = source end
-  return fs.f
+  return fs.f, source
 end
+
+return _M

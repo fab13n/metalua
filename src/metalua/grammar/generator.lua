@@ -33,7 +33,9 @@
 --
 --------------------------------------------------------------------------------
 
-module("gg", package.seeall)
+local M = { }
+
+local lexer = require 'metalua.grammar.lexer'
 
 -------------------------------------------------------------------------------
 -- parser metatable, which maps __call to method parse, and adds some
@@ -48,15 +50,20 @@ module("gg", package.seeall)
 local parser_metatable = { }
 
 function parser_metatable :__call (...) 
-    local r = self :parse(...) 
-    return r
     --return self :parse(...) 
+    local r = self :parse(...) 
+    if type(r) ~= 'table' then 
+        print("This parser returned non-table "..table.tostring(r)..":")
+        table.print(self.name)
+        table.print((...):peek())
+    end
+    return r
 end
 
 -------------------------------------------------------------------------------
 -- Turn a table into a parser, mainly by setting the metatable.
 -------------------------------------------------------------------------------
-function make_parser(kind, p)
+function M.make_parser(kind, p)
    p.kind = kind
    if not p.transformers then p.transformers = { } end
    function p.transformers:add (x)
@@ -70,7 +77,7 @@ end
 -- Return true iff [x] is a parser.
 -- If it's a gg-generated parser, return the name of its kind.
 -------------------------------------------------------------------------------
-function is_parser (x)
+function M.is_parser (x)
    return type(x)=="function" or getmetatable(x)==parser_metatable and x.kind
 end
 
@@ -87,21 +94,21 @@ local function raw_parse_sequence (lx, p)
    local r = { }
    local failed = false
    for i=1, #p do
-      e=p[i]
+      local e=p[i]
       if failed then
-         if type(e)=="string" then table.insert(r, earlier_error(lx)) end
+         if type(e)=="string" then table.insert(r, M.earlier_error(lx)) end
       elseif type(e) == "string" then
          if not lx :is_keyword (lx :next(), e) then
             table.insert(r, {tag='Error', "A keyword was expected, probably `"..e.."'."})
             failed=true
          end
-      elseif is_parser (e) then
+      elseif M.is_parser (e) then
          local x = e(lx)
          if type(x)=='table' and x.tag=='Error' then failed=true end
          table.insert (r, x)
       else -- Invalid parser definition, this is not a parsing error, it must fail.
-         return gg.parse_error (lx,"Sequence `%s': element #%i is neither a string "..
-                         "nor a parser: %s", p.name, i, table.tostring(e))
+         return M.parse_error (lx,"Sequence `%s': element #%i is neither a string "..
+             "nor a parser: %s", p.name, i, table.tostring(e))
       end
    end
    return r
@@ -125,7 +132,7 @@ local function transform (ast, parser, fli, lli)
    if parser.transformers then
       for _, t in ipairs (parser.transformers) do ast = t(ast) or ast end
    end
-   if type(ast) == 'table'then
+   if type(ast) == 'table' then
       local ali = ast.lineinfo
       if not ali or ali.first~=fli or ali.last~=lli then
          ast.lineinfo = lexer.new_lineinfo(fli, lli)
@@ -137,11 +144,11 @@ end
 -------------------------------------------------------------------------------
 -- Generate a tracable parsing error (not implemented yet)
 -------------------------------------------------------------------------------
-function parse_error(lx, fmt, ...)
+function M.parse_error(lx, fmt, ...)
    local li = lx:lineinfo_left()
    local line, column, offset
    if li then line, column, offset = li.line, li.column, li.offset
-   else line, column, offset, src_name = -1, -1, -1 end
+   else line, column, offset = -1, -1, -1 end
 
    local msg  = string.format("line %i, char %i: "..fmt, line, column, ...)   
    local src = lx.src
@@ -154,22 +161,20 @@ function parse_error(lx, fmt, ...)
       msg = string.format("%s\n>>> %s\n>>> %s", msg, srcline, idx)
    end
    lx :kill()
-   assert (lx :peek().tag=='Eof')
-   --printf ("gg.parse_error(%q)", msg)
-   return { tag='Error', msg, error=true }
+   return { tag='Error', msg }
 end
 
-function wrap_error(lx, nchildren, tag, ...)
+function M.wrap_error(lx, nchildren, tag, ...)
     local li = lx :peek() .lineinfo
-    local r = { tag=tag or 'Error', lineinfo=li, error=true }
+    local r = { tag=tag or 'Error', lineinfo=li }
     local children = {...}
     for i=1, nchildren do
-        r[i] = children[i] or earlier_error(lx)
+        r[i] = children[i] or M.earlier_error(lx)
     end
     return r
 end
 
-function earlier_error(lx)
+function M.earlier_error(lx)
     local li = lx and lx :peek().lineinfo
     return { tag='Error', "earlier error", lineinfo=li, error=true }
 end
@@ -201,8 +206,8 @@ end
 -- * [name] is set, if it wasn't in the input.
 --
 -------------------------------------------------------------------------------
-function sequence (p)
-   make_parser ("sequence", p)
+function M.sequence (p)
+   M.make_parser ("sequence", p)
 
    -------------------------------------------------------------------
    -- Parsing method
@@ -282,17 +287,17 @@ end --</sequence>
 -- * [kind] == "multisequence"
 --
 -------------------------------------------------------------------------------
-function multisequence (p)   
-   make_parser ("multisequence", p)
+function M.multisequence (p)   
+   M.make_parser ("multisequence", p)
 
    -------------------------------------------------------------------
    -- Add a sequence (might be just a config table for [gg.sequence])
    -------------------------------------------------------------------
-   function p:add (s)
+   function p :add (s)
       -- compile if necessary:
       local keyword = type(s)=='table' and s[1]
-      if type(s)=='table' and not is_parser(s) then sequence(s) end
-      if is_parser(s)~='sequence' or type(keyword)~='string' then 
+      if type(s)=='table' and not M.is_parser(s) then M.sequence(s) end
+      if M.is_parser(s)~='sequence' or type(keyword)~='string' then 
          if self.default then -- two defaults
             error ("In a multisequence parser, all but one sequences "..
                    "must start with a keyword")
@@ -309,12 +314,12 @@ function multisequence (p)
    -------------------------------------------------------------------
    -- Get the sequence starting with this keyword. [kw :: string]
    -------------------------------------------------------------------
-   function p:get (kw) return self.sequences [kw] end
+   function p :get (kw) return self.sequences [kw] end
 
    -------------------------------------------------------------------
    -- Remove the sequence starting with keyword [kw :: string]
    -------------------------------------------------------------------
-   function p:del (kw) 
+   function p :del (kw) 
       if not self.sequences[kw] then 
          eprintf("*** Warning: trying to delete sequence starting "..
                  "with %q from a multisequence having no such "..
@@ -327,7 +332,7 @@ function multisequence (p)
    -------------------------------------------------------------------
    -- Parsing method
    -------------------------------------------------------------------
-   function p:parse (lx)
+   function p :parse (lx)
       local fli = lx:lineinfo_right()
       local x = raw_parse_multisequence (lx, self.sequences, self.default)
       local lli = lx:lineinfo_left()
@@ -341,7 +346,7 @@ function multisequence (p)
    -- from the array part of the parser to the hash part of field
    -- [sequences]
    p.sequences = { }
-   for i=1, #p do p:add (p[i]); p[i] = nil end
+   for i=1, #p do p :add (p[i]); p[i] = nil end
 
    -- FIXME: why is this commented out?
    --if p.default and not is_parser(p.default) then sequence(p.default) end
@@ -394,8 +399,8 @@ end --</multisequence>
 --   [add] method
 --
 -------------------------------------------------------------------------------
-function expr (p)
-   make_parser ("expr", p)
+function M.expr (p)
+   M.make_parser ("expr", p)
 
    -------------------------------------------------------------------
    -- parser method.
@@ -403,7 +408,7 @@ function expr (p)
    -- it won't read expressions whose precedence is lower or equal
    -- to [prec].
    -------------------------------------------------------------------
-   function p:parse (lx, prec)
+   function p :parse (lx, prec)
       prec = prec or 0
 
       ------------------------------------------------------
@@ -412,7 +417,7 @@ function expr (p)
       -- Options include prec, assoc, transformers.
       ------------------------------------------------------
       local function get_parser_info (tab)
-         local p2 = tab:get (lx:is_keyword (lx:peek()))
+         local p2 = tab :get (lx :is_keyword (lx :peek()))
          if p2 then -- keyword-based sequence found
             local function parser(lx) return raw_parse_sequence(lx, p2) end
             return parser, p2
@@ -430,17 +435,17 @@ function expr (p)
       -- expr, and one for the one with the prefix op.
       ------------------------------------------------------
       local function handle_prefix ()
-         local fli = lx:lineinfo_right()
+         local fli = lx :lineinfo_right()
          local p2_func, p2 = get_parser_info (self.prefix)
          local op = p2_func and p2_func (lx)
          if op then -- Keyword-based sequence found
-            local ili = lx:lineinfo_right() -- Intermediate LineInfo
-            local e = p2.builder (op, self:parse (lx, p2.prec))
-            local lli = lx:lineinfo_left()
+            local ili = lx :lineinfo_right() -- Intermediate LineInfo
+            local e = p2.builder (op, self :parse (lx, p2.prec))
+            local lli = lx :lineinfo_left()
             return transform (transform (e, p2, ili, lli), self, fli, lli)
          else -- No prefix found, get a primary expression         
             local e = self.primary(lx)
-            local lli = lx:lineinfo_left()
+            local lli = lx :lineinfo_left()
             return transform (e, self, fli, lli)
          end
       end --</expr.parse.handle_prefix>
@@ -493,7 +498,7 @@ function expr (p)
          -- Check for non-associative operators, and complain if applicable. 
          -----------------------------------------
          elseif p2.assoc=="none" and p2.prec==prec then
-            return parse_error (lx, "non-associative operator!")
+            return M.parse_error (lx, "non-associative operator!")
 
          -----------------------------------------
          -- No infix operator suitable at that precedence
@@ -545,7 +550,7 @@ function expr (p)
    if not p.primary then p.primary=p[1]; p[1]=nil end
    for _, t in ipairs{ "primary", "prefix", "infix", "suffix" } do
       if not p[t] then p[t] = { } end
-      if not is_parser(p[t]) then multisequence(p[t]) end
+      if not M.is_parser(p[t]) then M.multisequence(p[t]) end
    end
    function p:add(...) return self.primary:add(...) end
    return p
@@ -582,13 +587,13 @@ end --</expr>
 -- * [kind] == "list"
 --
 -------------------------------------------------------------------------------
-function list (p)
-   make_parser ("list", p)
+function M.list (p)
+   M.make_parser ("list", p)
 
    -------------------------------------------------------------------
    -- Parsing method
    -------------------------------------------------------------------
-   function p:parse (lx)
+   function p :parse (lx)
 
       ------------------------------------------------------
       -- Used to quickly check whether there's a terminator 
@@ -598,7 +603,7 @@ function list (p)
          return keywords and lx:is_keyword(lx:peek(), unpack(keywords)) end
 
       local x = { }
-      local fli = lx:lineinfo_right()
+      local fli = lx :lineinfo_right()
 
       -- if there's a terminator to start with, don't bother trying
       if not peek_is_in (self.terminators) then 
@@ -685,14 +690,14 @@ end --</list>
 -- * [keywords]
 --
 -------------------------------------------------------------------------------
-function onkeyword (p)
-   make_parser ("onkeyword", p)
+function M.onkeyword (p)
+   M.make_parser ("onkeyword", p)
 
    -------------------------------------------------------------------
    -- Parsing method
    -------------------------------------------------------------------
-   function p:parse(lx)
-      if lx:is_keyword (lx:peek(), unpack(self.keywords)) then
+   function p :parse (lx)
+      if lx :is_keyword (lx:peek(), unpack(self.keywords)) then
          local fli = lx:lineinfo_right()
          if not self.peek then lx:next() end
          local content = self.primary (lx)
@@ -709,7 +714,7 @@ function onkeyword (p)
    if not p.keywords then p.keywords = { } end
    for _, x in ipairs(p) do
       if type(x)=="string" then table.insert (p.keywords, x)
-      else assert (not p.primary and is_parser (x)); p.primary = x end
+      else assert (not p.primary and M.is_parser (x)); p.primary = x end
    end
    if not next (p.keywords) then 
       eprintf("Warning, no keyword to trigger gg.onkeyword") end
@@ -731,7 +736,7 @@ end --</onkeyword>
 -- Notice that tokens returned by lexer already carry lineinfo, therefore
 -- there's no need to add them, as done usually through transform() calls.
 -------------------------------------------------------------------------------
-function optkeyword (...)
+function M.optkeyword (...)
    local args = {...}
    if type (args[1]) == "table" then 
       assert (#args == 1)
@@ -758,7 +763,7 @@ end
 -- The resulting parser returns whatever the argument parser does.
 --
 -------------------------------------------------------------------------------
-function with_lexer(new_lexer, parser)
+function M.with_lexer(new_lexer, parser)
 
    -------------------------------------------------------------------
    -- Most gg functions take their parameters in a table, so it's 
@@ -766,7 +771,7 @@ function with_lexer(new_lexer, parser)
    -- its arguments in a list:
    -------------------------------------------------------------------
    if not parser and #new_lexer==2 and type(new_lexer[1])=='table' then
-      return with_lexer(unpack(new_lexer))
+      return M.with_lexer(unpack(new_lexer))
    end
 
    -------------------------------------------------------------------
@@ -783,3 +788,5 @@ function with_lexer(new_lexer, parser)
       if status then return result else error(result) end
    end
 end
+
+return M

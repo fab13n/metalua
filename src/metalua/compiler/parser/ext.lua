@@ -4,7 +4,13 @@
 --
 --------------------------------------------------------------------------------
 
-module ("mlp", package.seeall)
+local gg        = require 'metalua.grammar.generator'
+local mlp       = require 'metalua.compiler.parser.common'
+local mlp_lexer = require 'metalua.compiler.parser.lexer'
+local mlp_expr  = require 'metalua.compiler.parser.expr'
+local mlp_stat  = require 'metalua.compiler.parser.stat'
+
+local expr = mlp_expr.expr
 
 --------------------------------------------------------------------------------
 -- Alebraic Datatypes
@@ -15,20 +21,20 @@ local function adt (lx)
    if lx:peek().tag == "String" or lx:peek().tag == "Number" then
       return { tag="Table", tagkey, lx:next() }
    elseif lx:is_keyword (lx:peek(), "{") then
-      local x = table (lx)
-      _G.table.insert (x, 1, tagkey)
+      local x = mlp.table (lx)
+      table.insert (x, 1, tagkey)
       return x
    else return { tag="Table", tagkey } end
 end
 
-expr:add{ "`", adt, builder = fget(1) }
+expr :add{ "`", adt, builder = unpack }
 
 --------------------------------------------------------------------------------
 -- Anonymous lambda
 --------------------------------------------------------------------------------
 local lambda_expr = gg.sequence{ 
-   "|", func_params_content, "|", expr,
-   builder= function (x) 
+   "|", mlp_expr.func_params_content, "|", expr,
+   builder = function (x) 
       local li = x[2].lineinfo
       return { tag="Function", x[1], 
                { {tag="Return", x[2], lineinfo=li }, lineinfo=li } }
@@ -44,7 +50,7 @@ local lambda_expr = gg.sequence{
 --    builder= function (x) 
 --       return {tag="Function", x[1], { {tag="Return", unpack(x[2]) } } } end }
 
-expr:add (lambda_expr)
+expr :add (lambda_expr)
 
 --------------------------------------------------------------------------------
 -- Allows to write "a `f` b" instead of "f(a, b)". Taken from Haskell.
@@ -53,7 +59,7 @@ expr:add (lambda_expr)
 --------------------------------------------------------------------------------
 local function expr_in_backquotes (lx) return expr(lx, 35) end
 
-expr.infix:add{ name = "infix function", 
+expr.infix :add{ name = "infix function", 
    "`", expr_in_backquotes, "`", prec = 35, assoc="left", 
    builder = function(a, op, b) return {tag="Call", op[1], a, b} end }
 
@@ -62,8 +68,8 @@ expr.infix:add{ name = "infix function",
 -- table.override assignment
 --------------------------------------------------------------------------------
 
-mlp.lexer:add "<-"
-stat.assignments["<-"] = function (a, b)
+mlp_lexer.lexer:add "<-"
+mlp_stat.stat.assignments["<-"] = function (a, b)
    assert( #a==1 and #b==1, "No multi-args for '<-'")                         
    return { tag="Call", { tag="Index", { tag="Id", "table" },
                                        { tag="String", "override" } },
@@ -72,18 +78,23 @@ end
 
 --------------------------------------------------------------------------------
 -- C-style op+assignments
+-- TODO: no protection against side-effects in LHS vars.
 --------------------------------------------------------------------------------
 local function op_assign(kw, op) 
    local function rhs(a, b)
       return { tag="Op", op, a, b } 
    end
-   local function f(a,b) 
-      return { tag="Set", a, _G.table.imap(rhs, a, b) }
+   local function f(a,b)
+       if #a ~= #b then return gg.parse_error "assymetric operator+assignment" end
+       local right = { }
+       local r = { tag="Set", a, right }
+       for i=1, #a do right[i] = { tag="Op", op, a[i], b[i] } end
+       return r
    end
    mlp.lexer:add (kw)
    mlp.stat.assignments[kw] = f
 end
 
-_G.table.iforeach (op_assign, 
-                {"+=", "-=", "*=", "/="},
-                {"add", "sub", "mul", "div"})
+local ops = { add='+='; sub='-='; mul='*='; div='/=' }
+for ast_op_name, keyword in pairs(ops) do op_assign(keyword, ast_op_name) end
+

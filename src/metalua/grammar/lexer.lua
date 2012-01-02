@@ -26,11 +26,12 @@
 --
 ----------------------------------------------------------------------
 
-module ("lexer", package.seeall)
 
+local M = { }
 
-lexer = { alpha={ }, sym={ } }
-lexer.__index=lexer
+local lexer = { alpha={ }, sym={ } }; lexer.__index=lexer
+M.lexer = lexer
+
 
 local debugf = function() end
 -- local debugf=printf
@@ -38,44 +39,43 @@ local debugf = function() end
 ----------------------------------------------------------------------
 -- Some locale settings produce bad results, e.g. French locale
 -- expect float numbers to use commas instead of periods.
+-- TODO: change number parser into something loclae-independent,
+-- locales are nasty.
 ----------------------------------------------------------------------
 os.setlocale('C')
 
+local MT = { }
 
-
-----------------------------------------------------------------------
--- Some locale settings produce bad results, e.g. French locale
--- expects float numbers to use commas instead of periods.
-----------------------------------------------------------------------
-os.setlocale('C')
+M.metatables=MT
 
 ----------------------------------------------------------------------
 -- Create a new metatable, for a new class of objects.
 ----------------------------------------------------------------------
 local function new_metatable(name) 
     local mt = { __type = 'metalua::lexer::'..name }; 
-    mt.__index = mt; return mt
+    mt.__index = mt
+    MT[name] = mt
 end
-
 
 
 ----------------------------------------------------------------------
 -- Position: represent a point in a source file.
 ----------------------------------------------------------------------
-position_metatable = new_metatable 'position'
+new_metatable 'position'
 
 local position_idx=1
 
-function new_position(line, column, offset, source)
+function M.new_position(line, column, offset, source)
     -- assert(type(line)=='number')
     -- assert(type(column)=='number')
     -- assert(type(offset)=='number')
     -- assert(type(source)=='string')
     local id = position_idx; position_idx = position_idx+1
-    return setmetatable({line=line, column=column, offset=offset, source=source, id=id}, position_metatable)
+    return setmetatable({line=line, column=column, offset=offset,
+                         source=source, id=id}, MT.position)
 end
 
-function position_metatable :__tostring()
+function MT.position :__tostring()
     return string.format("<%s%s|L%d|C%d|K%d>", 
         self.comments and "C|" or "",
         self.source, self.line, self.column, self.offset)
@@ -86,9 +86,9 @@ end
 ----------------------------------------------------------------------
 -- Position factory: convert offsets into line/column/offset positions.
 ----------------------------------------------------------------------
-position_factory_metatable = new_metatable 'position_factory'
+new_metatable 'position_factory'
 
-function new_position_factory(src, src_name)
+function M.new_position_factory(src, src_name)
     -- assert(type(src)=='string')
     -- assert(type(src_name)=='string')
     local lines = { 1 }
@@ -96,10 +96,10 @@ function new_position_factory(src, src_name)
     local max = #src+1
     table.insert(lines, max+1) -- +1 includes Eof
     return setmetatable({ src_name=src_name, line2offset=lines, max=max }, 
-        position_factory_metatable)
+        MT.position_factory)
 end
 
-function position_factory_metatable :get_position (offset)
+function MT.position_factory :get_position (offset)
     -- assert(type(offset)=='number')
     assert(offset<=self.max)
     local line2offset = self.line2offset
@@ -124,7 +124,7 @@ function position_factory_metatable :get_position (offset)
     local line = left
     local column = offset - line2offset[line] + 1
     self.last_left = left
-    return new_position(line, column, offset, self.src_name)
+    return M.new_position(line, column, offset, self.src_name)
 end
 
 
@@ -133,15 +133,15 @@ end
 -- Lineinfo: represent a node's range in a source file;
 -- embed information about prefix and suffix comments.
 ----------------------------------------------------------------------
-lineinfo_metatable = new_metatable 'lineinfo'
+new_metatable 'lineinfo'
 
-function new_lineinfo(first, last)
+function M.new_lineinfo(first, last)
     assert(first.__type=='metalua::lexer::position')
     assert(last.__type=='metalua::lexer::position')
-    return setmetatable({first=first, last=last}, lineinfo_metatable)
+    return setmetatable({first=first, last=last}, MT.lineinfo)
 end
 
-function lineinfo_metatable :__tostring()
+function MT.lineinfo :__tostring()
     local fli, lli = self.first, self.last
     local line   = fli.line;   if line~=lli.line     then line  =line  ..'-'..lli.line   end
     local column = fli.column; if column~=lli.column then column=column..'-'..lli.column end
@@ -152,21 +152,19 @@ function lineinfo_metatable :__tostring()
                          lli.comments and "|C" or "")
 end
 
-
-
 ----------------------------------------------------------------------
 -- Token: atomic Lua language element, with a category, a content,
 -- and some lineinfo relating it to its original source.
 ----------------------------------------------------------------------
-token_metatable = new_metatable 'token'
+new_metatable 'token'
 
-function new_token(tag, content, lineinfo)
+function M.new_token(tag, content, lineinfo)
     --printf("TOKEN `%s{ %q, lineinfo = %s} boundaries %d, %d", 
     --       tag, content, tostring(lineinfo), lineinfo.first.id, lineinfo.last.id) 
-    return setmetatable({tag=tag, lineinfo=lineinfo, content}, token_metatable)
+    return setmetatable({tag=tag, lineinfo=lineinfo, content}, MT.token)
 end
 
-function token_metatable :__tostring()    
+function MT.token :__tostring()    
     --return string.format("`%s{ %q, %s }", self.tag, self[1], tostring(self.lineinfo))
     return string.format("`%s %q", self.tag, self[1])
 end
@@ -176,16 +174,16 @@ end
 -- Comment: series of comment blocks with associated lineinfo.
 -- To be attached to the tokens just before and just after them.
 ----------------------------------------------------------------------
-comment_metatable = new_metatable 'comment'
+new_metatable 'comment'
 
-function new_comment(lines)
+function M.new_comment(lines)
     local first = lines[1].lineinfo.first
     local last  = lines[#lines].lineinfo.last
-    local lineinfo = new_lineinfo(first, last)
-    return setmetatable({lineinfo=lineinfo, unpack(lines)}, comment_metatable)
+    local lineinfo = M.new_lineinfo(first, last)
+    return setmetatable({lineinfo=lineinfo, unpack(lines)}, MT.comment)
 end
 
-function comment_metatable :text()
+function MT.comment :text()
     local last_line = self[1].lineinfo.last.line
     local acc = { }
     for i, line in ipairs(self) do
@@ -196,7 +194,7 @@ function comment_metatable :text()
     return table.concat(acc)
 end
 
-function new_comment_line(text, lineinfo, nequals)
+function M.new_comment_line(text, lineinfo, nequals)
     assert(type(text)=='string')
     assert(lineinfo.__type=='metalua::lexer::lineinfo')
     assert(nequals==nil or type(nequals)=='number')
@@ -242,7 +240,7 @@ local function unescape_string (s)
          backslashes = backslashes :sub (1,-2)
       end
       local k, j, i = digits :reverse() :byte(1, 3)
-      local z = _G.string.byte "0"
+      local z = string.byte "0"
       local code = (k or z) + 10*(j or z) + 100*(i or z) - 111*z
       if code > 255 then 
          error ("Illegal escape sequence '\\"..digits..
@@ -307,9 +305,9 @@ lexer.extractors = {
 function lexer :extract ()
    local attached_comments = { }
    local function gen_token(...)
-      local token = new_token(...)
+      local token = M.new_token(...)
       if #attached_comments>0 then -- attach previous comments to token
-         local comments = new_comment(attached_comments)
+         local comments = M.new_comment(attached_comments)
          token.lineinfo.first.comments = comments
          if self.lineinfo_last then
             self.lineinfo_last.comments = comments 
@@ -325,7 +323,7 @@ function lexer :extract ()
        if self.i>#self.src then
          local fli = self.posfact :get_position (#self.src+1)
          local lli = self.posfact :get_position (#self.src+1) -- ok?
-         return gen_token("Eof", "eof", new_lineinfo(fli, lli))
+         return gen_token("Eof", "eof", M.new_lineinfo(fli, lli))
        end
        local i_first = self.i -- loc = position after whitespaces
        
@@ -335,7 +333,7 @@ function lexer :extract ()
            if tag then
                local fli = self.posfact :get_position (i_first)
                local lli = self.posfact :get_position (self.i-1)
-               local lineinfo = new_lineinfo(fli, lli)
+               local lineinfo = M.new_lineinfo(fli, lli)
                if tag=='Comment' then
                    local prev_comment = attached_comments[#attached_comments]
                    if not xtra -- new comment is short
@@ -345,7 +343,7 @@ function lexer :extract ()
                        prev_comment[1] = prev_comment[1].."\n"..content -- TODO quadratic, BAD!
                        prev_comment.lineinfo.last = lli
                    else -- accumulate comment
-                       local comment = new_comment_line(content, lineinfo, xtra)
+                       local comment = M.new_comment_line(content, lineinfo, xtra)
                        table.insert(attached_comments, comment)
                    end
                    break -- back to skipping spaces
@@ -382,7 +380,7 @@ end
 ----------------------------------------------------------------------
 function lexer :extract_short_string()
    local k = self.src :sub (self.i,self.i)   -- first char
-   if k~=[[']] and k~=[["]] then return end  -- no match
+   if k~=[[']] and k~=[["]] then return end  -- no match'
    local i = self.i + 1
    local j = i
    while true do
@@ -484,7 +482,7 @@ function lexer :add (w, ...)
          local k = w:sub(1,1)
          local list = self.sym [k]
          if not list then list = { }; self.sym [k] = list end
-         _G.table.insert (list, w)
+         table.insert (list, w)
       elseif w:match "^%p$" then return
       else error "Invalid keyword" end
    end
@@ -515,7 +513,7 @@ function lexer :next (n)
    self :peek (n)
    local a
    for i=1,n do
-      a = _G.table.remove (self.peeked, 1) 
+      a = table.remove (self.peeked, 1) 
       -- TODO: is this used anywhere? I think not.  a.lineinfo.last may be nil.
       --self.lastline = a.lineinfo.last.line
    end
@@ -527,7 +525,10 @@ end
 -- Returns an object which saves the stream's current state.
 ----------------------------------------------------------------------
 -- FIXME there are more fields than that to save
-function lexer :save () return { self.i; _G.table.cat(self.peeked) } end
+-- TODO  remove table2 dependency, used here to make a shallow copy
+-- of self.peeked, hash-part included. The hash-part seems unused,
+-- so { unpack(x) } should work OK.
+function lexer :save () return { self.i; table.cat(self.peeked) } end
 
 ----------------------------------------------------------------------
 -- Restore the stream's state, as saved by method [save].
@@ -597,8 +598,8 @@ function lexer :newstream (src_or_stream, name)
          peeked        = { };    -- Already peeked, but not discarded yet, tokens
          i             = 1;      -- Character offset in src
          attached_comments = { },-- comments accumulator
-         lineinfo_last = new_position(1, 1, 1, name),
-         posfact       = new_position_factory (src_or_stream, name)
+         lineinfo_last = M.new_position(1, 1, 1, name),
+         posfact       = M.new_position_factory (src_or_stream, name)
       }
       setmetatable (stream, self)
 
@@ -639,7 +640,7 @@ function lexer :check (...)
    local function err ()
       error ("Got " .. tostring (a) .. 
              ", expected one of these keywords : '" ..
-             _G.table.concat (words,"', '") .. "'") end
+             table.concat (words,"', '") .. "'") end
           
    if not a or a.tag ~= "Keyword" then err () end
    if #words == 0 then return a[1] end
@@ -655,6 +656,7 @@ end
 function lexer :clone()
    require 'metalua.runtime'
    local clone = {
+      -- TODO: remove table2 dependency?
       alpha = table.deep_copy(self.alpha),
       sym   = table.deep_copy(self.sym) }
    setmetatable(clone, self)
@@ -672,3 +674,5 @@ function lexer :kill()
     self.attached_comments = { }
     self.lineinfo_last = self.posfact :get_position (#self.src+1)
 end
+
+return M

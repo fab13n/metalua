@@ -47,10 +47,13 @@
 --
 --------------------------------------------------------------------------------
 
---require "gg"
---require "mll"
+local gg       = require 'metalua.grammar.generator'
+local mlp      = require 'metalua.compiler.parser.common'
+local mlp_meta = require 'metalua.compiler.parser.meta'
+local M        = { }
 
-module ("mlp", package.seeall)
+
+local splice = gg.sequence{ "-{", mlp_meta.splice_content, "}", builder=unpack }
 
 --------------------------------------------------------------------------------
 -- returns a function that takes the [n]th element of a table.
@@ -63,7 +66,7 @@ module ("mlp", package.seeall)
 -- a lightweight syntax.
 --------------------------------------------------------------------------------
 
-function fget (n, tag) 
+function M.fget (n, tag) 
    assert (type (n) == "number")
    if tag then
       assert (type (tag) == "string")
@@ -80,14 +83,14 @@ end
 -- Try to read an identifier (possibly as a splice), or return [false] if no
 -- id is found.
 --------------------------------------------------------------------------------
-function opt_id (lx)
+function M.opt_id (lx)
    local a = lx:peek();
    if lx:is_keyword (a, "-{") then
-      local v = gg.sequence{ "-{", splice_content, "}" } (lx) [1]
-      if v.tag ~= "Id" and v.tag ~= "Splice" then
-         return gg.parse_error(lx, "Bad id splice")
-      end
-      return v
+       local v = splice(lx)
+       if v.tag ~= "Id" and v.tag ~= "Splice" then
+           return gg.parse_error(lx, "Bad id splice")
+       end
+       return v
    elseif a.tag == "Id" then return lx:next()
    else return false end
 end
@@ -95,14 +98,14 @@ end
 --------------------------------------------------------------------------------
 -- Mandatory reading of an id: causes an error if it can't read one.
 --------------------------------------------------------------------------------
-function id (lx)
-   return opt_id (lx) or gg.parse_error(lx,"Identifier expected")
+function M.id (lx)
+   return M.opt_id (lx) or gg.parse_error(lx,"Identifier expected")
 end
 
 --------------------------------------------------------------------------------
 -- Common helper function
 --------------------------------------------------------------------------------
-id_list = gg.list { primary = mlp.id, separators = "," }
+M.id_list = gg.list { primary = M.id, separators = "," }
 
 --------------------------------------------------------------------------------
 -- Symbol generator: [gensym()] returns a guaranteed-to-be-unique identifier.
@@ -113,20 +116,20 @@ id_list = gg.list { primary = mlp.id, separators = "," }
 --------------------------------------------------------------------------------
 local gensymidx = 0
 
-function gensym (arg)
+function M.gensym (arg)
    gensymidx = gensymidx + 1
-   return { tag="Id", _G.string.format(".%i.%s", gensymidx, arg or "")}
+   return { tag="Id", string.format(".%i.%s", gensymidx, arg or "")}
 end
 
 --------------------------------------------------------------------------------
 -- Converts an identifier into a string. Hopefully one day it'll handle
 -- splices gracefully, but that proves quite tricky.
 --------------------------------------------------------------------------------
-function id2string (id)
+function M.id2string (id)
    --print("id2string:", disp.ast(id))
    if id.tag == "Id" then id.tag = "String"; return id
    elseif id.tag == "Splice" then
-      assert (in_a_quote, "can't do id2string on an outermost splice")
+      assert (mlp_meta.in_a_quote, "can't do id2string on an outermost splice")
       error ("id2string on splice not implemented")
       -- Evaluating id[1] will produce `Id{ xxx },
       -- and we want it to produce `String{ xxx }
@@ -136,17 +139,17 @@ function id2string (id)
       return {tag="String",  {tag="Index", {tag="Splice", id[1] }, 
                                            {tag="Number", 1 } } }
    elseif id.tag == 'Error' then return id
-   else error ("Identifier expected: ".._G.table.tostring(id, 'nohash')) end
+   else error ("Identifier expected: "..table.tostring(id, 'nohash')) end
 end
 
 --------------------------------------------------------------------------------
 -- Read a string, possibly spliced, or return an error if it can't
 --------------------------------------------------------------------------------
-function string (lx)
+function M.string (lx)
    local a = lx:peek()
    if lx:is_keyword (a, "-{") then
-      local v = gg.sequence{ "-{", splice_content, "}" } (lx) [1]
-      if v.tag ~= "" and v.tag ~= "Splice" then
+      local v = splice(lx)
+      if v.tag ~= "String" and v.tag ~= "Splice" then
          return gg.parse_error(lx,"Bad string splice")
       end
       return v
@@ -157,14 +160,14 @@ end
 --------------------------------------------------------------------------------
 -- Try to read a string, or return false if it can't. No splice allowed.
 --------------------------------------------------------------------------------
-function opt_string (lx)
+function M.opt_string (lx)
    return lx:peek().tag == "String" and lx:next()
 end
    
 --------------------------------------------------------------------------------
 -- Chunk reader: block + Eof
 --------------------------------------------------------------------------------
-function skip_initial_sharp_comment (lx)
+function M.skip_initial_sharp_comment (lx)
    -- Dirty hack: I'm happily fondling lexer's private parts
    -- FIXME: redundant with lexer:newstream()
    lx :sync()
@@ -172,21 +175,20 @@ function skip_initial_sharp_comment (lx)
    if i then lx.i, lx.column_offset, lx.line = i, i, lx.line+1 end
 end
 
-local function _chunk (lx)
-   if PRINT_PARSED_STAT then print "HI"; printf("about to chunk on %s", tostring(lx:peek())) end
+local function chunk (lx)
    if lx:peek().tag == 'Eof' then
-       if PRINT_PARSED_STAT then print "at EOF" end
        return { } -- handle empty files
    else 
-      skip_initial_sharp_comment (lx)
-      if PRINT_PARSED_STAT then printf("after skipping, at %s", tostring(lx:peek())) end
-      local chunk = block (lx)
+      M.skip_initial_sharp_comment (lx)
+      local chunk = mlp.block (lx)
       if lx:peek().tag ~= "Eof" then 
-          _G.table.insert(chunk, gg.parse_error(lx, "End-of-file expected"))
+          table.insert(chunk, gg.parse_error(lx, "End-of-file expected"))
       end
       return chunk
    end
 end
 
 -- chunk is wrapped in a sequence so that it has a "transformer" field.
-chunk = gg.sequence { _chunk, builder = unpack }
+M.chunk = gg.sequence { chunk, builder = unpack }
+
+return M
