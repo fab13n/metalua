@@ -306,26 +306,32 @@ lexer.extractors = {
 ----------------------------------------------------------------------
 function lexer :extract ()
    local attached_comments = { }
-   local function gen_token(...)
+   -- generate a non-comment token, attach comments to its lineinfo.
+   local function gen_token(...) 
       local token = new_token(...)
       if #attached_comments>0 then -- attach previous comments to token
          local comments = new_comment(attached_comments)
          token.lineinfo.first.comments = comments
-         if self.lineinfo_last then
-            self.lineinfo_last.comments = comments 
+         if self.lineinfo_last_extracted then
+            self.lineinfo_last_extracted.comments = comments 
          end
          attached_comments = { }
       end
+      token.lineinfo.first.facing = self.lineinfo_last_extracted
+      self.lineinfo_last_extracted.facing = assert(token.lineinfo.first)
+      self.lineinfo_last_extracted = assert(token.lineinfo.last)
       return token
    end
    while true do -- loop until a non-comment token is found
 
        -- skip whitespaces
        self.i = self.src:match (self.patterns.spaces, self.i)
-       if self.i>#self.src then
+       if self.i>#self.src then -- handle EOF
          local fli = self.posfact :get_position (#self.src+1)
          local lli = self.posfact :get_position (#self.src+1) -- ok?
-         return gen_token("Eof", "eof", new_lineinfo(fli, lli))
+         local tok = gen_token("Eof", "eof", new_lineinfo(fli, lli))
+         tok.lineinfo.last.facing = lli
+         return tok
        end
        local i_first = self.i -- loc = position after whitespaces
        
@@ -382,7 +388,7 @@ end
 ----------------------------------------------------------------------
 function lexer :extract_short_string()
    local k = self.src :sub (self.i,self.i)   -- first char
-   if k~=[[']] and k~=[["]] then return end  -- no match
+   if k~=[[']] and k~=[["]] then return end  -- no match '
    local i = self.i + 1
    local j = i
    while true do
@@ -591,13 +597,15 @@ function lexer :newstream (src_or_stream, name)
       return setmetatable ({ }, self) :takeover (src_or_stream)
    elseif type(src_or_stream)=='string' then -- it's a source string
       local src = src_or_stream
+      local first_position = new_position(1, 1, 1, name) 
       local stream = { 
          src_name      = name;   -- Name of the file
          src           = src;    -- The source, as a single string
          peeked        = { };    -- Already peeked, but not discarded yet, tokens
          i             = 1;      -- Character offset in src
          attached_comments = { },-- comments accumulator
-         lineinfo_last = new_position(1, 1, 1, name),
+         lineinfo_last = first_position,           -- right boundary of last consummed token
+         lineinfo_last_extracted = first_position, -- right boundary of last extracted token
          posfact       = new_position_factory (src_or_stream, name)
       }
       setmetatable (stream, self)
