@@ -245,11 +245,10 @@ function M.has_tag(...)
     if #args==1 then
         local tag = ...
         return (|node| node.tag==tag)
-        --return function(self, node) printf("node %s has_tag %s?", table.tostring(node), tag); return node.tag==tag end
     else
         local tags = { }
         for _, tag in ipairs(args) do tags[tag]=true end
-        return function(self, node)
+        return function(node)
             local node_tag = node.tag
             return node_tag and tags[node_tag]
         end
@@ -268,7 +267,7 @@ local STAT_TAGS = { Do=1, Set=1, While=1, Repeat=1, If=1, Fornum=1,
 --- Predicate to test whether a node represents a statement.
 --  It is context-aware, i.e. it recognizes `Call and `Invoke nodes
 --  used in a statement context as such.
-function M.is_stat(self, node, parent)
+function M.is_stat(node, parent)
     local tag = node.tag
     if not tag then return false
     elseif STAT_TAGS[tag] then return true
@@ -277,7 +276,7 @@ function M.is_stat(self, node, parent)
 end
 
 --- Predicate to test whether a node represents a statements block.
-function M.is_block(self, node) return node.tag==nil end
+function M.is_block(node) return node.tag==nil end
 
 -- -----------------------------------------------------------------------------
 -- -----------------------------------------------------------------------------
@@ -304,6 +303,10 @@ function M.is_binder(node, parent)
 end
 
 --- Retrieve the binder associated to an occurrence within root.
+--
+-- Each call to this function might cause a traversal of the whole
+-- `root` tree. For use inside a query method, prefer `treequery.get_binder`.
+--
 --  @param occurrence an Id node representing an occurrence in `root`.
 --  @param root the tree in which `node` and its binder occur.
 --  @return the binder node, and its ancestors up to root if found.
@@ -318,25 +321,12 @@ function M.binder(occurrence, root)
     return unpack(result)
 end
 
---- Predicate to filter occurrences of a given binder.
---  Warning: it relies on internal scope book-keeping,
---  and for this reason, it only works as query method argument.
---  It won't work outside of a query.
---  @param binder the binder whose occurrences must be kept by predicate
---  @return a predicate
 
--- function M.is_occurrence_of(binder)
---     return function(node, ...)
---         if node.tag ~= 'Id' then return nil end
---         if M.is_binder(node, ...) then return nil end
---         local scope = ACTIVE_SCOPE[node]
---         if not scope then return nil end
---         local result = scope :get (node[1]) or { }
---         if result[1] ~= binder then return nil end
---         return unpack(result)
---     end
--- end
-
+--- Return a predicate testing whether a node is an occurrence of the 
+--  given binder.
+--
+-- Caveat: only works in a treequery method.
+--
 function M.is_occurrence_of(binder)
     return function(node, ...)
         local b = M.get_binder(node)
@@ -344,6 +334,12 @@ function M.is_occurrence_of(binder)
     end
 end
 
+--- Return the binder which captures this occurence of a variable if applicable;
+--  return `nil` if the variable is a binder or a free variable
+--
+--  Caveat: this only works in arguments of query methods.
+--  Out of a query, use `treequery.binder()`.
+--
 function M.get_binder(occurrence, ...)
     if occurrence.tag ~= 'Id' then return nil end
     if M.is_binder(occurrence, ...) then return nil end
@@ -365,7 +361,7 @@ function M.parent(n, pred, ...)
     if type(a)~='number' then n, pred = 2, n end
     if type(pred)=='string' then pred = M.has_tag(pred, ...) end
     return function(self, ...)
-        return select(n, ...) and pred(self, select(n, ...))
+        return select(n, ...) and pred(select(n, ...))
     end
 end
 
@@ -398,7 +394,7 @@ end
 --  @return a predicate
 function M.is_nth(a, b)
     b = b or a
-    return function(self, node, parent)
+    return function(node, parent)
         if not parent then return false end
         local nchildren = #parent
         local a = a<=0 and nchildren+a+1 or a
