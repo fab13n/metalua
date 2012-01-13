@@ -57,14 +57,14 @@ function M.traverse.stat (cfg, x, ...)
    local E  = |y| M.expr        (cfg, y, x, unpack(ancestors)) -- Expression
    local EL = |y| M.expr_list   (cfg, y, x, unpack(ancestors)) -- Expression List
    local IL = |y| M.binder_list (cfg, y, x, unpack(ancestors)) -- Id binders List
-   local OS = |y| cfg.scope :save()                              -- Open scope
-   local CS = |y| cfg.scope :restore()                           -- Close scope
+   local OS = |y| cfg.scope :save()                            -- Open scope
+   local CS = |y| cfg.scope :restore()                         -- Close scope
    local function BS(y) OS(); B(y); CS() end                   -- Block with Scope
 
    match x with
    | {...} if x.tag == nil -> for y in ivalues(x) do M.stat(cfg, y, ...) end
                           -- no tag --> node not inserted in the history ancestors
-   | `Do{...}                    -> BS(x)
+   | `Do{...}                    -> OS(x); for _, y in ipairs(x) do S(y) end; CS(x) 
    | `Set{ lhs, rhs }            -> EL(lhs); EL(rhs)
    | `While{ cond, body }        -> E(cond); BS(body)
    | `Repeat{ body, cond }       -> OS(body); B(body); E(cond); CS(body)
