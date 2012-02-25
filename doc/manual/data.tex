@@ -718,6 +718,37 @@ comments. Similarly, if {\tt n} was followed by some comments,
 information about these can be retrieved as\\
 {\tt n.lineinfo.last.comments}. 
 
+Finally, positions in an AST refer to the beginning or the end of a
+token. There can be spaces and/or comments between tokens. More
+precisely, there might be spaces before a \verb+first+ position, or
+after a \verb+last+ position. If there's some space, then there's a
+facing position: for instance, in "{\tt return 123}", the {\tt return}
+token ends at position 7, and the {\tt 123} token starts at offset
+8. These two positions, around the space, are called {\em facing}
+positions. Each position created with the lexer keeps track of the
+facing position in its {\tt facing} field. Notice that when there's no
+space, a position can be its own facing position. For instance, if we
+consider the {\tt foo} token in "{\ttfoo()}", we have {\tt
+  foo.\-lineinfo.\-last.\-facing == foo.\-lineinfo.\-last}.
+
+This info allows to grab the space around a piece of code. In the
+following code, the {\tt lineinfo} associated with the function body
+starts at the "{\tt l}" of "{\tt local}", and ends at the "{\tt t}" of
+"{\tt result}".  By using the {\ff facing} fields, one can easily
+retrieve the space between the function's closing parenthese and "{\tt
+  local}", and between "{\tt result}" and the "{\tt end}" token.
+
+\begin{verbatim}
+function example()
+    -- Some space and comment betweeen tokens
+    local result = 2+2
+    return result
+    -- More space and comment betweeen tokens
+end
+\end{verbatim}
+
+
+
 \paragraph{comments}
 There can be several comments preceding of following a node, and
 represented by a {\tt comments} field. This field has itself a {\tt
