@@ -135,7 +135,7 @@ local function transform (ast, parser, fli, lli)
 end
 
 -------------------------------------------------------------------------------
--- Generate a tracable parsing error (not implemented yet)
+-- Generate a tracable parsing error
 -------------------------------------------------------------------------------
 function parse_error(lx, fmt, ...)
    local li = lx:lineinfo_left()
@@ -577,6 +577,9 @@ end --</expr>
 --   is the same as [{"do"}]. If [terminators] is empty/nil, then
 --   [separators] has to be non-empty.
 --
+-- * [nonempty]: if true, empty lists are rejected by the parser whatever
+--   the [terminators] and [separators] values are.
+--
 -- After creation, the following fields are added:
 -- * [parse] the parsing function lexer->AST
 -- * [kind] == "list"
@@ -601,20 +604,23 @@ function list (p)
       local fli = lx:lineinfo_right()
 
       -- if there's a terminator to start with, don't bother trying
-      if not peek_is_in (self.terminators) then 
-         repeat
-             local item = self.primary(lx)
-             table.insert (x, item) -- read one element
-         until
-            -- Don't go on after an error
-            type(item)=='table' and item.tag=='Error' or
-            -- There's a separator list specified, and next token isn't in it.
-            -- Otherwise, consume it with [lx:next()]
-            self.separators and not(peek_is_in (self.separators) and lx:next()) or
-            -- Terminator token ahead
-            peek_is_in (self.terminators) or
-            -- Last reason: end of file reached
-            lx:peek().tag=="Eof"
+      if not peek_is_in (self.terminators) then
+
+          while true do
+              
+              local item = self.primary(lx)
+              table.insert(x, item)
+
+              -- loop exit conditions
+              if type(item)=='table' and item.tag=='Error' then break -- error in last item
+              elseif self.separators then -- either a separator is consumed or an error is raised
+                  if peek_is_in (self.separators) then lx :next() else break end
+              elseif peek_is_in (self.terminators) then break  -- end on terminator detection
+              elseif lx :peek().tag == 'Eof' then break end -- Eof is always a terminator
+          end
+      end
+      if self.nonempty and not next(x) then
+          return gg.parse_error (lx,"List `%s' must not be empty", p.name)
       end
 
       local lli = lx:lineinfo_left()
@@ -636,9 +642,11 @@ function list (p)
    -------------------------------------------------------------------
    -- Construction
    -------------------------------------------------------------------
-   if not p.primary then p.primary = p[1]; p[1] = nil end
+   if not p.primary then p.primary, p[1] = p[1], nil end
+
    if type(p.terminators) == "string" then p.terminators = { p.terminators }
    elseif p.terminators and #p.terminators == 0 then p.terminators = nil end
+
    if type(p.separators) == "string" then p.separators = { p.separators }
    elseif p.separators and #p.separators == 0 then p.separators = nil end
 
@@ -782,4 +790,21 @@ function with_lexer(new_lexer, parser)
       setmetatable(lx, old_lexer)
       if status then return result else error(result) end
    end
+end
+
+function nonempty(primary)
+    local p = make_parser('non-empty list', { primary = primary, name=primary.name })
+    function p :parse (lx)
+         local fli = lx:lineinfo_right()
+         local content = self.primary (lx)
+         local lli = lx:lineinfo_left()
+         local li = content.lineinfo or { }
+         fli, lli = li.first or fli, li.last or lli
+         if #content == 0 then
+           return gg.parse_error (lx, "`%s' must not be empty", self.name or "list")
+       else
+           return transform (content, self, fli, lli)
+       end
+    end
+    return p
 end

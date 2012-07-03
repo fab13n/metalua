@@ -145,7 +145,12 @@ end
 --------------------------------------------------------------------------------
 local function if_builder (x)
    local cb_pairs, else_block, r = x[1], x[2], {tag="If"}
-   for i=1,#cb_pairs do r[2*i-1]=cb_pairs[i][1]; r[2*i]=cb_pairs[i][2] end
+   if cb_pairs.tag=='Error' then return cb_pairs end -- propagate errors 
+   local n_pairs = #cb_pairs
+   for i = 1, n_pairs do
+       local cond, block = unpack(cb_pairs[i])
+       r[2*i-1], r[2*i] = cond, block
+   end
    if else_block then r[#r+1] = else_block end
    return r
 end 
@@ -154,7 +159,7 @@ end
 -- produce a list of (expr,block) pairs
 --------------------------------------------------------------------------------
 local elseifs_parser = gg.list {
-   gg.sequence { expr, "then", block },
+   gg.sequence { expr, "then", block, name='if/then block' },
    separators  = "elseif",
    terminators = { "else", "end" } }
 
@@ -221,7 +226,7 @@ stat = gg.multisequence {
    { "return", return_expr_list_parser, builder = fget (1, "Return") },
    { "break", builder = function() return { tag="Break" } end },
    { "-{", splice_content, "}", builder = fget(1) },
-   { "if", elseifs_parser, gg.onkeyword{ "else", block }, "end", 
+   { "if", gg.nonempty(elseifs_parser), gg.onkeyword{ "else", block }, "end", 
      builder = if_builder },
    default = assign_or_call_stat_parser }
 
