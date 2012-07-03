@@ -79,26 +79,24 @@ local return_expr_list_parser = gg.multisequence{
 -- Return the `Forxxx{...} AST, without the body element (the last one).
 --------------------------------------------------------------------------------
 function for_header (lx)
-   local var = mlp.id (lx)
-   if lx:is_keyword (lx:peek(), "=") then 
-      -- Fornum: only 1 variable
-      lx:next() -- skip "="
-      local e = expr_list (lx)
-      assert (2 <= #e and #e <= 3, "2 or 3 values in a fornum")
-      return { tag="Fornum", var, unpack (e) }
-   else
-      -- Forin: there might be several vars
-      local a = lx:is_keyword (lx:next(), ",", "in")
-      if a=="in" then var_list = { var, lineinfo = var.lineinfo } else
-         -- several vars; first "," skipped, read other vars
-         var_list = gg.list{ 
-            primary = id, separators = ",", terminators = "in" } (lx)
-         _G.table.insert (var_list, 1, var) -- put back the first variable
-         lx:next() -- skip "in"
-      end
-      local e = expr_list (lx)
-      return { tag="Forin", var_list, e }
-   end
+    local vars = mlp.id_list(lx)
+    if lx :is_keyword (lx:peek(), "=") then       
+        if #vars ~= 1 then 
+            return gg.parse_error (lx, "numeric for only accepts one variable")
+        end
+        lx:next() -- skip "="
+        local exprs = expr_list (lx)
+        if #exprs < 2 or #exprs > 3 then
+            return gg.parse_error (lx, "numeric for requires 2 or 3 boundaries")
+        end
+        return { tag="Fornum", vars[1], unpack (exprs) }
+    else
+        if not lx :is_keyword (lx :next(), "in") then
+            return gg.parse_error (lx, '"=" or "in" expected in for loop')
+        end
+        local exprs = expr_list (lx)
+        return { tag="Forin", vars, exprs }
+    end
 end
 
 --------------------------------------------------------------------------------
