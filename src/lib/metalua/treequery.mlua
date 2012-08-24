@@ -50,11 +50,12 @@ function M.treequery(root)
     return setmetatable({
         root = root,
         unsatisfied = 0,
-        predicates  = { },        until_up    = { },
+        predicates  = { },
+        until_up    = { },
         from_up     = { },
         up_f        = false,
         down_f      = false,
-        filters     = { },
+        filters     = { }
     }, Q)
 end
 
