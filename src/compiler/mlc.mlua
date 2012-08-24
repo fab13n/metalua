@@ -39,35 +39,69 @@ mlc.order = table.transpose(mlc.sequence)
 
 -- Check whether a structure of nested tables is a valid AST.
 -- Currently thows an error if it isn't.
--- TODO: return boolean + msg instead of throwing an error when AST is invalid.
+-- @return true When no error is found in given ast
+-- @return false, error string
+-- @return false, error string, positions Provide position of error in
+--  given ast as a table. The position contains the following keys
+--    * column: number
+--    * line  : number
+--    * offset: number
 -- TODO: build a detailed error location, with the lineinfo of every nested node.
 local function check_ast(kind, ast)
     if not ast then return check_ast('block', kind) end
     assert(type(ast)=='table', "wrong AST type")
+    local cfg = {}
     local function error2ast(error_node, ...)
         if error_node.tag=='Error' then
-            error(error_node[1])
+            cfg.errorfound = true
+            cfg.errormsg = error_node[1]
+
+            -- Try to extract error position in source
+            local li = error_node.lineinfo and error_node.lineinfo.first
+
+            -- Fill positions if undefined or not narrow enough
+            if li and ( not cfg.positions or cfg.positions.offset < li.offset ) then
+                cfg.positions = {
+                    column = li.column,
+                    line   = li.line,
+                    offset = li.offset
+                }
+            end
+
         else
             local li
             for _, n in ipairs{ error_node, ... } do
-                li = n.lineinfo
-                if li then break end
+                if n.lineinfo then
+                    li = n.lineinfo
+                    cfg.errorfound = true
+                    break
+                end
             end
-            local pos = li 
-                and string.format("line %d, char #%d, offset %d",
-                                  li[1], li[2], li[3])
-                or "unknown source position"     
-            local msg = "Invalid node tag "..tostring(error_node.tag).." at "..pos
-            print (msg)
-            table.print(ast, 'nohash')
-            error (msg)
+            local posmsg
+            if li then
+                local column = li.last.column
+                local line   = li.last.line
+                local offset = li.last.offset
+                posmsg = string.format("line %d, char %d, offset %d",
+                                      line, column, offset)
+                cfg.positions = {
+                    column = column,
+                    line   = line,
+                    offset = offset
+                }
+            else
+                posmsg = "unknown source position"     
+            end
+            local msg = "Invalid node tag "..tostring(error_node.tag)..
+                " at "..posmsg
+            cfg.errormsg = msg
         end
     end
-    local cfg = { malformed=error2ast; unknown=error2ast }
     local f = require 'metalua.treequery.walk' [kind]
-    --print ("Checking AST "..table.tostring(ast, 'nohash'):sub(1, 130))
+    cfg.malformed=error2ast
+    cfg.unknown=error2ast
     f(cfg, ast)
-    --print ("Checked AST: success")
+    return cfg.errorfound == nil, cfg.errormsg, cfg.positions
 end
 
 mlc.check_ast = check_ast
