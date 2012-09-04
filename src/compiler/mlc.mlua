@@ -79,9 +79,9 @@ local function check_ast(kind, ast)
             end
             local posmsg
             if li then
-                local column = li.last.column
-                local line   = li.last.line
-                local offset = li.last.offset
+                local column = li.first.column
+                local line   = li.first.line
+                local offset = li.first.offset
                 posmsg = string.format("line %d, char %d, offset %d",
                                       line, column, offset)
                 cfg.positions = {
