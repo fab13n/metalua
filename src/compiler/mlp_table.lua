@@ -44,6 +44,7 @@
 --require "gg"
 --require "mll"
 --require "mlp_misc"
+local tableinsert = table.insert
 
 module ("mlp", package.seeall)
 
@@ -79,8 +80,26 @@ local function _table_field(lx) return table_field(lx) end
 --------------------------------------------------------------------------------
 -- table constructor, without enclosing braces; returns a full table object
 --------------------------------------------------------------------------------
-table_content = gg.list { _table_field, 
-   separators = { ",", ";" }, terminators = "}", builder = "Table" }
+function table_content(lx)
+    local items = {tag = "Table"}
+    while not lx:is_keyword(lx:peek(), '}') do
+        -- Seek for table values
+        local tablevalue = _table_field (lx)
+        if tablevalue then
+            tableinsert(items, tablevalue)
+        else 
+            return nil
+        end
+
+        -- Seek for values separators
+        if lx:is_keyword(lx:peek(), ',', ';') then
+            lx:next()
+        elseif not lx:is_keyword(lx:peek(), '}') then
+            return nil
+        end
+    end
+    return items
+end
 
 local function _table_content(lx) return table_content(lx) end
 
