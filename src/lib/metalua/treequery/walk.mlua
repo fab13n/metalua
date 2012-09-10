@@ -145,18 +145,23 @@ function M.occurrence(cfg, x, ...)
     if cfg.occurrence then cfg.occurrence(cfg.scope :get(x[1]),  x, ...) end
 end
 
+-- TODO: Is it useful to call each error handling function
 function M.binder_list (cfg, id_list, ...)
     local f = cfg.binder
+    local ferror = cfg.error or cfg.malformed or cfg.unknown
     for i, id_node in ipairs(id_list) do
-        if id_node.tag == 'Id' then
-            cfg.scope :set (id_node[1], { id_node, ... })
-            if f then f(id_node, ...) end
-        elseif id_node.tag=='Error' then
-            -- Ignore `Error nodes
-        else
-            assert (i==#id_list and id_node.tag=='Dots', "Invalid binders list")
-        end
-    end
+      if id_node.tag == 'Id' then
+         cfg.scope :set (id_node[1], { id_node, ... })
+         if f then f(id_node, ...) end
+      elseif i==#id_list and id_node.tag=='Dots' then
+         -- Do nothing, those are valid `Dots
+      elseif ferror then
+         -- Traverse error handling function
+         ferror(id_node, ...)
+      else
+         error("Invalid binders list")
+      end
+   end
 end
 
 ----------------------------------------------------------------------
