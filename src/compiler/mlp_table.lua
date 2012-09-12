@@ -88,14 +88,14 @@ function table_content(lx)
         if tablevalue then
             tableinsert(items, tablevalue)
         else 
-            return nil
+            return gg.parse_error(lx, '`Pair of value expected.')
         end
 
         -- Seek for values separators
         if lx:is_keyword(lx:peek(), ',', ';') then
             lx:next()
         elseif not lx:is_keyword(lx:peek(), '}') then
-            return nil
+            return gg.parse_error(lx, '} expected.')
         end
     end
     return items
@@ -107,5 +107,3 @@ local function _table_content(lx) return table_content(lx) end
 -- complete table constructor including [{...}]
 --------------------------------------------------------------------------------
 table = gg.sequence{ "{", _table_content, "}", builder = fget(1) }
-
-
