@@ -177,14 +177,14 @@ end
 function walk.traverse.stat (cfg, x, ...)
    if walk.debug then printf("traverse stat %s", table.tostring(x)) end
    local log = {...}
-   local B  = |y| walk.block       (cfg, y, x, unpack(log))
-   local S  = |y| walk.stat        (cfg, y, x, unpack(log))
-   local E  = |y| walk.expr        (cfg, y, x, unpack(log))
-   local EL = |y| walk.expr_list   (cfg, y, x, unpack(log))
-   local I  = |y| walk.binder_list (cfg, y, x, unpack(log))
-   local function BS(y)
-      scope (cfg, 'down'); B(y); scope (cfg, 'up')
-   end
+   local B    = |y| walk.block       (cfg, y, x, unpack(log))
+   local S    = |y| walk.stat        (cfg, y, x, unpack(log))
+   local E    = |y| walk.expr        (cfg, y, x, unpack(log))
+   local EL   = |y| walk.expr_list   (cfg, y, x, unpack(log))
+   local I    = |y| walk.binder_list (cfg, y, x, unpack(log))
+   local DOWN = || scope(cfg, 'down')
+   local UP   = || scope(cfg, 'up')
+   local function BS(y) DOWN(); B(y); UP() end
 
    match x with
    | {...} if x.tag == nil -> for y in ivalues(x) do walk.stat(cfg, y, ...) end
@@ -192,13 +192,13 @@ function walk.traverse.stat (cfg, x, ...)
    | `Do{...}                    -> BS(x)
    | `Set{ lhs, rhs }            -> EL(lhs); EL(rhs)
    | `While{ cond, body }        -> E(cond); BS(body)
-   | `Repeat{ body, cond }       -> scope(cfg, 'down'); B(body); E(cond); scope(cfg, 'up')
+   | `Repeat{ body, cond }       -> DOWN(); B(body); E(cond); UP()
    | `Local{ lhs }               -> I(lhs)
    | `Local{ lhs, rhs }          -> EL(rhs); I(lhs)
    | `Localrec{ lhs, rhs }       -> I(lhs); EL(rhs)
-   | `Fornum{ i, a, b, body }    -> E(a); E(b); I{i}; BS(body)
+   | `Fornum{ i, a, b, body }    -> E(a); E(b); DOWN(); I{i}; B(body); UP()
    | `Fornum{ i, a, b, c, body } -> E(a); E(b); E(c); I{i}; BS(body)
-   | `Forin{ i, rhs, body }      -> EL(rhs); I(i); BS(body)
+   | `Forin{ i, rhs, body }      -> EL(rhs); DOWN(); I(i); B(body); UP()
    | `If{...}                    -> for i=1, #x-1, 2 do E(x[i]); BS(x[i+1]) end
                                     if #x%2 == 1 then BS(x[#x]) end
    | `Call{...}|`Invoke{...}|`Return{...} -> EL(x)
@@ -218,13 +218,15 @@ function walk.traverse.expr (cfg, x, ...)
    local E  = |y| walk.expr        (cfg, y, x, unpack(log))
    local EL = |y| walk.expr_list   (cfg, y, x, unpack(log)) 
    local I  = |y| walk.binder_list (cfg, y, x, unpack(log))
+   local DOWN = || scope(cfg, 'down')
+   local UP   = || scope(cfg, 'up')
    match x with
    | `Paren{ e }               -> E(e)
    | `Call{...} | `Invoke{...} -> EL(x)
    | `Index{ a, b }            -> E(a); E(b)
    | `Op{ opid, ... }          -> E(x[2]); if #x==3 then E(x[3]) end
-   | `Function{ params, body } -> I(params); scope(cfg, 'down'); B(body); scope (cfg, 'in')
-   | `Stat{ b, e }             -> scope(cfg, 'down'); B(b); E(e); scope (cfg, 'in')
+   | `Function{ params, body } -> I(params); DOWN(); B(body); UP()
+   | `Stat{ b, e }             -> DOWN(); B(b); E(e); UP()
    | `Table{ ... }             ->
       for i = 1, #x do match x[i] with
          | `Pair{ k, v } -> E(k); E(v)
