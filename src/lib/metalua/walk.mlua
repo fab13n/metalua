@@ -225,7 +225,7 @@ function walk.traverse.expr (cfg, x, ...)
    | `Call{...} | `Invoke{...} -> EL(x)
    | `Index{ a, b }            -> E(a); E(b)
    | `Op{ opid, ... }          -> E(x[2]); if #x==3 then E(x[3]) end
-   | `Function{ params, body } -> I(params); DOWN(); B(body); UP()
+   | `Function{ params, body } -> DOWN(); I(params); B(body); UP()
    | `Stat{ b, e }             -> DOWN(); B(b); E(e); UP()
    | `Table{ ... }             ->
       for i = 1, #x do match x[i] with
