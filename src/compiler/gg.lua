@@ -171,7 +171,7 @@ end
 
 function earlier_error(lx)
     local li = lx and lx :peek().lineinfo
-    return { tag='Error', "earlier error", lineinfo=li, error=true }
+    return { tag='Error', "earlier error", lineinfo=li, error=true, stuffing = true }
 end
    
 -------------------------------------------------------------------------------

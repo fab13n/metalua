@@ -57,25 +57,29 @@ function M.traverse.stat (cfg, x, ...)
    local E  = |y| M.expr        (cfg, y, x, unpack(ancestors)) -- Expression
    local EL = |y| M.expr_list   (cfg, y, x, unpack(ancestors)) -- Expression List
    local IL = |y| M.binder_list (cfg, y, x, unpack(ancestors)) -- Id binders List
-   local OS = |y| cfg.scope :save()                            -- Open scope
-   local CS = |y| cfg.scope :restore()                         -- Close scope
-   local function BS(y) OS(); B(y); CS() end                   -- Block with Scope
+   local OS = || cfg.scope :save()                             -- Open scope
+   local CS = || cfg.scope :restore()                          -- Close scope
 
    match x with
    | {...} if x.tag == nil -> for y in ivalues(x) do M.stat(cfg, y, ...) end
                           -- no tag --> node not inserted in the history ancestors
    | `Do{...}                    -> OS(x); for _, y in ipairs(x) do S(y) end; CS(x) 
    | `Set{ lhs, rhs }            -> EL(lhs); EL(rhs)
-   | `While{ cond, body }        -> E(cond); BS(body)
+   | `While{ cond, body }        -> E(cond); OS(); B(body); CS()
    | `Repeat{ body, cond }       -> OS(body); B(body); E(cond); CS(body)
    | `Local{ lhs }               -> IL(lhs)
    | `Local{ lhs, rhs }          -> EL(rhs); IL(lhs)
    | `Localrec{ lhs, rhs }       -> IL(lhs); EL(rhs)
-   | `Fornum{ i, a, b, body }    -> E(a); E(b); IL{i}; BS(body)
-   | `Fornum{ i, a, b, c, body } -> E(a); E(b); E(c); IL{i}; BS(body)
-   | `Forin{ i, rhs, body }      -> EL(rhs); IL(i); BS(body)
-   | `If{...}                    -> for i=1, #x-1, 2 do E(x[i]); BS(x[i+1]) end
-                                    if #x%2 == 1 then BS(x[#x]) end
+   | `Fornum{ i, a, b, body }    -> E(a); E(b); OS(); IL{i}; B(body); CS()
+   | `Fornum{ i, a, b, c, body } -> E(a); E(b); E(c); OS(); IL{i}; B(body); CS()
+   | `Forin{ i, rhs, body }      -> EL(rhs); OS(); IL(i); B(body); CS()
+   | `If{...}                    -> 
+       for i=1, #x-1, 2 do
+           E(x[i]); OS(); B(x[i+1]); CS() 
+       end
+       if #x%2 == 1 then 
+           OS(); B(x[#x]); CS()
+       end
    | `Call{...}|`Invoke{...}|`Return{...} -> EL(x)
    | `Break | `Goto{ _ } | `Label{ _ }    -> -- nothing
    | { tag=tag, ...} if M.tags.stat[tag]-> 
@@ -93,9 +97,8 @@ function M.traverse.expr (cfg, x, ...)
    local E  = |y| M.expr        (cfg, y, x, unpack(ancestors)) -- Expression
    local EL = |y| M.expr_list   (cfg, y, x, unpack(ancestors)) -- Expression List
    local IL = |y| M.binder_list (cfg, y, x, unpack(ancestors)) -- Id binders list
-   local OS = |y| cfg.scope :save()                              -- Open scope
-   local CS = |y| cfg.scope :restore()                           -- Close scope
-   local function BS(y) OS(); B(y); CS() end                   -- Block with Scope
+   local OS = || cfg.scope :save()                             -- Open scope
+   local CS = || cfg.scope :restore()                          -- Close scope
 
    match x with
    | `Paren{ e }               -> E(e)
@@ -108,7 +111,7 @@ function M.traverse.expr (cfg, x, ...)
    | `Table{ ... }             ->
       for i = 1, #x do match x[i] with
          | `Pair{ k, v } -> E(k); E(v)
-         | v            -> E(v)
+         | v             -> E(v)
       end end
    | `Nil|`Dots|`True|`False|`Number{_}|`String{_} -> -- terminal node
    | { tag=tag, ...} if M.tags.expr[tag]-> M.malformed (cfg, x, unpack (ancestors))
@@ -118,7 +121,9 @@ end
 
 function M.traverse.block (cfg, x, ...)
    assert(type(x)=='table', "traverse.block() expects a table")
-   for y in ivalues(x) do M.stat(cfg, y, x, ...) end
+   if x.tag then M.malformed(cfg, x, ...)
+   else for y in ivalues(x) do M.stat(cfg, y, x, ...) end
+   end
 end
 
 function M.traverse.expr_list (cfg, x, ...)
