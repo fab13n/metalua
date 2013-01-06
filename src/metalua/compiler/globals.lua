@@ -3,13 +3,12 @@
 -- rather than only plain Lua
 --------------------------------------------------------------------------------
 
-local bytecode = require 'metalua.bytecode'
-local mlp = require 'metalua.mlp'
+local bytecode = require 'metalua.compiler.bytecode'
 
 local M = { }
 
 -- Original versions
-local X = { 
+local X = {
     load       = load,
     loadfile   = loadfile,
     loadstring = loadstring,

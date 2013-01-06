@@ -46,7 +46,7 @@ function M.run()
       until #line>0
       
       lx  = convert.luastring_to_lexstream(src) 
-      success, ast = pcall(compiler.lexstream_to_ast, lx)
+      success, ast = pcall(convert.lexstream_to_ast, lx)
       if success then
          local check_status, check_msg = pcall(convert.check_ast, ast)
          if not check_status then

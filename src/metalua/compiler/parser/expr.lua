@@ -53,6 +53,7 @@ local M   = { }
 local mlp_table = require 'metalua.compiler.parser.table'
 local mlp_meta  = require 'metalua.compiler.parser.meta'
 local mlp_misc  = require 'metalua.compiler.parser.misc'
+local mlp_annot = require 'metalua.compiler.parser.annot'
 
 -- Delayed dependencies toward externally-defined parsers
 local function block (lx) return mlp.block (lx) end
@@ -201,16 +202,18 @@ M.expr = gg.expr { name = "expression",
    suffix = { name="expr suffix op",
       { "[", expr, "]", builder = function (tab, idx)
          return {tag="Index", tab, idx[1]} end},
-      { ".", id, builder = function (tab, field) 
+      { ".", id, builder = function (tab, field)
          return {tag="Index", tab, mlp_misc.id2string(field[1])} end },
-      { "(", M.func_args_content, ")", builder = function(f, args) 
+      { "(", M.func_args_content, ")", builder = function(f, args)
          return {tag="Call", f, unpack(args[1])} end },
       { "{", mlp_table.content, "}", builder = function (f, arg)
          return {tag="Call", f, arg[1]} end},
       { ":", id, M.method_args, builder = function (obj, post)
          return {tag="Invoke", obj, mlp_misc.id2string(post[1]), unpack(post[2])} end},
-      { "+{", mlp_meta.quote_content, "}", builder = function (f, arg) 
+      { "+{", mlp_meta.quote_content, "}", builder = function (f, arg)
          return {tag="Call", f,  arg[1] } end },
+      { "#", mlp_annot, builder = function (e, a)
+         e.annot=a; return e end },
       default = { name="opt_string_arg", parse = mlp_misc.opt_string, builder = function(f, arg) 
          return {tag="Call", f, arg } end } } }
 

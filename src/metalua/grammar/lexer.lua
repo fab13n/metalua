@@ -26,10 +26,14 @@
 --
 ----------------------------------------------------------------------
 
+require 'checks'
 
 local M = { }
 
-local lexer = { alpha={ }, sym={ } }; lexer.__index=lexer
+local lexer = { alpha={ }, sym={ } }
+lexer.__index=lexer
+lexer.__type='lexer.stream'
+
 M.lexer = lexer
 
 
@@ -52,7 +56,7 @@ M.metatables=MT
 -- Create a new metatable, for a new class of objects.
 ----------------------------------------------------------------------
 local function new_metatable(name) 
-    local mt = { __type = 'metalua::lexer::'..name }; 
+    local mt = { __type = 'lexer.'..name }; 
     mt.__index = mt
     MT[name] = mt
 end
@@ -66,10 +70,7 @@ new_metatable 'position'
 local position_idx=1
 
 function M.new_position(line, column, offset, source)
-    -- assert(type(line)=='number')
-    -- assert(type(column)=='number')
-    -- assert(type(offset)=='number')
-    -- assert(type(source)=='string')
+    checks('number', 'number', 'number', 'string')
     local id = position_idx; position_idx = position_idx+1
     return setmetatable({line=line, column=column, offset=offset,
                          source=source, id=id}, MT.position)
@@ -136,8 +137,7 @@ end
 new_metatable 'lineinfo'
 
 function M.new_lineinfo(first, last)
-    assert(first.__type=='metalua::lexer::position')
-    assert(last.__type=='metalua::lexer::position')
+    checks('lexer.position', 'lexer.position')
     return setmetatable({first=first, last=last}, MT.lineinfo)
 end
 
@@ -195,9 +195,7 @@ function MT.comment :text()
 end
 
 function M.new_comment_line(text, lineinfo, nequals)
-    assert(type(text)=='string')
-    assert(lineinfo.__type=='metalua::lexer::lineinfo')
-    assert(nequals==nil or type(nequals)=='number')
+    checks('string', 'lexer.lineinfo', '?number')
     return { lineinfo = lineinfo, text, nequals }
 end
 

@@ -1,5 +1,8 @@
 local package = package
 
+require 'metalua.table2'
+require 'metalua.string2'
+
 package.metalua_extension_prefix = 'metalua.extension.'
 
 package.mpath = os.getenv 'LUA_MPATH' or

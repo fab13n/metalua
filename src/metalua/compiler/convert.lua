@@ -23,6 +23,8 @@ local bytecode = require 'metalua.compiler.bytecode'
 local mlp      = require 'metalua.compiler.parser'
 local M        = { }
 
+require 'checks'
+
 M.metabugs = false
 
 --------------------------------------------------------------------------------
@@ -38,11 +40,12 @@ M.sequence = {
 M.order = table.transpose(M.sequence)
 
 -- Check whether a structure of nested tables is a valid AST.
--- Currently thows an error if it isn't.
+-- Currently thorws an error if it isn't.
 -- TODO: return boolean + msg instead of throwing an error when AST is invalid.
 -- TODO: build a detailed error location, with the lineinfo of every nested node.
 local function check_ast(kind, ast)
     if not ast then return check_ast('block', kind) end
+    checks('string', 'table')
     assert(type(ast)=='table', "wrong AST type")
     local function error2ast(error_node, ...)
         if error_node.tag=='Error' then
@@ -73,24 +76,27 @@ end
 M.check_ast = check_ast
 
 function M.luafile_to_luastring(x, name)
+    checks('string', '?string')
     name = name or '@'..x
     local f, msg = io.open (x, 'rb')
-    if not f then return f, msg end
+    if not f then error(msg) end
     local r = f :read '*a'
     f :close()
     return r, name
 end
 
 function M.luastring_to_lexstream(src, name)
+    checks('string', '?string')
     local r = mlp.lexer:newstream (src, name)
     return r, name
 end
 
 function M.lexstream_to_ast(lx, name)
+    checks('lexer.stream', '?string')
     if PRINT_PARSED_STAT then
         print("About to parse a lexstream, starting with "..tostring(lx:peek()))
     end
-    local r = mlp.chunk(lx)    
+    local r = mlp.chunk(lx)
     r.source = name
     return r, name
 end
@@ -102,6 +108,7 @@ function M.proto_to_luacstring(proto, name)
 end
 
 function M.luacstring_to_function(bc, name)
+    checks('string', '?string')
     return loadstring(bc, name)
 end
 

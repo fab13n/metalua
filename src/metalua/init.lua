@@ -1,7 +1,8 @@
 --*-lua-*-
 
 -- Main file for the metalua executable
-
+require 'metalua.package2'
+require 'metalua.compiler.globals'
 local compiler = require 'metalua.compiler.convert'
 local clopts   = require 'metalua.clopts'
 
@@ -9,12 +10,14 @@ AST_COMPILE_ERROR_NUMBER        = -1
 RUNTIME_ERROR_NUMBER            = -3
 BYTECODE_SYNTHESE_ERROR_NUMBER  = -100
 
--{ extension 'match' }
-
 local chunks  = { }
 local runargs = { }
 
-local acc_chunk = |kind| |arg| table.insert (chunks, { tag=kind, arg })
+local function acc_chunk(kind)
+    return function(x)
+        table.insert (chunks, { tag=kind, x })
+    end
+end
 
 parser = clopts {
    -- Chunk loading
@@ -108,7 +111,7 @@ local function main (...)
    if #chunks==0 and cfg.params then
       local the_file = table.remove(cfg.params, 1)
       verb_print("Param %q considered as a source file", the_file)
-      chunks = { `File{ the_file } }
+      chunks = { {tag='File', the_file } }
    end
 
    -------------------------------------------------------------------
@@ -134,18 +137,23 @@ local function main (...)
 
    local last_file
    for x in values(chunks) do
+      local tag, val = x.tag, x[1]
       verb_print("Compiling %s", table.tostring(x))
       local st, ast
-      match x with
-      | `Library{ l } -> ast = `Call{ `Id 'require', `String{ l } }
-      | `Literal{ e } -> ast = compiler.luastring_to_ast(e)
-      | `File{ f } ->
-         ast = compiler.luafile_to_ast(f)
+      if tag=='Library' then
+          ast = { tag='Call',
+                  {tag='Id', "require" },
+                  {tag='String', val } }
+      elseif tag=='Literal' then ast = compiler.luastring_to_ast(val)
+      elseif tag=='File' then
+         ast = compiler.luafile_to_ast(val)
          -- Isolate each file in a separate fenv
-         ast = +{ function (...) -{ast} end (...)  }
-         ast.source  = '@'..f -- TODO [EVE]
-         code.source = '@'..f -- TODO [EVE]
+         ast = {tag='Function', {tag='Dots'}, ast }
+         ast.source  = '@'..val -- TODO [EVE]
+         code.source = '@'..val -- TODO [EVE]
          last_file = ast
+      else
+          error ("Bad option "..tag)
       end
       local valid = true -- TODO: check AST's correctness
       if not valid then
@@ -158,7 +166,9 @@ local function main (...)
    -- The last file returns the whole chunk's result
    if last_file then
       local c = table.shallow_copy(last_file)
-      last_file <- `Return{ source = c.source, c }
+      last_file.tag='Return'
+      last_file.source = c.source
+      last_file[1] = c
    end
 
    -------------------------------------------------------------------
@@ -192,7 +202,10 @@ local function main (...)
    if cfg['no-runtime'] then
       verb_print "Prevent insertion of command \"require 'metalua.runtime'\""
    else
-      table.insert(code, 1, +{require'metalua.runtime'})
+       local req_runtime = { tag='Call',
+                             {tag='Id', "require"},
+                             {tag='String', "metalua.runtime"} }
+       table.insert(code, 1, req_runtime)
    end
 
    local bytecode = compiler.ast_to_luacstring (code)
@@ -203,8 +216,8 @@ local function main (...)
    if cfg.sharpbang then
       local shbang = cfg.sharpbang
       verb_print ("Adding sharp-bang directive %q", shbang)
-      if not shbang :strmatch'^#!' then shbang = '#!' .. shbang end
-      if not shbang :strmatch'\n$' then shbang = shbang .. '\n' end
+      if not shbang :match'^#!' then shbang = '#!' .. shbang end
+      if not shbang :match'\n$' then shbang = shbang .. '\n' end
       bytecode = shbang .. bytecode
    end
 
@@ -230,12 +243,12 @@ local function main (...)
       bytecode = nil
       -- FIXME: isolate execution in a ring
       -- FIXME: check for failures
-
       runargs = table.icat(cfg.params or { }, runargs)
       local function print_traceback (errmsg)
          return errmsg .. '\n' .. debug.traceback ('',2) .. '\n'
       end
-      local st, msg = xpcall(|| f(unpack (runargs)), print_traceback)
+      local function g() return f(unpack (runargs)) end
+      local st, msg = xpcall(g, print_traceback)
       if not st then
          io.stderr:write(msg)
          os.exit(RUNTIME_ERROR_NUMBER)
@@ -253,4 +266,5 @@ local function main (...)
 
 end
 
-return main
+if debug.getinfo(1).what=='main' then main(...)
+else return main end
