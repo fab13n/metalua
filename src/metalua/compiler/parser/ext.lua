@@ -9,6 +9,7 @@ local mlp       = require 'metalua.compiler.parser.common'
 local mlp_lexer = require 'metalua.compiler.parser.lexer'
 local mlp_expr  = require 'metalua.compiler.parser.expr'
 local mlp_stat  = require 'metalua.compiler.parser.stat'
+local mlp_misc  = require 'metalua.compiler.parser.misc'
 
 local expr = mlp_expr.expr
 
@@ -16,7 +17,8 @@ local expr = mlp_expr.expr
 -- Alebraic Datatypes
 --------------------------------------------------------------------------------
 local function adt (lx)
-   local tagval = id (lx) [1]
+   local node = mlp_misc.id (lx)
+   local tagval = node[1]
    local tagkey = {tag="Pair", {tag="String", "tag"}, {tag="String", tagval} }
    if lx:peek().tag == "String" or lx:peek().tag == "Number" then
       return { tag="Table", tagkey, lx:next() }
@@ -70,7 +72,7 @@ expr.infix :add{ name = "infix function",
 
 mlp_lexer.lexer:add "<-"
 mlp_stat.stat.assignments["<-"] = function (a, b)
-   assert( #a==1 and #b==1, "No multi-args for '<-'")                         
+   assert( #a==1 and #b==1, "No multi-args for '<-'")
    return { tag="Call", { tag="Index", { tag="Id", "table" },
                                        { tag="String", "override" } },
                         a[1], b[1]} 

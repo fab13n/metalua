@@ -1,6 +1,5 @@
 --------------------------------------------------------------------------------
 -- Code walkers
---      "Make everything as simple as possible, but not simpler".
 --
 -- This library offers a generic way to write AST transforming
 -- functions. Macros can take bits of AST as parameters and generate a

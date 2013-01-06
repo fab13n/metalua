@@ -165,7 +165,6 @@ function table.override(dst, src)
    return dst
 end
 
-
 function table.range(a,b,c)
    if not b then assert(not(c)); b=a; a=1
    elseif not c then c = (b>=a) and 1 or -1 end
@@ -173,7 +172,6 @@ function table.range(a,b,c)
    for i=a, b, c do table.insert(result, i) end
    return result
 end
-
 
 -- FIXME: new_indent seems to be always nil?!
 -- FIXME: accumulator function should be configurable,

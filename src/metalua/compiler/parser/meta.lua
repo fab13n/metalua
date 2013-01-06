@@ -84,7 +84,7 @@ function M.splice_content (lx)
       assert (a.tag=="Id", "Invalid splice parser name")
       parser_name = a[1]
    end
-   local ast = mlp[parser_name](lx)
+   local ast = require 'metalua.compiler.parser' [parser_name](lx)
    if M.in_a_quote then
       --printf("SPLICE_IN_QUOTE:\n%s", _G.table.tostring(ast, "nohash", 60))
       return { tag="Splice", ast }

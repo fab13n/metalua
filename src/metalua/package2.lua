@@ -1,7 +1,5 @@
 local package = package
 
-require 'metalua.mlc'
-
 package.metalua_extension_prefix = 'metalua.extension.'
 
 package.mpath = os.getenv 'LUA_MPATH' or
@@ -71,16 +69,10 @@ end
 function package.metalua_loader (name)
    local file, filename_or_msg = package.findfile (name, package.mpath)
    if not file then return filename_or_msg end
-   if package.metalua_nopopen then
-      local luastring = file:read '*a'
-      file:close()
-      return mlc.luastring_to_function (luastring, name)
-   else      
-      file:close()
-      require 'metalua.mlc_xcall'
-      local status, ast = mlc_xcall.client_file (filename_or_msg)
-      return mlc.ast_to_function(ast)
-   end
+   local luastring = file:read '*a'
+   file:close()
+   local mlc = require 'metalua.compiler.convert'
+   return mlc.luastring_to_function (luastring, name)
 end
 
 ----------------------------------------------------------------------

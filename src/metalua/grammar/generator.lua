@@ -49,13 +49,14 @@ local lexer = require 'metalua.grammar.lexer'
 -------------------------------------------------------------------------------
 local parser_metatable = { }
 
-function parser_metatable :__call (...) 
-    --return self :parse(...) 
-    local r = self :parse(...) 
-    if type(r) ~= 'table' then 
-        print("This parser returned non-table "..table.tostring(r)..":")
-        table.print(self.name)
-        table.print((...):peek())
+function parser_metatable :__call (lx, ...)
+    --return self :parse(lx, ...)
+    local r = self :parse (lx, ...)
+    if r and type(r) ~= 'table' then
+        printf("Grammar generator: parser %s returned non-table %s at %s",
+               table.tostring(self.name),
+               table.tostring(r),
+               table.tostring((...):peek()))
     end
     return r
 end

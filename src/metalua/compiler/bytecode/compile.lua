@@ -109,7 +109,7 @@ end
 -- since [fs.nactvar] and [fs.freereg] aren't updated.
 -----------------------------------------------------------------------
 local function registerlocalvar (fs, varname)
-   debugf("[locvar: %s = reg %i]", varname, fs.nlocvars)
+   --debugf("[locvar: %s = reg %i]", varname, fs.nlocvars)
    local f = fs.f
    f.locvars[fs.nlocvars] = { } -- LocVar
    f.locvars[fs.nlocvars].varname = varname
@@ -677,7 +677,7 @@ end
 
 function stat.stat (fs, ast)
    if ast.lineinfo then fs.lastline = ast.lineinfo.last.line end
-   -- debugf (" - Statement %s", disp.ast (ast) )
+   --debugf (" - Statement %s", table.tostring (ast) )
 
    if not ast.tag then chunk (fs, ast) else
 
@@ -686,8 +686,7 @@ function stat.stat (fs, ast)
          error ("A statement cannot have tag `"..ast.tag) end
       parser (fs, ast)
    end
-   --debugf (" - /Statement `%s", ast.tag or "<nil>")
-   debugf (" - /Statement `%s", ast.tag)
+   --debugf (" - /Statement `%s", ast.tag)
 end
 
 ------------------------------------------------------------------------
@@ -1050,14 +1049,14 @@ function expr.expr (fs, ast, v)
 
    if ast.lineinfo then fs.lastline = ast.lineinfo.last.line end
 
-   --debugf (" - Expression %s", tostringv (ast))
+   --debugf (" - Expression %s", table.tostring (ast))
    local parser = expr[ast.tag]
    if parser then parser (fs, ast, v)
    elseif not ast.tag then 
       error ("No tag in expression "..table.tostring(ast, 'nohash', 80))
    else 
       error ("No parser for node `"..ast.tag) end
-   debugf (" - /`%s", ast.tag)
+   --debugf (" - /Expression `%s", ast.tag)
 end
 
 ------------------------------------------------------------------------
@@ -1272,5 +1271,14 @@ function ast_to_proto (ast, source)
   if source then fs.f.source = source end
   return fs.f, source
 end
+
+local function Error (fs, ast, v)
+    local msg = string.format ("Error node in AST at position %s: %s",
+                               tostring(ast.lineinfo),
+                               table.tostring(ast, nohash))
+    error(msg)
+end
+
+expr.Error, stat.Error = Error, Error
 
 return _M

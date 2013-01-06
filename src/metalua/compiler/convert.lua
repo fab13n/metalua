@@ -53,10 +53,10 @@ local function check_ast(kind, ast)
                 li = n.lineinfo
                 if li then break end
             end
-            local pos = li 
+            local pos = li
                 and string.format("line %d, char #%d, offset %d",
                                   li[1], li[2], li[3])
-                or "unknown source position"     
+                or "unknown source position"
             local msg = "Invalid node tag "..tostring(error_node.tag).." at "..pos
             print (msg)
             table.print(ast, 'nohash')

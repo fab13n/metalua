@@ -2,9 +2,8 @@
 
 -- Main file for the metalua executable
 
-require 'metalua.compiler'
-require 'metalua.clopts'
-require 'metalua.mlc_xcall'
+local compiler = require 'metalua.compiler.convert'
+local clopts   = require 'metalua.clopts'
 
 AST_COMPILE_ERROR_NUMBER        = -1
 RUNTIME_ERROR_NUMBER            = -3
@@ -64,6 +63,7 @@ parser = clopts {
       action= function (newargs) runargs=table.icat(runargs, newargs) end,
       usage = "pass all remaining arguments to the program"
    },
+
 usage=[[
 
 Compile and/or execute metalua programs. Parameters passed to the
@@ -131,25 +131,24 @@ local function main (...)
 
    -------------------------------------------------------------------
    -- Get ASTs from sources
-   mlc.metabugs = cfg.metabugs
+
    local last_file
    for x in values(chunks) do
       verb_print("Compiling %s", table.tostring(x))
       local st, ast
       match x with
-      | `Library{ l } -> st, ast = true, `Call{ `Id 'require', `String{ l } }
-      | `Literal{ e } -> st, ast = mlc_xcall.client_literal (e)
+      | `Library{ l } -> ast = `Call{ `Id 'require', `String{ l } }
+      | `Literal{ e } -> ast = compiler.luastring_to_ast(e)
       | `File{ f } ->
-         st, ast = mlc_xcall.client_file (f)
-          -- Isolate each file in a separate fenv
-         if st then
-            ast = +{ function (...) -{ast} end (...)  }
-            ast.source  = '@'..f -- TODO [EVE]
-            code.source = '@'..f -- TODO [EVE]
-            last_file = ast
-         end
+         ast = compile.luafile_to_ast(f)
+         -- Isolate each file in a separate fenv
+         ast = +{ function (...) -{ast} end (...)  }
+         ast.source  = '@'..f -- TODO [EVE]
+         code.source = '@'..f -- TODO [EVE]
+         last_file = ast
       end
-      if not st then
+      local valid = true -- TODO: check AST's correctness
+      if not valid then
          printf ("Cannot compile %s:\n%s", table.tostring(x), ast or "no msg")
          os.exit (AST_COMPILE_ERROR_NUMBER)
       end
@@ -196,7 +195,7 @@ local function main (...)
       table.insert(code, 1, +{require'metalua.runtime'})
    end
 
-   local bytecode = mlc.ast_to_luacstring (code)
+   local bytecode = compiler.ast_to_luacstring (code)
    code = nil
 
    -------------------------------------------------------------------
@@ -227,7 +226,7 @@ local function main (...)
    -- Run compiled code
    if cfg.run then
       verb_print "Running"
-      local f = mlc.luacstring_to_function (bytecode)
+      local f = compiler.luacstring_to_function (bytecode)
       bytecode = nil
       -- FIXME: isolate execution in a ring
       -- FIXME: check for failures

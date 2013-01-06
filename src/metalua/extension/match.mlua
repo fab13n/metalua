@@ -73,6 +73,9 @@
 
 module ('spmatch', package.seeall)
 
+local mlp = require 'metalua.compiler.parser'
+local gg  = require 'metalua.grammar.generator'
+
 ----------------------------------------------------------------------
 -- This would have been best done through library 'metalua.walk',
 -- but walk depends on match, so we have to break the dependency.
@@ -80,23 +83,24 @@ module ('spmatch', package.seeall)
 -- it appears in a function.
 ----------------------------------------------------------------------
 function replace_dots (ast, term)
-   local function rec (x)
-      if type(x) == 'table' then
-         if x.tag=='Dots' then 
-            if term=='ambiguous' then
-               error ("You can't use `...' on the right of a match case when it appears "..
-                      "more than once on the left")
-            else 
-               x <- term
-            end
-         elseif x.tag=='Function' then return
-         else for y in ivalues (x) do rec (y) end end
-      end
-   end
-   return rec (ast)
+    local function rec (x)
+        if type(x) == 'table' then
+            if x.tag=='Dots' then 
+                if term=='ambiguous' then
+                    error ("You can't use `...' on the right of a match case when it appears "..
+                           "more than once on the left")
+                else 
+                    x <- term
+                end
+            elseif x.tag=='Function' then return nil
+            else for y in ivalues (x) do rec (y) end end
+        end
+    end
+    return rec (ast)
 end
 
 tmpvar_base = mlp.gensym 'submatch.' [1]
+
 function next_tmpvar(cfg)
    assert (cfg.ntmp, "No cfg.ntmp imbrication level in the match compiler")
    cfg.ntmp = cfg.ntmp+1

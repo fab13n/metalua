@@ -21,7 +21,7 @@
 
 -{ extension 'match' }
 
-function clopts(cfg)
+local function clopts(cfg)
    local short, long, param_func = { }, { }
    local legal_types = table.transpose{ 
       'boolean','string','number','string*','number*','nil', '*' }
@@ -201,4 +201,4 @@ function clopts(cfg)
    return parse
 end
 
-
+return clopts
