@@ -87,15 +87,12 @@ end
 
 function M.luastring_to_lexstream(src, name)
     checks('string', '?string')
-    local r = mlp.lexer:newstream (src, name)
+    local r = mlp.lexer :newstream (src, name)
     return r, name
 end
 
 function M.lexstream_to_ast(lx, name)
     checks('lexer.stream', '?string')
-    if PRINT_PARSED_STAT then
-        print("About to parse a lexstream, starting with "..tostring(lx:peek()))
-    end
     local r = mlp.chunk(lx)
     r.source = name
     return r, name
@@ -139,5 +136,10 @@ end
 -- This one goes in the "wrong" direction, cannot be composed.
 --------------------------------------------------------------------------------
 M.function_to_luacstring = string.dump
+
+function M.ast_to_luastring(...)
+    require 'metalua.package2'
+    return require 'metalua.compiler.ast_to_luastring' (...)
+end
 
 return M

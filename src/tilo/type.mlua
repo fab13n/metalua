@@ -1,0 +1,383 @@
+-- Typed terms have the following properties:
+-- * `Id{ } nodes have a 2nd child holding their type when they're
+--   used on the left of an `Set, or as a `Function parameter;
+-- * A new statement `Annot{ ... } holds a sequence of expression types,
+--   and states the type of the sequence of statements on its right.
+--
+-- Terms
+-- =====
+-- e ::= `Function{ ebar, sbar }
+--     | `Table{ (`Pair{ p, e } | e)* }
+--     | `Call{ te, te* } | `Index{ te, te }
+--     | p | `Id{ name }
+--
+-- expressions can have an annot field
+--
+-- p ::= `Number{ <number> } | `String{ <string> }
+--     | `True | `False | `Nil
+--
+-- s ::= `Set{ { L* } , ebar } | `Local{ { v* } }
+--     | `Call{ te, te* }
+--
+--
+-- Types
+-- =====
+-- te ::= `TDyn | `TId{ <string> }
+--      | `TFunction{ tebar, tebar }
+--      | `TTable{ tf, { `TPair{ P, tf }* }, is_unreferenced }
+--
+-- tebar ::= `TDynbar | `TCatbar{ te, tebar } | `TIdbar{ <string>
+--         | { te* }
+--
+-- ts ::= `TPass | `TReturn{ {te*} }
+--
+-- tf ::= `TField | `TConst{ te } | `TVar{ te } | `TCurrently{ te }
+--
+
+-{ extension 'match' }
+
+require 'tilo.gamma'
+
+require 'tilo.checkers'
+
+typeof = { }
+
+fresh_idx = 0
+
+function fresh_tvar(prefix)
+    fresh_idx = fresh_idx + 1
+    return `TId{ prefix .. '_' .. fresh_idx }
+end
+
+function fresh_tbarvar(prefix)
+    fresh_idx = fresh_idx + 1
+    return `TIdbar{ prefix .. '_' .. fresh_idx }
+end
+
+-- Returns the type of the n first expressions in a sequence thereof.
+function tebar_to_te(gamma, tebar, n)
+    checks('gamma', 'tebar', '?number')
+    n = n or 1
+    local r = { }
+    match tebar with
+    | { tag=nil, ... } ->
+        for i=1, n do r[i] = tebar[i] or `Nil end
+    | `TIdbar{ name } ->
+        local tebar2 = fresh_tbarvar(name.."_rest")
+        for i=n, 1, -1 do
+            local v = fresh_tvar(name.."_"..i)
+            r[i] = v
+            tebar2 = `TCatbar{v, tebar2}
+        end
+        gamma :eq_tebar(tebar, tebar2)
+    | `TDynbar -> 
+        for i=1, n do r[i] = `Dyn end
+    | `TCatbar{ te, rest } ->
+        if n==1 then r[1] = te
+        else r = { te, tebar_to_te(gamma, rest, n-1) } end
+    | _ -> error ("Invalid ebar type "..table.tostring(tebar))
+    end
+    return unpack(r)
+end
+
+local primitive_tags = { Number=1; String=1; Nil=1; True=1; False=1; }
+
+function is_primitive(t) return primitive_tags[t.tag or 'whatever'] end
+
+-- Returns the type of e, i.e. a list of expression types.
+function typeof.e(gamma, e)
+    log('TYPING', 'DEBUG', "E:  %s", table.tostring(e))
+    checks('gamma', 'e')
+    match e with
+    | `Number{...}   -> return {`TId 'number'}
+    | `True | `False -> return {`TId 'boolean'}
+    | `Nil           -> return {`TId 'nil'}
+    | `String{...}   -> return {`TId 'string'}
+    | `Table{...}    -> return { typeof.Table(gamma, e) }
+    | `Call{f, ...}  -> return typeof.Call(gamma, f, {...})
+    | `Id{name, ...} -> return { typeof.Id(gamma, name) }
+    | `Index{t, k}   -> return { typeof.Index(gamma, t, k) }
+    | `Function{ params, body, annots } -> return { typeof.Function(gamma, params, body, annots) }
+    | `Function{ params, body } -> return { typeof.Function(gamma, params, body, { }) }
+    | _ -> error(table.tostring(e).." isn't a valid expression")
+    end
+end
+
+tebar_zero = { }
+
+-- Returns the type of an expression sequence.
+-- Might add constraints in `Gamma` or raise an error.
+function typeof.ebar(gamma, ebar)
+    checks('gamma', 'ebar')
+    local n = #ebar
+    if n==0 then return tebar_zero else
+        local result = { }
+        local tebar_i
+        for i=1, n do
+            tebar_i = typeof.e(gamma, ebar[i])
+            result[i] = tebar_to_te(gamma, tebar_i)
+        end
+        if tebar_i.tag then error "support for final tebar var not implemented" end
+        for j=2, #tebar_i do result[n+j-1] = tebar_i[j] end
+        return result
+    end
+end
+
+-- Returns the type of a statements sequence.
+-- Might add constraints in `Gamma` or raise an error.
+function typeof.sbar(gamma, sbar, from)
+    checks('gamma', 'sbar', '?number')
+    from = from or 1
+    local s1 = sbar[from]
+    if not s1 then return `TPass end -- empty sequence
+    log('TYPING', 'DEBUG', "S:  %s", table.tostring(s1))
+    match s1 with
+    | `Annot{ s }         -> return typeof.Annot(gamma, s, sbar, from+1)
+    | `Local{ vars, ... } -> typeof.Local(gamma, vars)
+    | `Set{ left, right, annots } -> typeof.Set(gamma, left, right, annots)
+    | `Set{ left, right } -> typeof.Set(gamma, left, right, { })
+    | `Call{ f, ... }     -> typeof.e(gamma, s1)
+    | `Return{ ... }      -> return typeof.Return(gamma, {...})
+    | _ -> error (table.tostring(e).." isn't a valid statement")
+    end
+    return typeof.sbar(gamma, sbar, from+1)
+end
+
+-- Returns a variable's type. If it hasn't been defined in
+-- the current sbar, the type is weakened to its future type.
+function typeof.Id(gamma, name)
+    checks('gamma', 'string')
+    return gamma :get_var_te (name)
+end
+
+-- Weakens the type of `sbar` into type `annot`.
+-- To
+function typeof.Annot(gamma, annot, sbar, from)
+    checks('gamma', 'ts', 'sbar', '?number')
+    local ts = typeof.sbar(gamma, sbar, from)
+    gamma :sub_ts (ts, annot)
+    return annot
+end
+
+-- Type all variables in `vars` to `nil`
+function typeof.Local(gamma, vars)
+    checks('gamma', 'vbar')
+    for _, var in pairs(vars) do
+        local var_name = var[1]
+        gamma :new_var (var_name, `TCurrently{ `TId 'nil' })
+    end
+    return `TPass
+end
+
+-- Wrap the type of the result into `TReturn`
+function typeof.Return(gamma, results)
+    checks('gamma', 'ebar')
+    return `TReturn{ typeof.ebar (gamma, results) }
+end
+
+-- Type a literal table with `TCurrently` fields 
+function typeof.Table(gamma, t)
+    checks('gamma', 'e')
+    local prs = { }
+    local result = `TTable{ `TCurrently{ `TId 'nil' }, prs, true }
+    local i = 0
+    for _, item in ipairs(t) do
+        local k, v
+        if item.tag=='Pair' then k, v = unpack(item)
+        else i=i+1; k, v =`Number{i}, item end
+        typeof.e (gamma, k) -- find type errors in k
+        local tv = tebar_to_te (gamma, typeof.e(gamma, v))
+        if not is_primitive(k) then
+            -- TODO: try to weaken the table's type to `Dyn
+            error "Only primitive keys are supported"
+        end
+        table.insert(prs, `TPair{k, `TCurrently{tv}})
+    end
+    return result
+end
+
+-- Check that args<:params, return results type
+function typeof.Call(gamma, f, args)
+    checks('gamma', 'e', 'ebar')
+    local te_f = tebar_to_te(gamma, typeof.e(gamma, f))
+    local tebar_args = typeof.ebar(gamma, args)
+    match te_f with
+    | `TDyn -> -- pass
+    | `TFunction{ tebar_params, tebar_results } -> -- we know it's a function
+        tebar_args = { tebar_to_te(gamma, tebar_args, #tebar_params) }
+        for i, te_param in ipairs(tebar_params) do
+            local te_arg = tebar_args[i]
+            gamma :accept(te_arg, te_param)
+        end
+        return tebar_results
+    | `TId{ name } -> -- we just learned it's a function
+        local tebar_results = fresh_tbarvar(name..'_r')
+        local tebar_params  = fresh_tbarvar(name..'_p')
+        gamma :eq_te (te_f, `TFunction{ tebar_params, tebar_results })
+        if tebar_args.tag ~= nil then error "not implemented" end
+        tebar_params = tebar_to_te(gamma, tebar_params, #tebar_args)
+        for i, te_param in ipairs(tebar_params) do
+            gamma :sub_te(tebar_args[i], te_param)
+        end
+        return tebar_results
+    | _ -> error ("Bad function type "..table.tostring(te_f))
+    end
+end
+
+-- Test two primitive terms for equality
+function prim_equal(k1, k2)
+    checks('p', 'p')
+    if k1.tag ~= k2.tag then return false end
+    if #k1 ~= #k2 then return false end
+    for i=1, #k1 do if k1[i] ~= k2[i] then return false end end
+    return true
+end
+
+-- Return the field type associated with key `k` in type `ttable`
+function get_field_type(ttable, k)
+    checks('te', 'p')
+    local tf_default, tf_pairs = unpack(ttable)
+    for _, p in ipairs(tf_pairs) do
+        local k_candidate, tf_candidate = unpack(p)
+        if prim_equal(k_candidate, k) then return tf_candidate end
+    end
+    return tf_default
+end
+
+-- I need to know the type of what's in field k from gamma!!!
+function typeof.Index(gamma, t, k)
+    checks('gamma', 'e', 'e')
+    if not is_primitive(k) then error 'non-primitive key' end
+    local ttbar = typeof.e(gamma, t)
+    local tt = tebar_to_te(gamma, ttbar)
+    match tt with
+    | `TDyn -> -- pass
+    | `TId{ name } ->
+        local v = fresh_tvar(name..'_k')
+        local tt_max = `TTable{ `TField, `TPair{ k, `TConst{ v }}}
+        -- It should work with `TCurrently as well, but such fields
+        -- aren't normally hidden in a `TId.
+        gamma :sub_te (tt, tt_max)
+        return v
+    | `TTable{ default, ... } ->
+        match get_field_type(tt, k) with
+        | { tag=_, e } -> return e -- currently/var/const
+        | `TField -> error "Can't read private field"
+        | _ -> error ("malformed type "..table.tostring(tt))
+        end
+    | _ -> error("non-table type "..table.tostring(tt))
+    end
+end
+
+function typeof.Function(gamma, params, body, annots)
+    checks('gamma', 'vbar', 'sbar', 'table')
+    local tebar_params = { }
+    gamma :enter_frame()
+    for i, var in ipairs(params) do
+        local name  = var[1]
+        local annot = annots[i] or `TVar{ `TDyn }
+        gamma :new_var(name, annot)
+        tebar_params[i] = annot
+    end
+    gamma :enter_frame() -- will force to complete param types
+    local ts_body = typeof.sbar(gamma, body)
+    local tebar_result
+    match ts_body with
+    | `TReturn{ tebar } -> tebar_result = tebar
+    | `TPass -> tebar_result = { `Nil }
+    end
+    gamma :leave_frame()
+    gamma :leave_frame()
+    return `TFunction{ tebar_params, tebar_result }
+end
+
+
+function assign(gamma, ell, old_tf, new_tf)
+    checks('gamma', 'ell', 'tf', 'tf')
+    match old_tf, new_tf with
+    | `TVar{ te1 }, `TVar{ te2 } ->
+        gamma :eq_te (te1, te2)
+    | `TCurrently{ old_te }, _ | `TDyn, _ ->
+        match ell with
+        | `Index{ et, ek } -> assign_index(gamma, et, ek, old_te, new_tf)
+        | `Id{ name } -> assign_id(gamma, name, new_tf)
+        | _ -> error "Can't type assignment's LHS"
+        end
+    | _, _ -> error "Can't assign in this field type"
+    end
+end
+
+function assign_index(gamma, etable, ekey, old_te, new_tf)
+    checks('gamma', 'e', 'e', 'te', 'tf')
+    match old_te with
+    | `TDyn -> -- pass
+    | `TId{ name } ->
+        local te_max = `TTable{
+            `TField,
+            { `Pair{ ekey, `TCurrently{ fresh_tvar 'set_index' }}},
+            false }
+        gamma :sub_te (old_te, te_max)
+    | `TTable{ default, tf_pairs, unref } ->
+        local tf_field = get_field_type(old_te, ekey)
+        if tf_field.tag ~= 'TCurrently' then error "can't update field" end
+        local new_tf_pairs = { }
+        local new_te = `TTable{ default, new_tf_pairs, unref }
+        for i, p in ipairs(tf_pairs) do
+            if not prim_equal(p[1], ekey) then new_tf_pairs[i] = p end
+        end
+        table.insert(new_tf_pairs, `Pair{ ekey, new_tf })
+        assign(gamma, etable, `TCurrently{ old_te }, `TCurrently{ new_te })
+    | _ -> error "Can't write an index in this"
+    end
+end
+
+function assign_id(gamma, name, new_tf)
+    checks('gamma', 'string', 'tf')
+    gamma :set_var_type(name, new_tf)
+end
+
+function typeof.ell(gamma, ell)
+    checks('gamma', 'ell')
+    match ell with
+    | `Id{ var_name } -> return gamma :get_var_tf (var_name)
+    | `Index{ e_t, p_k } ->
+        -- TODO: check if e_t is TCurrently. If it is and te_t is as well,
+        -- guess a currently type rather than a var
+        if not is_primitive(p_k) then error "can't type this key" end
+        local tebar_t = typeof.e(gamma, e_t)
+        local te_t = tebar_to_te(gamma, tebar_t)
+        match te_t with
+        | `TId{ tvar_name } -> -- I'm going to guess that it's non-linear
+            local k_name = p_k[1] or p_k.tag :lower()
+            local v = fresh_tvar(tvar_name..'_'..k_name)
+            local tf = `TVar{ v }
+            gamma :sub_te (te_t, `TTable{ `TField; {`TPair{p_k, tf}}, false })
+            return tf
+        | `TTable{ ... } ->
+             return get_field_type(te_t, p_k)
+        | `TDyn -> return `TCurrently{ `TDyn } -- TODO: is "currently" ok here?
+        end
+    end
+end
+
+function typeof.Set(gamma, terms_left, terms_right, annots)
+    checks('gamma', 'table', 'table', 'table')
+    local tebar_right = typeof.ebar(gamma, terms_right)
+    tebar = { tebar_to_te(gamma, tebar_right, #terms_left) }
+
+    for i, term_left in ipairs(terms_left) do
+        local te_right = tebar_right[i]
+        local old_tf   = typeof.ell(gamma, term_left)
+        local new_tf   = annots[i]
+        if not new_tf then -- Guess a decent type
+            match old_tf with
+            | `TVar{ tef }   -> new_tf = old_tf
+            | `TConst{ tef } -> error "Don't override a constant field"
+            | `TCurrently{ tef } -> new_tf = `TCurrently{ gamma :sharp_te(te_right) }
+            | `TField -> error "Don't write in a private field"
+            end
+        gamma :accept(te_right, new_tf)
+        assign(gamma, term_left, old_tf, new_tf)
+    end
+    return `TPass
+end

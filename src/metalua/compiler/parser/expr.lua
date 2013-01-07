@@ -53,7 +53,7 @@ local M   = { }
 local mlp_table = require 'metalua.compiler.parser.table'
 local mlp_meta  = require 'metalua.compiler.parser.meta'
 local mlp_misc  = require 'metalua.compiler.parser.misc'
-local mlp_annot = require 'metalua.compiler.parser.annot'
+local annot     = require 'metalua.compiler.parser.annot'
 
 -- Delayed dependencies toward externally-defined parsers
 local function block (lx) return mlp.block (lx) end
@@ -98,13 +98,22 @@ M.method_args = gg.multisequence{
 -- definitions.
 --------------------------------------------------------------------------------
 M.func_params_content = gg.list{ name="function parameters",
-   gg.multisequence{ { "...", builder = "Dots" }, id },
-   separators  = ",", terminators = {")", "|"} } 
+   gg.multisequence{ { "...", builder = "Dots" }, annot.annot_id },
+   separators  = ",", terminators = {")", "|"} }
 
-local func_params_content = function (lx) return M.func_params_content(lx) end
-
-M.func_val = gg.sequence { name="function body",
-   "(", M.func_params_content, ")", block, "end", builder = "Function" }
+M.func_val = gg.sequence{ name="function body",
+   "(", M.func_params_content, ")", block, "end",
+   builder = function(x)
+       local params, body = unpack(x)
+       local annots, some = { }, false
+       for i, p in ipairs(params) do
+           if p.tag=='Annot' then
+               params[i], annots[i], some = p[1], p[2], true
+           else annots[i] = false end
+       end
+       if some then return { tag='Function', params, body, annots }
+       else  return { tag='Function', params, body } end
+   end }
 
 local func_val = function(lx) return M.func_val(lx) end
 
@@ -212,8 +221,6 @@ M.expr = gg.expr { name = "expression",
          return {tag="Invoke", obj, mlp_misc.id2string(post[1]), unpack(post[2])} end},
       { "+{", mlp_meta.quote_content, "}", builder = function (f, arg)
          return {tag="Call", f,  arg[1] } end },
-      { "#", mlp_annot, builder = function (e, a)
-         e.annot=a; return e end },
       default = { name="opt_string_arg", parse = mlp_misc.opt_string, builder = function(f, arg) 
          return {tag="Call", f, arg } end } } }
 

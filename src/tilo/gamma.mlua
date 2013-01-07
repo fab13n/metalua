@@ -1,0 +1,359 @@
+-{ extension 'match' }
+
+ast2string = require 'metalua.compiler.ast_to_luastring'
+
+function log(mod, level, fmt, ...)
+    local args = {...}
+    for k, v in pairs(args) do 
+        if type(v)=='table' then args[k]=table.tostring(v) end
+    end
+    local msg = string.format(fmt, unpack(args))
+    printf("[%s]\t%s", mod, msg)
+end
+
+local GAMMA = { }
+GAMMA.__index = GAMMA
+GAMMA.__type  = 'gamma'
+
+
+-- sharp markers are introduced by accept(), called by `Call and `Apply.
+-- #arg <: param
+
+function GAMMA :sharp_tf(tf)
+    checks('gamma', 'tf')
+    if tf.tag=='TCurrently' then return `TField
+    else return { tag=tf.tag, self :sharp_te(tf[1]) } end
+end
+
+function GAMMA :sharp_te(te)
+    checks('gamma', 'te')
+    match te with
+    | `TId{ name } -> 
+        if not self.prim_types[name] then self :set_sharp(name) end
+        return te
+    | `TDyn -> return te
+    | `TFunction{ ... } -> return te
+    | `TTable{ def, prs, true } -> return `TTable{ def, prs, false } 
+    | `TTable{ def, prs, ... } ->
+        local r_pairs = { }
+        for i, p in ipairs(prs) do
+            r_pairs[i] = `TPair{ p[1], self :sharp_tf(p[2]) }
+        end
+        return `TTable{ self :sharp_tf(def), r_pairs, false }
+    end
+end
+
+function GAMMA :sharp_sub_te(te1, te2)
+    --log('XXX','',"#%s <: %s", te1, te2)
+    checks('gamma', 'te', 'te')
+    if te1.tag ~= 'TId' then
+        te1 = self :sharp_te(te1)
+    elseif not self.prim_types [te1[1]] then
+        self :set_sharp (te1[1])
+    end
+    self :sub_te (te1, te2)
+end
+
+-- Checks whether a value of type `te` can be held in a field of type
+-- `tf`.
+function GAMMA :accept(te, tf)
+    checks('gamma', 'te', 'tf')
+    local tag=tf.tag
+    match tf with
+    | `TVar{ te2 } | `TConst{ te2 } | `TCurrently{ te2 } ->
+        self :sharp_sub_te(te, te2)
+    | `TField -> error "private field can't accept data"
+    end
+end
+
+-- Used by:
+-- * `tebar_to_te` to cut first `te` from `tebar` variables
+function GAMMA :eq_tebar(tebar1, tebar2)
+    checks('gamma', 'tebar', 'tebar')
+    match tebar1, tebar2 with
+    | `TIdbar{ name }, `TIdbar{ name } -> -- pass
+    | `TIdbar{ name }, tebar | tebar, `TIdbar{ name } ->
+        local x = self.tebar.eq[name]
+        if not x then x={ }; self.tebar.eq[name]=x end
+        table.insert(x, tebar)
+        log('GAMMA', 'DEBUG', "TEBAR: %s = %s", name, table.tostring(tebar))
+    | `TDynbar, _  | _, `TDynbar -> -- pass
+    | `TCatbar, _ | _, `TCatbar -> error "not implemented"
+    end
+end
+
+-- Used by:
+-- * `typeof.Annot`, to check that the annotation is a weakening
+function GAMMA :sub_ts(ts1, ts2)
+    checks('gamma', 'ts', 'ts')
+    match ts1, ts2 with
+    | `TPass, `TPass -> return nil
+    | `TReturn{ teb1 }, `TReturn{ teb2 } -> self :sub_tebar(teb1, teb2)
+    | _, _ -> type_error('ts', ts1, '<:', ts2)
+    end
+end
+
+-- Used by:
+-- * `typeof.Call`, to decompose a `TId` into a `TFunction`
+-- * `typeof.SetIndex`, for TVar <: [field; k:var te]
+-- * `assign`, to check that TVar types don't change
+function GAMMA :eq_te(te1, te2)
+    checks('gamma', 'te', 'te')
+    match te1, te2 with
+    | `TDyn, _ | _, `TDyn -> -- pass
+    | `TId{ name }, `TId{ name } -> -- pass
+    | `TId{ name }, te | te, `TId{ name } ->
+        if self.prim_types[name] then
+            if te.tag=='TId' then te, name = te1, te2[1] -- swap
+            else error (name.." is a primitive type, not a type var") end
+        end
+        local x = self.te.eq[name]
+        if not x then x={ }; self.te.eq[name]=x end
+        table.insert(x, te)
+        log('GAMMA', 'DEBUG', "TE: %s = %s", name, table.tostring(te))
+    | _, _ -> type_error ('te', te1, '=', te2)
+    end
+end
+
+
+-- Used by:
+-- currently nobody; might later prove need for some variants
+-- of `typeof.Call` where we know almost nothing about args type.
+-- TODO: get rid of this?
+function GAMMA :sub_tebar(tebar1, tebar2)
+    checks('gamma', 'tebar', 'tebar')
+    match tebar1, tebar2 with
+    | `TDynbar, _ | _, `TDynbar -> -- pass
+    | `TIdbar{ name }, `TIdbar{ name } -> -- pass
+    | _, _ if tebar1.tag==nil and tebar2.tag==nil ->
+    --| {tag=nil}, {tag=nil} -> --bug in match?!
+        for i=1, math.max(#tebar1, #tebar2) do
+            local te1 = tebar1[i] or `TId 'nil'
+            local te2 = tebar2[i] or `TId 'nil'
+            self :sub_te(te1, te2)
+        end
+    | `TIdbar{ name }, tebar ->
+        local x = self.tebar.sub_pos[name]
+        if not x then x={ }; self.tebar.sub_pos[name]=x end
+        table.insert(x, tebar)
+        log('GAMMA', 'DEBUG', "TEBAR: %s <: %s", name, table.tostring(tebar))
+    | tebar, `TIdbar{ name } ->
+        local x = self.tebar.sub_neg[name]
+        if not x then x={ }; self.tebar.sub_neg[name]=x end
+        table.insert(x, tebar)
+        log('GAMMA', 'DEBUG', "TEBAR: %s :> %s", name, table.tostring(tebar))
+    | `TCatbar{ car, cdr }, _ | _, `TCatbar{ car, cdr} ->
+        error "not implemented"
+    end
+end
+
+-- Used by: 
+-- * `typeof.Index`, for TVar <: [field; k:const v]
+-- * `typeof.SetIndex`, when table is a TId, to check new value type compat
+-- * `typeof.Set`, to check compat between new var value with annotation
+function GAMMA :sub_te(te1, te2)
+    checks('gamma', 'te', 'te')
+    match te1, te2 with
+    | `TDyn{...}, _ | _, `TDyn{...} -> -- pass
+    | `TId{ name }, `TId{ name } -> -- pass
+    | `TId{ name }, te if not self.prim_types[name]->
+        local x = self.te.sub_pos[name]
+        if not x then x={ }; self.te.sub_pos[name]=x end
+        table.insert(x, te)
+        log('GAMMA', 'DEBUG', "TE: %s <: %s", name, table.tostring(te))
+    | `TId{ a }, `TId{ b }
+        if self.prim_types[a] and self.prim_types[b] ->
+        type_error('te', te1, '<:', te2)
+    | te, `TId{ name } ->
+        local x = self.te.sub_neg[name]
+        if not x then x={ }; self.te.sub_neg[name]=x end
+        table.insert(x, te)
+        log('GAMMA', 'DEBUG', "TE: %s :> %s", name, table.tostring(te))
+    | `TFunction{ args1, res1 }, `TFunction{ args2, res2 } ->
+        for i=1, math.max(#args1, #args2) do
+            local arg1 = args1[i] or `TCurrently{ `Nil }
+            local arg2 = args2[i] or `TCurrently{ `Nil }
+            self :sub_tf(arg2, arg1)
+        end
+        self :sub_tebar(res1, res2)
+    | `TTable{ def1, pairs1, unref1 }, `TTable{ def2, pairs2, unref2 } ->
+        if not unref1 and unref2 then type_error('te', te1, "<:", te2) end
+        self :sub_tf (def1, def2)
+        local can1, can2 = { }, { }
+        local function canonize(p)
+            return p[1] and p.tag..' '..p[1] or p.tag
+        end
+        for _, p in ipairs (pairs1) do can1[canonize(p[1])] = p[2] end
+        for _, p in ipairs (pairs2) do can2[canonize(p[1])] = p[2] end
+        for k, tf1 in pairs(can1) do
+            local tf2 = can2[k] or def2
+            self :sub_tf (tf1, tf2)
+        end
+        for k, tf2 in pairs(can2) do
+            if not can1[k] then self :sub_tf (def1, tf2) end
+        end
+    | _, _ -> type_error('te', te1, "<:", te2)
+    end
+end
+
+-- Used by:
+-- * GAMMA :sub_te for tables
+function GAMMA :sub_tf(tf1, tf2)
+    checks('gamma', 'tf', 'tf')
+    match tf1, tf2 with
+    | `TCurrently{ te1 }, `TCurrently{ te2 } | `TVar{ te1 }, `TVar{ te2 } -> 
+        self :eq_te(te1, te2)
+    | `TVar{ te1 }, `TConst{ te2 } | `TConst{ te1 }, `TConst{ te2 } ->
+       self :sub_te(te1, te2)
+    | _, `TField -> -- pass
+    | _, _ -> type_error('tf', tf1, "<:", tf2)
+    end
+end
+
+
+-- Returns type associated with variable, in_this_frame
+-- Used by:
+-- * typeof.Id 
+function GAMMA :get_var_tf (var_name)
+    checks('gamma', 'string')
+    local cell = self.var_types[var_name]
+    if not cell then error ("Unknown var "..var_name) end
+    if cell.frame == self.current_frame then return cell.type
+    else return self :sharp_tf(cell.type) end
+end
+
+function GAMMA :get_var_te (var_name)
+    checks('gamma', 'string')
+    local tf = self :get_var_tf(var_name)
+    if tf.tag=='TVar' or tf.tag=='TConst' or tf.tag=='TCurrently' then
+        return tf[1]
+    else error "Can't access var content" end
+end
+
+function GAMMA :new_var (var_name, tf)
+    checks('gamma', 'string', 'tf')
+    if self.var_types[var_name] then
+        error("Variable shadowing, please alphs-rename")
+    end
+    self.var_types[var_name] = { type=tf, frame=self.current_frame }
+end
+
+-- Must elapse when leaving frame,
+-- and must know if it's declared in the top-most frame
+-- Used by:
+-- * typeof.Local, to set new variables to nil
+-- * typeof.Function, to create function param types
+-- * typeof.Set, to update a variable's type
+function GAMMA :set_var_type (var_name, tf)
+    checks('gamma', 'string', 'tf')
+    local cell = self.var_types[var_name] 
+    if not cell then
+        error ("Unknown var "..var_name)
+    end
+    log('GAMMA', 'DEBUG', "%s: %s", var_name, tf)
+    cell.type = tf
+end
+
+function GAMMA :set_sharp (var_name)
+    checks('gamma', 'string')
+    if self.prim_types[var_name] then return end
+    self.te.sharp[var_name] = true
+end
+
+frame_idx = 1
+
+-- Used by:
+-- * typeof.Function, to create a new frame
+function GAMMA :enter_frame()
+    table.insert(self.stacked_frames, self.current_frame)
+    frame_idx = frame_idx + 1
+    self.current_frame = frame_idx
+end
+
+-- Used by:
+-- * typeof.Function, to leave a frame
+function GAMMA :leave_frame()
+    self.current_frame = table.remove(self.stacked_frames)
+end
+
+tostr = { }
+
+function tostr.te(te)
+    checks('te')
+    match te with
+    | `TDyn -> return '*'
+    | `TId{ x } -> return x
+    | `TTable{ d, p, u } ->
+        local ps = { }
+        for i, x in ipairs(p) do ps[i] = tostr.p(x[1])..": "..tostr.tf(x[2]) end
+        return '['..tostr.tf(d)..'; '..table.concat(ps,'; ')..']'..(u and '0' or '')
+    | `TFunction{ p, r } ->
+        return tostr.tfbar(p)..'->'..tostr.tebar(r)
+    end
+end
+
+function tostr.tf(tf)
+    checks('tf')
+    if tf.tag=='TField' then return 'field'
+    else return tf.tag :sub(2, -1) :lower() .. ' ' ..tostr.te(tf[1]) end
+end
+
+tostr.p = ast2string
+tostr.tebar = |x| '('..table.concat(table.imap(tostr.te, x), ",")..')'
+tostr.tfbar = |x| '('..table.concat(table.imap(tostr.tf, x), ",")..')'
+
+function type_error(t, a, op, b)
+    checks('string', 'table', 'string', 'table')
+    local msg = string.format("Cannot prove %s %s %s",
+                              tostr[t](a), op, tostr[t](b))
+    error(msg)
+end
+
+
+function GAMMA :tostring()
+
+    local lines = { }
+    local function acc(...) table.insert(lines, table.concat{...}) end
+    local cat = |...| table.concat(table.imap(...), ', ')
+    for name, list in pairs(self.te.eq) do
+        acc ('  ', name, ' = ', cat(tostr.te, list))
+    end
+    for name, list in pairs(self.te.sub_pos) do
+        acc ('  ', name, ' <: ', cat(tostr.te, list))
+    end
+    for name, list in pairs(self.te.sub_neg) do
+        acc ('  ', name, ' :> ', cat(tostr.te, list))
+    end
+    for name, list in pairs(self.tebar.eq) do
+        acc ('  ', name, ' = ', cat(tostr.tebar, list))
+    end
+    if next(self.te.sharp) then
+        local sharps = { }
+        for v, _ in pairs(self.te.sharp) do table.insert(sharps, v) end
+        table.sort(sharps)
+        acc('  non-linear variable types: ', table.concat(sharps, ', '))
+    end
+    for name, cell in pairs(self.var_types) do
+        acc ('  ', name, ': ', tostr.tf(cell.type))
+    end
+    return table.concat(lines, '\n')
+end
+
+function gamma_new()
+    local self = {
+        prim_types = {number=1,string=1,boolean=1,['nil']=1},
+        stacked_frames = { },
+        current_frame = 1,
+        var_types = { },
+        te = {
+            sharp = { },
+            eq = { },
+            sub_pos = { },
+            sub_neg = {  } },
+        tebar = {
+            eq = { },
+            sub_pos = { },
+            sub_neg = {  } } }
+    return setmetatable(self, GAMMA)
+end
+

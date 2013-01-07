@@ -1,0 +1,377 @@
+--- Toy evaluator for lucal, based on its big-step semantics.
+--  Lucal is a formal calculus which describes Lua's semantics; it's
+--  intended as a based on which build a gradual static type system
+--  for Lua.
+
+-{ extension 'match' }
+
+niltoken={ 'niltoken' }
+
+new_sigma = || { L={ }, T={ }, F={ } }
+
+nfresh = 0
+
+--- Generates a list of `#vbar` identifiers with fresh names.
+--  The new variables are intended to replace old variables `vbar`;
+--  as such, new names include the old ones, in order to ease debugging.
+function fresh_var_list(vbar)
+    local result = { }
+    for i, id in ipairs(vbar) do
+        nfresh=nfresh+1
+        result[i] = `Id{ "_v"..nfresh.."_"..id[1] }
+    end
+    return result
+end
+
+--- Generates a fresh reference name. If a `prefix` is passed,
+--  it's included in the fresh name to ease debugging.
+function new_ref(prefix)
+    nfresh = nfresh+1
+    return "ref_"..(prefix or '')..nfresh
+end
+
+--- Turns primitives into canonical objects, which can be used
+--  as Lua table keys.
+function canonize(p)
+    match p with
+    | `True  -> return true
+    | `False -> return false
+    | `Nil   -> return niltoken
+    | `Number{ x } | `String{ x } -> return x
+    | `Tref{ x } | `Fref{ x } -> return '<<<'..x..'>>>'
+    end
+end
+
+--- Inserts a set of assignments in an environment.
+function assign(sigma, lbar, pbar)
+    -- Create a copy of sigma
+    new_sigma = { L={ }, T={ }, F=sigma.F }
+    for k, v in pairs(sigma.L) do new_sigma.L[k]=v end
+    for k1, v1 in pairs(sigma.T) do 
+        local new_v1 = { }
+        for k2, v2 in pairs(v1) do new_v1[k2] = v2 end
+        new_sigma.T[k1]=new_v1
+    end
+    for i, l in ipairs(lbar) do
+        local p = pbar[i]
+        match l with
+        | `Index{pt, `Nil} -> error "nil is not a valid key for assignment"
+        | `Index{pt, pk} ->
+            printf("%s[%s] = %s", table.tostring(pt), table.tostring(pk), table.tostring(p))
+            new_sigma.T[pt[1]][canonize(pk)] = p
+        | `Id{ v } ->
+            if not sigma.L[v] then error ("Variable "..v.." is global, not allowed by calculus") end
+            new_sigma.L[v] = p
+            printf("%s = %s", v, table.tostring(p))
+        | _ -> error ("Not an L-value: "..table.tostring(l))
+        end
+    end
+    return new_sigma
+end
+
+--- Substitutes a list of variables with another in a term,
+--  taking care not to replace shadowed variables.
+function replace(old, new, term)
+    assert(#old==#new)
+    local dict = { }
+    for i=1,#old do dict[old[i][1]]=new[i][1] end
+    local function shadow(vbar)
+        local saved = { }
+        for _, id in ipairs(vbar) do 
+            local id_name = id[1]
+            saved[id_name] = dict[id_name]
+            dict[id_name] = nil
+        end
+        return saved
+    end
+    local function restore(saved)
+        for id_name, saved_value in pairs(saved) do
+            dict[id_name] = saved_value
+        end
+    end
+    local function aux(term)
+        match term with
+        | `Call{ ... } | `Return{...} | `Index{ ... } | `Set{ ... } | `If{ ... } ->
+            local result = { tag=term.tag }
+            for i, e in ipairs(term) do
+                result[i] = aux(e)
+            end
+            return result
+        | `Function{ vbar, sbar } ->
+            local saved = shadow(vbar)
+            local new_sbar = aux(sbar)
+            restore (saved)
+            return `Function{ vbar, new_sbar }
+        | `Table{ ... } ->
+            local result = `Table{ }
+            for i, item in ipairs(term) do
+                match item with
+                | `Pair{ k, v } -> result[i] = `Pair{ aux(k), aux(v) }
+                | _ -> result[i] = aux(item)
+                end
+            end
+            return result
+        | `Id{x} ->
+            local y = dict[x]
+            return y and `Id{y} or term
+        | `String{...} | `Number{...} | `True | `False | `Nil 
+        | `Tref{...} | `Fref{...} | `Pass ->
+            return term
+        | { tag=nil, ... } -> -- stat list
+            local result = { }
+            for i=1, #term do
+                match term[i] with
+                | `Local{ vbar, ... } ->
+                    result[i] = term[i]
+                    local sbar = { select(i+1, unpack(term)) }
+                    local saved = shadow(vbar)
+                    local new_sbar = aux(sbar)
+                    restore (saved)
+                    for _, x in ipairs(new_sbar) do
+                        table.insert(result, x)
+                    end
+                    return result
+                | term_i -> result[i] = aux(term_i)
+                end -- match term[i]
+            end -- for i
+            return result
+        | `Op{ name, ... } ->
+            local result = `Op{ name }
+            for i=2, #term do result[i] = aux(term[i]) end
+            return result
+        | _ -> error ("Cannot replace in "..table.tostring(term))
+        end -- match term
+    end -- function aux
+    return aux(term)
+end
+
+eval = { }
+
+--- Evaluates a sequence of statements.
+function eval.sbar(sigma, x)
+    match x with
+    | { tag=nil } -> return sigma, { } -- ES-0
+    | { `Local{ vbar, r }, ... } -> -- ES-local
+        assert(#r==0)
+        local sbar = {...}
+        local wbar = fresh_var_list(vbar)
+        local sbar_repl = replace(vbar, wbar, sbar)
+        local sigmaL_repl = { }
+        for k, v in pairs(sigma.L) do sigmaL_repl[k] = v end
+        for _, w in ipairs(wbar) do sigmaL_repl[w[1]] = `Nil end
+        local sigma_repl = { L=sigmaL_repl; T=sigma.T; F=sigma.F }
+        local sigma1, s_star = eval.sbar(sigma_repl, sbar_repl)
+        return sigma1, s_star
+    | { s1; ... } -> 
+        local sbar = {...}
+        local sigma1, y = eval.s (sigma, s1)
+        match y with
+        | `Pass -> return eval.sbar(sigma1, sbar)-- ES-0-bar
+        | `Return{...} -> return sigma1, y -- ES-return-bar
+        end
+    end
+end
+
+--- Evaluates a single statement.
+function eval.s(sigma, x)
+    match x with
+    | `Pass -> return sigma, `Pass -- ES-0
+    | `Return{ ... } -> -- ES-return
+        local sigma1, pbar = eval.ebar(sigma, {...})
+        return sigma1, `Return{ unpack(pbar) }
+    | `Set{ lbar, ebar } -> -- ES-assign
+        local sigma1, lbarstar = eval.lbar(sigma, lbar)
+        local sigma2, pbar = eval.ebar(sigma1, ebar)
+        return assign(sigma2, lbarstar, pbar), `Pass
+    | `Call{ ... } -> -- ES-apply
+        local sigma1, _ = eval.e(sigma, x)
+        return sigma1, `Pass
+    | `If{ e, sbart, sbarf } ->
+        local sigma1, p = eval.e(sigma, e)
+        if p.tag=='True' then sbar = sbart
+        elseif p.tag=='False' then sbar = sbarf
+        else error("Not a boolean: "..table.tostring(p)) end
+        return eval.sbar(sigma1, sbar)
+    end
+end
+
+--- Evaluates a sequence of expressions.
+function eval.ebar(sigma, x) -- EE-sequence
+    local sigma_n = sigma
+    local pbar_result, pbar_n = { }, nil
+    for i, e_n in ipairs(x) do
+        sigma_n, pbar_n = eval.e(sigma_n, e_n)
+        pbar_result[i] = pbar_n[1]
+    end
+    for i=2, #pbar_n do
+        table.insert(pbar_result, pbar_n[i])
+    end
+    return sigma_n, pbar_result
+end
+
+--- Evaluates an expression on the Left of an assignment.
+function eval.l(sigma, l)
+    match l with
+    | `Id{ ... } -> return sigma, l -- EL-v
+    | `Index{ et, ek } -> -- EL-index
+        local sigma1, pbart = eval.e(sigma, et)
+        local sigma2, pbark = eval.e(sigma1, ek)
+        return sigma2, `Index{ pbart[1], pbark[1] }
+    end
+end
+
+--- Evaluates a sequence of expressions on the left of an assignment.
+function eval.lbar(sigma, lbar) -- EL-lbar, EL-0
+    local result = { }
+    for i, l in ipairs(lbar) do sigma, result[i] = eval.l(sigma, l) end
+    return sigma, result
+end
+
+--- Evaluates a single expression
+function eval.e(sigma, x)
+    match x with
+    | `Id{ name } -> 
+        local p = sigma.L[name]
+        assert(p, "Unknown variable "..name)
+        return sigma, { p }
+    | `Call{ ef, ... } -> -- EE-apply
+        local ebar = {...}
+        local sigma1, fbar = eval.e(sigma, ef)
+        local f = fbar[1]
+        assert(f.tag=='Fref', "attempt to apply a non-function")
+        local func_def = sigma1.F[f[1]]
+        assert(func_def)
+        local sigma2, pbar = eval.ebar(sigma1, ebar)
+        local s1 = `Local{ func_def[1], { } }
+        local s2 = `Set{ func_def[1], pbar }
+        local sbar = { s1, s2, unpack(func_def[2]) }
+        local sigma3, ret_pbar = eval.sbar(sigma2, sbar)
+        assert(ret_pbar.tag=='Return', "function doesn't yield a return")
+        return sigma3, { unpack(ret_pbar) }
+    | `String{...} | `Number{...} | `True | `False | `Nil
+    | `Tref{...} | `Fref{...} ->
+        return sigma, { x } -- EE-primitive
+    | `Function{ vbar, sbar } -> -- EE-function
+        local f = new_ref 'F'
+        local new_sigmaF = { }
+        for k, v in pairs(sigma.F) do new_sigmaF[k] = v end
+        --printf("writing %s=%s in SigmaF %s", f, table.tostring(x), table.tostring(new_sigmaF))
+        new_sigmaF[f] = x
+        return { L=sigma.L, T=sigma.T, F=new_sigmaF }, { `Fref{ f } }
+    | `Table{ ... } -> -- EE-table
+        local t = new_ref('T')
+        sigma.T[t] = { }
+        local i=1
+        for _, item in ipairs(x) do
+            match item with
+            | `Pair{ ekn, evn } ->
+                local pbarkn, pbarvn
+                sigma, pbarkn = eval.e(sigma, ekn)
+                sigma, pbarvn = eval.e(sigma, evn)
+                sigma.T[t][canonize(pbark[1])] = pbarv[1]
+           | evn ->
+                local pbarvn
+                sigma, pbarvn = eval.e(sigma, evn)
+                sigma.T[t][i] = pbarv[1]
+                i=i+1
+            end
+        end
+        return sigma, { `Tref{ t } }
+    | `Index{ et, ek } -> -- EE-index
+        local sigma1, tbar = eval.e(sigma, et)
+        local t = tbar[1]
+        assert(t.tag=='Tref', "attempt to index a non-table")
+        local sigma2, pbark = eval.e(sigma1, ek)
+        local pk = canonize(pbark[1])
+        --table.print(sigma2.T[t[1]])
+        local pv = sigma2.T[t[1]][pk] or `Nil
+        return sigma2, { pv }
+    | `Op{ opname, ... } ->
+        local args = {...}
+        for i, e in ipairs(args) do
+            local p
+            sigma, p = eval.e(sigma, e)
+            args[i]=canonize(p[1])
+        end
+        local ops = {
+            add = |a,b| a+b,
+            sub = |a,b| a-b,
+            mul = |a,b| a*b,
+            div = |a,b| a/b,
+            eq  = |a,b| a==b,
+            concat = |a,b| a..b }
+        local r = ops[opname](unpack(args))
+        if type(r)=='number' then return sigma, { `Number{r} } end
+        if type(r)=='string' then return sigma, { `String{r} } end
+        if type(r)=='boolean' then return sigma, r and `True or `False end
+        assert(false, table.tostring(r))
+    end
+end
+
+
+
+--- Surrounds evaluation functions with some trace printing calls.
+if true then
+    ast2string = require 'metalua.compiler.convert'.ast_to_luastring
+
+    TRACE_WIDTH = 40
+    PRINT_AS_SOURCE = false
+    PRINT_SIGMAS = 80
+
+    function trace(name, sigma, term)
+        local s,sterm=pcall(ast2string, term)
+        if not s or not PRINT_AS_SOURCE then sterm = table.tostring(term)
+        else sterm = '"'..sterm :gsub('[ \r\n]+', ' ')..'"' end
+        local a = string.format("\teval.%s %s", name, sterm)
+        if PRINT_SIGMAS then
+            local pad = math.max(TRACE_WIDTH - #a, 1)
+            local sigma = table.tostring(sigma)
+            if type(PRINT_SIGMAS)=='number' then sigma = sigma:sub(1, PRINT_SIGMAS) end
+            print(a .. string.rep(' ', pad)..sigma)
+        else
+            print(a)
+        end
+    end
+
+    for k, v in pairs(eval) do
+        local orig = v
+        eval[k] = function(sigma, term)
+                      trace(k..' <<<', sigma, term)
+                      local sigma1, term1 = orig(sigma, term)
+                      trace(k..' >>>', sigma1, term1)
+                      return sigma1, term1
+                  end
+    end
+end
+
+block = +{block:
+          local fib, cache
+          cache = { }
+          fib = function(n)
+                    if n==0 then
+                        return 1
+                    else
+                        if n==1 then
+                            return 1
+                        else
+                            if cache[n]==nil then
+                                local r
+                                r = fib(n-1) + fib(n-2)
+                                cache[n] = r
+                                return r
+                            else
+                                return cache[n]
+                            end
+                        end
+                    end
+                end
+          return fib(10)
+      }
+
+require 'metalua.compiler'
+compiled_block = mlc.ast_to_function(block)
+
+do
+    local sigma, r = eval.sbar(new_sigma(), block)
+    table.print(r)
+end

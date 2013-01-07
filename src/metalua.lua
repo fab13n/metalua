@@ -148,7 +148,9 @@ local function main (...)
       elseif tag=='File' then
          ast = compiler.luafile_to_ast(val)
          -- Isolate each file in a separate fenv
-         ast = {tag='Function', {tag='Dots'}, ast }
+         ast = { tag='Call', 
+                 { tag='Function', { { tag='Dots'} }, ast }, 
+                 { tag='Dots' } }
          ast.source  = '@'..val -- TODO [EVE]
          code.source = '@'..val -- TODO [EVE]
          last_file = ast
@@ -165,10 +167,8 @@ local function main (...)
    end
    -- The last file returns the whole chunk's result
    if last_file then
-      local c = table.shallow_copy(last_file)
-      last_file.tag='Return'
-      last_file.source = c.source
-      last_file[1] = c
+       local c = table.shallow_copy(last_file)
+       table.override(last_file, {tag='Return', source = c.source, c })
    end
 
    -------------------------------------------------------------------
@@ -187,11 +187,12 @@ local function main (...)
    -- Source printing
    if cfg['print-src'] then
       verb_print "Resulting sources:"
-      require 'metalua.ast_to_string'
+      require 'metalua.package2'
+      local ast2string = require 'metalua.compiler.ast_to_luastring'
       for x in ivalues(code) do
          printf("--- Source From %s: ---", table.tostring(x.source, 'nohash'))
-         if x.origin and x.origin.tag=='File' then x=x[1][1][2][1] end
-         print (ast_to_string (x))
+         if x.origin and x.origin.tag=='File' then x=x[1][1][2] end
+         print (ast2string (x))
       end
    end
 

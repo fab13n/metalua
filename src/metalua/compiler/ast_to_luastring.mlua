@@ -3,8 +3,6 @@
 local M = { }
 M.__index = M
 
-ast_to_string = |x| M.run(x)
-
 --------------------------------------------------------------------------------
 -- Instanciate a new AST->source synthetizer
 --------------------------------------------------------------------------------
@@ -260,6 +258,13 @@ function M:Set (node)
       self:list  (lhs, ", ")
       self:acc   " = "
       self:list  (rhs, ", ")
+   | `Set{ lhs, rhs, annot } ->
+      -- ``... = ...'', no syntax sugar, annotation --
+      self:list  (lhs, ", ")
+      self:acc   " = "
+      self:list  (rhs, ", ")
+      self:acc   " -- annotations: "
+      self:acc   (table.tostring(annot) :sub(2, -2))
    end
 end
 
@@ -551,3 +556,4 @@ function M:Id (node, name)
    end 
 end
 
+return (|x| M.run(x))

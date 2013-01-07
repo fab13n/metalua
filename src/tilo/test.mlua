@@ -1,0 +1,27 @@
+require 'tilo.type'
+require 'tilo.gamma'
+require 'metalua.package2'
+ast2string = require 'metalua.compiler.ast_to_luastring'
+
+sbar = +{block:
+         local a, b, c, f
+         a = { x=1 }
+         c #var string = "hello"
+         c = 'foo'
+         f = function(x #const T, y #var Y) 
+                 x.foo = y
+                 return x 
+             end
+         f(a.x,c)
+         return a.x }
+
+g = gamma_new()
+
+print "\nterm:"
+print(ast2string(sbar))
+--table.print(sbar, 1)
+print "\ntype:"
+table.print(typeof.sbar(g, sbar))
+print "\ngamma:"
+--table.print(g, 1)
+print(g :tostring())
