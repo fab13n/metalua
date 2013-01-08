@@ -1,6 +1,6 @@
 -{ extension 'match' }
 
-ast2string = require 'metalua.compiler.ast_to_luastring'
+a2s = require 'metalua.compiler.ast_to_luastring'
 
 function log(mod, level, fmt, ...)
     local args = {...}
@@ -76,7 +76,7 @@ function GAMMA :eq_tebar(tebar1, tebar2)
         local x = self.tebar.eq[name]
         if not x then x={ }; self.tebar.eq[name]=x end
         table.insert(x, tebar)
-        log('GAMMA', 'DEBUG', "TEBAR: %s = %s", name, tostr.tebar(tebar))
+        log('GAMMA', 'DEBUG', "TEBAR: %s = %s", name, a2s(tebar))
     | `TDynbar, _  | _, `TDynbar -> -- pass
     | `TCatbar, _ | _, `TCatbar -> error "not implemented"
     end
@@ -110,7 +110,7 @@ function GAMMA :eq_te(te1, te2)
         local x = self.te.eq[name]
         if not x then x={ }; self.te.eq[name]=x end
         table.insert(x, te)
-        log('GAMMA', 'DEBUG', "TE: %s = %s", name, tostr.te(te))
+        log('GAMMA', 'DEBUG', "TE: %s = %s", name, a2s(te))
     | _, _ -> type_error ('te', te1, '=', te2)
     end
 end
@@ -136,12 +136,12 @@ function GAMMA :sub_tebar(tebar1, tebar2)
         local x = self.tebar.sub_pos[name]
         if not x then x={ }; self.tebar.sub_pos[name]=x end
         table.insert(x, tebar)
-        log('GAMMA', 'DEBUG', "TEBAR: %s <: %s", name, tostr.tebar(tebar))
+        log('GAMMA', 'DEBUG', "TEBAR: %s <: %s", name, a2s(tebar))
     | tebar, `TIdbar{ name } ->
         local x = self.tebar.sub_neg[name]
         if not x then x={ }; self.tebar.sub_neg[name]=x end
         table.insert(x, tebar)
-        log('GAMMA', 'DEBUG', "TEBAR: %s :> %s", name, tostr.tebar(tebar))
+        log('GAMMA', 'DEBUG', "TEBAR: %s :> %s", name, a2s(tebar))
     | `TCatbar{ car, cdr }, _ | _, `TCatbar{ car, cdr} ->
         error "not implemented"
     end
@@ -160,7 +160,7 @@ function GAMMA :sub_te(te1, te2)
         local x = self.te.sub_pos[name]
         if not x then x={ }; self.te.sub_pos[name]=x end
         table.insert(x, te)
-        log('GAMMA', 'DEBUG', "TE: %s <: %s", name, tostr.te(te))
+        log('GAMMA', 'DEBUG', "TE: %s <: %s", name, a2s(te))
     | `TId{ a }, `TId{ b }
         if self.prim_types[a] and self.prim_types[b] ->
         type_error('te', te1, '<:', te2)
@@ -168,7 +168,7 @@ function GAMMA :sub_te(te1, te2)
         local x = self.te.sub_neg[name]
         if not x then x={ }; self.te.sub_neg[name]=x end
         table.insert(x, te)
-        log('GAMMA', 'DEBUG', "TE: %s :> %s", name, tostr.te(te))
+        log('GAMMA', 'DEBUG', "TE: %s :> %s", name, a2s(te))
     | `TFunction{ args1, res1 }, `TFunction{ args2, res2 } ->
         for i=1, math.max(#args1, #args2) do
             local arg1 = args1[i] or `TCurrently{ `Nil }
@@ -250,7 +250,7 @@ function GAMMA :set_var_type (var_name, tf)
     if not cell then
         error ("Unknown var "..var_name)
     end
-    log('GAMMA', 'DEBUG', "V:  %s: %s", var_name, tostr.tf(tf))
+    log('GAMMA', 'DEBUG', "V:  %s: %s", var_name, a2s(tf))
     cell.type = tf
 end
 
@@ -277,37 +277,10 @@ function GAMMA :leave_frame()
     self.current_frame = table.remove(self.stacked_frames)
 end
 
-tostr = { }
-
-function tostr.te(te)
-    checks('te')
-    match te with
-    | `TDyn -> return '*'
-    | `TId{ x } -> return x
-    | `TTable{ d, p, u } ->
-        local ps = { }
-        for i, x in ipairs(p) do ps[i] = tostr.p(x[1])..": "..tostr.tf(x[2]) end
-        return '['..tostr.tf(d)..'; '..table.concat(ps,'; ')..']'..(u and '0' or '')
-    | `TFunction{ p, r } ->
-        return tostr.tfbar(p)..'->'..tostr.tebar(r)
-    end
-end
-
-function tostr.tf(tf)
-    checks('tf')
-    if tf.tag=='TField' then return 'field'
-    else return tf.tag :sub(2, -1) :lower() .. ' ' ..tostr.te(tf[1]) end
-end
-
-tostr.e = |x| (ast2string(x):gsub("[ \r\n\t]+", " "))
-tostr.s, tostr.p = tostr.e, tostr.e
-tostr.tebar = |x| '('..table.concat(table.imap(tostr.te, x), ",")..')'
-tostr.tfbar = |x| '('..table.concat(table.imap(tostr.tf, x), ",")..')'
-
 function type_error(t, a, op, b)
     checks('string', 'table', 'string', 'table')
     local msg = string.format("Cannot prove %s %s %s",
-                              tostr[t](a), op, tostr[t](b))
+                              a2s(a), op, a2s(b))
     error(msg)
 end
 
@@ -318,16 +291,16 @@ function GAMMA :tostring()
     local function acc(...) table.insert(lines, table.concat{...}) end
     local cat = |...| table.concat(table.imap(...), ', ')
     for name, list in pairs(self.te.eq) do
-        acc ('  ', name, ' = ', cat(tostr.te, list))
+        acc ('  ', name, ' = ', cat(a2s, list))
     end
     for name, list in pairs(self.te.sub_pos) do
-        acc ('  ', name, ' <: ', cat(tostr.te, list))
+        acc ('  ', name, ' <: ', cat(a2s, list))
     end
     for name, list in pairs(self.te.sub_neg) do
-        acc ('  ', name, ' :> ', cat(tostr.te, list))
+        acc ('  ', name, ' :> ', cat(a2s, list))
     end
     for name, list in pairs(self.tebar.eq) do
-        acc ('  ', name, ' = ', cat(tostr.tebar, list))
+        acc ('  ', name, ' = ', cat(a2s, list))
     end
     if next(self.te.sharp) then
         local sharps = { }
@@ -336,7 +309,7 @@ function GAMMA :tostring()
         acc('  non-linear variable types: ', table.concat(sharps, ', '))
     end
     for name, cell in pairs(self.var_types) do
-        acc ('  ', name, ': ', tostr.tf(cell.type))
+        acc ('  ', name, ': ', a2s(cell.type))
     end
     return table.concat(lines, '\n')
 end

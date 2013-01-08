@@ -36,6 +36,8 @@
 
 -{ extension 'match' }
 
+local a2s = require 'metalua.compiler.ast_to_luastring'
+
 require 'tilo.gamma'
 
 require 'tilo.checkers'
@@ -86,7 +88,7 @@ function is_primitive(t) return primitive_tags[t.tag or 'whatever'] end
 
 -- Returns the type of e, i.e. a list of expression types.
 function typeof.e(gamma, e)
-    log('TYPING', 'DEBUG', "E:  %s", tostr.e(e))
+    log('TYPING', 'DEBUG', "E:  %s", a2s(e))
     checks('gamma', 'e')
     match e with
     | `Number{...}   -> return {`TId 'number'}
@@ -130,7 +132,7 @@ function typeof.sbar(gamma, sbar, from)
     from = from or 1
     local s1 = sbar[from]
     if not s1 then return `TPass end -- empty sequence
-    log('TYPING', 'DEBUG', "S:  %s", tostr.s(s1))
+    log('TYPING', 'DEBUG', "S:  %s", a2s(s1))
     match s1 with
     | `Annot{ s }         -> return typeof.Annot(gamma, s, sbar, from+1)
     | `Local{ vars, ... } -> typeof.Local(gamma, vars)
