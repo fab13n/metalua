@@ -86,7 +86,7 @@ function is_primitive(t) return primitive_tags[t.tag or 'whatever'] end
 
 -- Returns the type of e, i.e. a list of expression types.
 function typeof.e(gamma, e)
-    log('TYPING', 'DEBUG', "E:  %s", table.tostring(e))
+    log('TYPING', 'DEBUG', "E:  %s", tostr.e(e))
     checks('gamma', 'e')
     match e with
     | `Number{...}   -> return {`TId 'number'}
@@ -130,7 +130,7 @@ function typeof.sbar(gamma, sbar, from)
     from = from or 1
     local s1 = sbar[from]
     if not s1 then return `TPass end -- empty sequence
-    log('TYPING', 'DEBUG', "S:  %s", table.tostring(s1))
+    log('TYPING', 'DEBUG', "S:  %s", tostr.s(s1))
     match s1 with
     | `Annot{ s }         -> return typeof.Annot(gamma, s, sbar, from+1)
     | `Local{ vars, ... } -> typeof.Local(gamma, vars)
@@ -348,9 +348,16 @@ function typeof.ell(gamma, ell)
         local te_t = tebar_to_te(gamma, tebar_t)
         match te_t with
         | `TId{ tvar_name } -> -- I'm going to guess that it's non-linear
+            local guessed_tag = 'TVar'
+            if e_t.tag=='Index' or e_t.tag=='Id' then
+                local ell2=typeof.ell(gamma, e_t)
+                if ell2.tag=='TCurrently' then 
+                    guessed_tag='TCurrently'
+                end
+            end
             local k_name = p_k[1] or p_k.tag :lower()
             local v = fresh_tvar(tvar_name..'_'..k_name)
-            local tf = `TVar{ v }
+            local tf = { tag=guessed_tag, v }
             gamma :sub_te (te_t, `TTable{ `TField; {`TPair{p_k, tf}}, false })
             return tf
         | `TTable{ ... } ->
