@@ -13,7 +13,8 @@ local function check_one(expected, val)
 end
 
 local function check_many(name, expected, val)
-    if type(expected) ~= 'string' then
+    if expected=='?' then return true
+    elseif type(expected) ~= 'string' then
         error 'strings expected by checks()'
     elseif val==nil and expected :sub(1,1) == '?' then return true end
     for one in expected :gmatch "[^|?]+" do
