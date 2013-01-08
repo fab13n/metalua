@@ -47,8 +47,6 @@
 --   endian form and field size and positions are hard-coded
 ----------------------------------------------------------------------]]
 
-module(..., package.seeall)
-
 local function debugf() end
 
 local luaP = { }

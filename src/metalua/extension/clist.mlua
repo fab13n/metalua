@@ -15,9 +15,19 @@
 -- This extension implements list comprehensions, similar to Haskell and
 -- Python syntax, to easily describe lists.
 --
+-- * x[a ... b] is the list { x[a], x[a+1], ..., x[b] }
+-- * { f()..., b } contains all the elements returned by f(), then b
+--   (allows to expand list fields other than the last one)
+-- * list comprehensions a la python, with "for" and "if" suffixes:
+--   {i+10*j for i=1,3 for j=1,3 if i~=j} is { 21, 31, 12, 32, 13, 23 }
+--
 --------------------------------------------------------------------------------
 
 -{ extension "match" }
+
+local gg  = require 'metalua.grammar.generator'
+local mlp = require 'metalua.compiler.parser'
+local mlp_table = require 'metalua.compiler.parser.table'
 
 local function dots_builder (x) return `Dots{ x } end
 
@@ -36,7 +46,7 @@ local function if_builder (x, p)
    |  _              -> return `Comp{ x, p[1] }
    end
 end
-   
+
 local function comp_builder(core, list, no_unpack)
    -- [ti] = temp var holding table.insert
    -- [v]  = variable holding the table being built
@@ -97,14 +107,14 @@ local function table_content_builder (list)
    end
 end
 
-mlp.table_field = gg.expr{ name="table cell",
-   primary = mlp.table_field,
+mlp_table.field = gg.expr{ name="table cell",
+   primary = mlp_table.field,
    suffix  = { name="table cell suffix",
       { "...",                 builder = dots_builder },
       { "for", mlp.for_header, builder = for_builder  },
       { "if",  mlp.expr,       builder = if_builder   } } }
 
-mlp.table_content.builder = table_content_builder
+mlp_table.content.builder = table_content_builder
 
 --[[
 mlp.stat:add{ "for", gg.expr {

@@ -30,7 +30,7 @@ function checks(...)
         if not success then
             local fname = debug.getinfo(2, n).name
             local fmt = "bad argument #%d to '%s' (%s expected, got %s)"
-            local msg = string.format(fmt, i, fname, arg, type(val))
+            local msg = string.format(fmt, i, fname or "?", arg, type(val))
             error(msg, 3)
         end
     end

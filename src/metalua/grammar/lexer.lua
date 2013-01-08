@@ -652,7 +652,7 @@ end
 -- 
 ----------------------------------------------------------------------
 function lexer :clone()
-   require 'metalua.runtime'
+   require 'metalua.base'
    local clone = {
       -- TODO: remove table2 dependency?
       alpha = table.deep_copy(self.alpha),

@@ -221,16 +221,24 @@ local function assign_or_call_stat_parser (lx)
 end
 
 M.local_stat_parser = gg.multisequence{
-   -- local function <name> <func_val>
-   { "function", mlp_misc.id, func_val, builder = 
+    -- local function <name> <func_val>
+    { "function", mlp_misc.id, func_val, builder = 
       function(x) 
-         local vars = { x[1], lineinfo = x[1].lineinfo }
-         local vals = { x[2], lineinfo = x[2].lineinfo }
-         return { tag="Localrec", vars, vals } 
+          local vars = { x[1], lineinfo = x[1].lineinfo }
+          local vals = { x[2], lineinfo = x[2].lineinfo }
+          return { tag="Localrec", vars, vals } 
       end },
-   -- local <id_list> ( = <expr_list> )?
-   default = gg.sequence{ mlp_misc.id_list, gg.onkeyword{ "=", expr_list },
-      builder = function(x) return {tag="Local", x[1], x[2] or { } } end } }
+    -- local <id_list> ( = <expr_list> )?
+    default = gg.sequence{ 
+        gg.list{
+            primary = annot.annot_id,
+            separators = ',' },
+        gg.onkeyword{ "=", expr_list },
+        builder = function(x)
+            local annotated_left, right = unpack(x)
+            local left, annotations = annot.split(annotated_left)
+            return {tag="Local", left, right or { }, annotations }
+        end } }
 
 --------------------------------------------------------------------------------
 -- statement

@@ -1,18 +1,7 @@
 ----------------------------------------------------------------------
 --
--- WARNING! You're entering a hackish area, proceed at your own risks!
---
 -- This code results from the borrowing, then ruthless abuse, of
--- Yueliang's implementation of Lua 5.0 compiler. I claim
--- responsibility for all of the ugly, dirty stuff that you might spot
--- in it.
---
--- Eventually, this code will be rewritten, either in Lua or more
--- probably in C. Meanwhile, if you're interested into digging
--- metalua's sources, this is not the best part to invest your time
--- on.
---
--- End of warning.
+-- Yueliang's implementation of Lua 5.0 compiler.
 --
 ----------------------------------------------------------------------
 
@@ -58,9 +47,9 @@
 
 local luaP = require 'metalua.compiler.bytecode.lopcodes'
 
-module(..., package.seeall)
+local M = { }
 
-format = { }
+local format = { }
 format.header = string.dump(function()end):sub(1, 12)
 format.little_endian, format.int_size, 
 format.size_t_size,   format.instr_size, 
@@ -72,7 +61,8 @@ assert(format.integral or format.number_size==8, "Number format not supported by
 assert(format.little_endian, "Big endian architectures not supported by dumper")
 
 --requires luaP
-luaU = { }
+local luaU = { }
+M.luaU = luaU
 
 luaU.format = format
 
@@ -427,7 +417,7 @@ function luaU:endianness()
 end
 
 -- FIXME: ugly concat-base generation in [make_setS], bufferize properly! 
-function dump_string (proto)
+function M.dump_string (proto)
    local writer, buff = luaU:make_setS()
    luaU:dump (proto, writer, buff)
    return buff.data
@@ -435,7 +425,7 @@ end
 
 -- FIXME: [make_setS] sucks, perform synchronous file writing
 -- Now unused
-function dump_file (proto, filename)
+function M.dump_file (proto, filename)
    local writer, buff = luaU:make_setS()
    luaU:dump (proto, writer, buff)
    local file = io.open (filename, "wb")
@@ -444,4 +434,4 @@ function dump_file (proto, filename)
    if UNIX_SHARPBANG then os.execute ("chmod a+x "..filename) end
 end
 
-return _M
+return M

@@ -11,6 +11,8 @@
 
 require 'metalua.extension.trycatch'
 
+local mlp = require 'metalua.compiler.parser'
+
 function withdo_builder (x)
    local names, vals, body = unpack(x)
    for i = #names, 1, -1 do

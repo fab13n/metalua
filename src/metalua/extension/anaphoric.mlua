@@ -17,19 +17,25 @@
 -- in a temporary variable. But what you should really do in such a case is
 -- avoiding to use anaphoric macros: they're fine for one-liner, but they
 -- reduce readability for bigger functions.
+--
 --------------------------------------------------------------------------------
 
 -- TODO: 'and' operator could, and maybe should, be anaphoric as well
 -- TODO: anaphoric functions would be cool for recursive functions, but
 --       recursive calls are always in an 'if' statement, so the pronoun
 --       used for functions must not be the same as for 'if'.
+--
 
-require 'freevars'
+-- TODO: implement this function which checks whether "it" appears as a free
+--       variable in block AST `ast`.
+local function it_in_block(ast)
+    error 'not implemented'
+end
 
 local function anaphoric_if(ast)
    local it_found = false
    for i=2, #ast do 
-      if freevars.block(ast[i])['it'] then
+      if it_in_block(ast[i]) then
          it_found = true
          break
       end
@@ -43,12 +49,12 @@ end
 
 local function anaphoric_while(ast)
    local it_found = false
-   if freevars.block(ast[2])['it'] then
+   if it_in_block(ast[2]) then
       local cond = ast[1]
       ast[1] = +{it}
       return +{stat: do local it = -{cond}; -{ast} end }
    end
 end
 
-mlp.stat:get'if'.transformers:add(anaphoric_if)
-mlp.stat:get'while'.transformers:add(anaphoric_while)
+mlp.stat:get'if'.transformers :add (anaphoric_if)
+mlp.stat:get'while'.transformers :add (anaphoric_while)

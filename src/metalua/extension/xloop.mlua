@@ -1,7 +1,32 @@
+-- Loop control syntax extensions
+--
+-- * Allows to compound loop headers together, e.g. write:
+--      for i=1,10 for j=1,10 do f(i,j) end
+--   instead of:
+--      for i=1,10 do for j=1,10 do f(i,j) end end
+--   loop headers are "for/=" and "for/in"
+--
+-- * while <condition> in a loop header will break the loop(s)
+--   as soon as condition stops being satisfied.
+--
+-- * until <condition> in a loop header will break the loop(s)
+--   as soon as condition is satisfied.
+--
+-- * if <condition> in a loop header will skip an iteration
+--   if the condition is not satisfied.
+--
+-- * unless <condition> in a loop header will skip an iteration
+--   if the condition is satisfied.
+--
+-- TODO: document ordering matters, e.g. how 
+-- "for i in x() if cond(i) for j in y()" is parsed.
+
 -{ extension 'match' }
--{ extension 'log' }
 
 require 'metalua.walk'
+
+local gg  = require 'metalua.grammar.generator'
+local mlp = require 'metalua.compiler.parser'
 
 ----------------------------------------------------------------------
 -- Back-end:
@@ -94,7 +119,3 @@ mlp.stat:add{
 mlp.stat:add{
    'while', mlp.expr, loop_element_list, 'do', mlp.block, 'end',
    builder = |x| xloop_builder{ `While{x[1]}, x[2], x[3] } }
-
-mlp.stat:add{
-   'unless', mlp.expr, 'then', mlp.block, 'end',
-   builder = |x| +{stat: if not -{x[1]} then -{x[2]} end} }

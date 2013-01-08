@@ -1,5 +1,7 @@
 require "metalua.walk"
 
+local mlp = require 'metalua.compiler.parser'
+
 ----------------------------------------------------------------------
 -- * [loop_tags] are the tags of statements which support continue.
 -- * [loop_keywords] are the initial keywords which trigger the parsing

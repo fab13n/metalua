@@ -33,27 +33,6 @@ function ipairs(x)
    return rawipairs(x)
 end
 
---[[
-function type(x)
-   local mt = getmetatable(x)
-   if mt then
-      local mtt = mt.__type
-      if mtt then return mtt end
-   end
-   return rawtype(x)
-end
-]]
-
-function min (a, ...)
-   for n in values{...} do if n<a then a=n end end
-   return a
-end
-
-function max (a, ...)
-   for n in values{...} do if n>a then a=n end end
-   return a
-end
-
 function o (...)
    local args = {...}
    local function g (...)
@@ -102,3 +81,6 @@ function keys (x)
    return iterator, { list = x }
 end
 
+require 'metalua.table'
+require 'metalua.string'
+require 'metalua.package'

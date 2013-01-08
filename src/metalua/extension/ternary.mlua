@@ -1,6 +1,13 @@
+-- Ternary operator:
+-- * x?y,z evaluates to y if x evaluates to neither nil nor false
+-- * x?y,z evaluates to z if x evaluates to either nil or false
+
+local gg  = require 'metalua.grammar.generator'
+local mlp = require 'metalua.compiler.parser'
+
 local function b(x, suffix)
    local v, ontrue, onfalse = mlp.gensym "test", unpack (suffix)
-   return `Stat{ 
+   return `Stat{
       +{ block:
          local -{v}
          if -{x} then (-{v}) = -{ontrue} else (-{v}) = -{onfalse or `Nil} end },

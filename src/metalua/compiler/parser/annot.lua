@@ -78,6 +78,9 @@ M.annot_id = gg.sequence{
                   else return id end
               end }
 
+-- split a list of "foo" and "`Annot{foo, annot}" into a list of "foo"
+-- and a list of "annot".
+-- No annot list is returned if none of the elements were annotated.
 function M.split(lst)
     local x, a, some = { }, { }, false
     for i, p in ipairs(lst) do

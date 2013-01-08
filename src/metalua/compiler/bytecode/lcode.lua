@@ -54,11 +54,9 @@
 
 local luaP = require 'metalua.compiler.bytecode.lopcodes'
 
-module(..., package.seeall)
-
 local function debugf() end
 
-local luaK = {}
+local luaK = { }
 
 luaK.MAXSTACK    = 250        -- (llimits.h, used in lcode.lua)
 luaK.LUA_MULTRET = -1         -- (lua.h)

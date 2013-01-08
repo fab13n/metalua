@@ -3,6 +3,8 @@
 
 -{ extension 'match' }
 
+local mlp = require 'metalua.compiler.parser'
+
 dollar = rawget(getfenv(), 'dollar') or { }
 
 local function dollar_builder(call)

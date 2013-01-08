@@ -39,24 +39,24 @@
 local luaK = require 'metalua.compiler.bytecode.lcode'
 local luaP = require 'metalua.compiler.bytecode.lopcodes'
 
-module (..., package.seeall)
-
 local debugf = function() end
 --local debugf=printf
 
 local stat = { }
 local expr = { }
 
-MAX_INT            = 2147483645 -- INT_MAX-2 for 32-bit systems (llimits.h)
-MAXVARS            = 200        -- (llimits.h)
-MAXUPVALUES        = 32         -- (llimits.h)
-MAXPARAMS          = 100        -- (llimits.h)
-LUA_MAXPARSERLEVEL = 200        -- (llimits.h)
+local M = { }
+
+M.MAX_INT            = 2147483645 -- INT_MAX-2 for 32-bit systems (llimits.h)
+M.MAXVARS            = 200        -- (llimits.h)
+M.MAXUPVALUES        = 32         -- (llimits.h)
+M.MAXPARAMS          = 100        -- (llimits.h)
+M.LUA_MAXPARSERLEVEL = 200        -- (llimits.h)
 
 -- from lobject.h
-VARARG_HASARG   = 1
-VARARG_ISVARARG = 2
-VARARG_NEEDSARG = 4
+M.VARARG_HASARG   = 1
+M.VARARG_ISVARARG = 2
+M.VARARG_NEEDSARG = 4
 
 local function hasmultret (k) 
    return k=="VCALL" or k=="VVARARG"
@@ -289,7 +289,7 @@ end
 ------------------------------------------------------------------------
 -- FIXME: is there a need for f=fs.f? if yes, why not always using it? 
 ------------------------------------------------------------------------
-function indexupvalue(fs, name, v)
+local function indexupvalue(fs, name, v)
    local f = fs.f
    for i = 0, f.nups - 1 do
       if fs.upvalues[i].k == v.k and fs.upvalues[i].info == v.info then
@@ -480,7 +480,7 @@ end
 ------------------------------------------------------------------------
 local function new_localvar (fs, name, n)
   assert (type (name) == "string")
-  if fs.nactvar + n > MAXVARS then error ("too many local vars") end
+  if fs.nactvar + n > M.MAXVARS then error ("too many local vars") end
   fs.actvar[fs.nactvar + n] = registerlocalvar (fs, name)
   --printf("[NEW_LOCVAR] %i = %s", fs.nactvar+n, name)
 end
@@ -496,9 +496,9 @@ local function parlist (fs, ast_params)
       new_localvar (fs, ast_params[i][1], i-1)
    end
    -- from [code_param]:
-   --checklimit (fs, fs.nactvar, self.MAXPARAMS, "parameters")
+   --checklimit (fs, fs.nactvar, self.M.MAXPARAMS, "parameters")
    fs.f.numparams = fs.nactvar
-   fs.f.is_vararg = dots and VARARG_ISVARARG or 0 
+   fs.f.is_vararg = dots and M.VARARG_ISVARARG or 0 
    adjustlocalvars (fs, nparams)
    fs.f.numparams = fs.nactvar --FIXME vararg must be taken in account
    luaK:reserveregs (fs, fs.nactvar)  -- reserve register for parameters
@@ -533,7 +533,7 @@ end
 ------------------------------------------------------------------------
 local function enterlevel (fs)
    fs.nestlevel = fs.nestlevel + 1
-   assert (fs.nestlevel <= LUA_MAXPARSERLEVEL, "too many syntax levels")
+   assert (fs.nestlevel <= M.LUA_MAXPARSERLEVEL, "too many syntax levels")
 end
 
 ------------------------------------------------------------------------
@@ -1079,8 +1079,8 @@ function expr.Dots (fs, ast, v)
    assert (fs.f.is_vararg ~= 0, "No vararg in this function")
    -- NEEDSARG flag is set if and only if the function is a vararg,
    -- but no vararg has been used yet in its code.
-   if fs.f.is_vararg < VARARG_NEEDSARG then 
-      fs.f.is_varag = fs.f.is_vararg - VARARG_NEEDSARG end
+   if fs.f.is_vararg < M.VARARG_NEEDSARG then 
+      fs.f.is_varag = fs.f.is_vararg - M.VARARG_NEEDSARG end
    init_exp (v, "VVARARG", luaK:codeABC (fs, "OP_VARARG", 0, 1, 0))
 end
 
@@ -1260,9 +1260,9 @@ end
 ------------------------------------------------------------------------
 -- Main function: ast --> proto
 ------------------------------------------------------------------------
-function ast_to_proto (ast, source)
+function M.ast_to_proto (ast, source)
   local fs = open_func (nil)
-  fs.f.is_vararg = VARARG_ISVARARG
+  fs.f.is_vararg = M.VARARG_ISVARARG
   chunk (fs, ast)
   close_func (fs)
   assert (fs.prev == nil)
@@ -1281,4 +1281,4 @@ end
 
 expr.Error, stat.Error = Error, Error
 
-return _M
+return M

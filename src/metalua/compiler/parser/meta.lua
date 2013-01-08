@@ -32,8 +32,8 @@ local M        = { }
 --------------------------------------------------------------------------------
 
 function M.splice (ast)
-    local convert = require 'metalua.compiler.convert'
-    local f = convert.ast_to_function(ast, '=splice')
+    local mlc = require 'metalua.compiler'
+    local f = mlc.ast_to_function(ast, '=splice')
     local result=f()
     return result
 end

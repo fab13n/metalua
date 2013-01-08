@@ -1,4 +1,4 @@
-local convert = require 'metalua.compiler.convert'
+local mlc = require 'metalua.compiler'
 
 -- Keep these global:
 PRINT_AST  = true
@@ -44,17 +44,17 @@ function M.run()
          table.insert(lines, line)
          src = table.concat (lines, "\n")
       until #line>0
-      
-      lx  = convert.luastring_to_lexstream(src) 
-      success, ast = pcall(convert.lexstream_to_ast, lx)
+
+      lx  = mlc.luastring_to_lexstream(src) 
+      success, ast = pcall(mlc.lexstream_to_ast, lx)
       if success then
-         local check_status, check_msg = pcall(convert.check_ast, ast)
+         local check_status, check_msg = pcall(mlc.check_ast, ast)
          if not check_status then
              print "Invalid AST:"
              print (check_msg)
              lines = { }
          else
-             success, f = pcall(convert.ast_to_function, ast, '=stdin')
+             success, f = pcall(mlc.ast_to_function, ast, '=stdin')
              if success then
                  results = { xpcall(f, debug.traceback) }
                  success = table.remove (results, 1)

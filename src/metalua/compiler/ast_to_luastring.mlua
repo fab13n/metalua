@@ -166,7 +166,7 @@ function M:list (list, sep, start)
    for i = start or 1, # list do
       self:node (list[i])
       if list[i + 1] then
-         if not sep then            
+         if not sep then 
          elseif type (sep) == "function" then sep (self)
          elseif type (sep) == "string"   then self:acc (sep)
          else   error "Invalid list separator" end
@@ -346,17 +346,30 @@ function M:Forin (node, vars, generators, body)
    self:acc      "end"
 end
 
-function M:Local (node, lhs, rhs)
-   if next (lhs) then
-      self:acc     "local "
-      self:list    (lhs, ", ")
-      if rhs[1] then
-         self:acc  " = "
-         self:list (rhs, ", ")
-      end
-   else -- Can't create a local statement with 0 variables in plain Lua
-      self:acc (table.tostring (node, 'nohash', 80))
-   end
+function M:Local (node, lhs, rhs, annots)
+    if next (lhs) then
+        self:acc     "local "
+        if annots then
+            local n = #lhs
+            for i=1, n do
+                self:node (lhs)
+                local a = annots[i]
+                if a then
+                    self:acc ' #'
+                    self:node (a)
+                end
+                if i~=n then self:acc ', ' end
+            end
+        else
+            self:list    (lhs, ", ")
+        end
+        if rhs[1] then
+            self:acc  " = "
+            self:list (rhs, ", ")
+        end
+    else -- Can't create a local statement with 0 variables in plain Lua
+        self:acc (table.tostring (node, 'nohash', 80))
+    end
 end
 
 function M:Localrec (node, lhs, rhs)
@@ -596,13 +609,15 @@ function M:TCatbar(node, te, tebar)
     self:acc')'
 end
 
-function M:TFunction(p, r)
-    local parens = p.tag=='TFunction'
-    if parens then self:acc '(' end
+function M:TFunction(node, p, r)
+    -- the parens test is wrong, and makes no sense as long as
+    -- function params/results are systematically enclosed in parentheses.
+    --local parens = p.tag=='TFunction'
+    --if parens then self:acc '(' end
     self:acc '('
     self:list(p, ', ')
     self:acc ')'
-    if parens then self:acc ')' end
+    --if parens then self:acc ')' end
     self:acc '->'
     self:tebar(r)
 end
