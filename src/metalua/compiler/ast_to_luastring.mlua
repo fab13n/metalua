@@ -260,11 +260,18 @@ function M:Set (node)
       self:list  (rhs, ", ")
    | `Set{ lhs, rhs, annot } ->
       -- ``... = ...'', no syntax sugar, annotation --
-      self:list  (lhs, ", ")
+      local n = #lhs
+      for i=1,n do
+          local ell, a = lhs[i], annot[i]
+          self:node (ell)
+          if a then 
+              self:acc ' #'
+              self:node(a)
+          end
+          if i~=n then self:acc ', ' end
+      end
       self:acc   " = "
       self:list  (rhs, ", ")
-      self:acc   " -- annotations: "
-      self:acc   (table.tostring(annot) :sub(2, -2))
    end
 end
 
@@ -427,14 +434,27 @@ function M:String (node, str)
    self:acc (string.format ("%q", str):gsub ("\\\n", "\\n"))
 end
 
-function M:Function (node, params, body)
-   self:acc      "function ("
-   self:list     (params, ", ")
-   self:acc      ")"
-   self:nlindent ()
-   self:list     (body, self.nl)
-   self:nldedent ()
-   self:acc      "end"
+function M:Function (node, params, body, annots)
+    self:acc      "function ("
+    if annots then
+        local n = #params
+        for i=1,n do
+            local p, a = params[i], annots[i]
+            self:node(p)
+            if annots then
+                self:acc " #"
+                self:node(a)
+            end
+            if i~=n then self:acc ', ' end
+        end
+    else
+        self:list (params, ", ")
+    end
+    self:acc      ")"
+    self:nlindent ()
+    self:list     (body, self.nl)
+    self:nldedent ()
+    self:acc      "end"
 end
 
 function M:Table (node)
@@ -554,6 +574,77 @@ function M:Id (node, name)
       self:String (node, name)
       self:acc    "}"
    end 
+end
+
+
+M.TDyn    = '*'
+M.TDynbar = '*'
+M.TPass   = 'pass'
+M.TField  = 'field'
+M.TIdbar  = M.TId
+M.TReturn = M.Return
+
+
+function M:TId (node, name) self:acc(name) end
+
+
+function M:TCatbar(node, te, tebar)
+    self:acc'('
+    self:node(te)
+    self:acc'|'
+    self:tebar(tebar)
+    self:acc')'
+end
+
+function M:TFunction(p, r)
+    local parens = p.tag=='TFunction'
+    if parens then self:acc '(' end
+    self:acc '('
+    self:list(p, ', ')
+    self:acc ')'
+    if parens then self:acc ')' end
+    self:acc '->'
+    self:tebar(r)
+end
+
+function M:TTable (node, default, pairs, unique)
+    self:acc '['
+    self:node (default)
+    if next(pairs) then
+        self:acc ', '
+        self:list (pairs, ', ')
+    end
+    self:acc ']'
+    if unique then self:acc '0' end
+end
+
+function M:TPair (node, k, v)
+    self:node (k)
+    self:acc ': '
+    self:node (v)
+end
+
+function M:tebar(node)
+    if node.tag then self:node(node) else
+        self:acc '('
+        self:list(node, ', ')
+        self:acc ')'
+    end
+end
+
+function M:TConst(node, te)
+    self:acc 'const '
+    self:node(te)
+end
+
+function M:TVar(node, te)
+    self:acc 'var '
+    self:node(te)
+end
+
+function M:TCurrently(node, te)
+    self:acc 'currently '
+    self:node(te)
 end
 
 return (|x| M.run(x))
