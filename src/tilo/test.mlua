@@ -1,7 +1,7 @@
 require 'tilo.type'
 require 'tilo.gamma'
 require 'metalua.package2'
-ast2string = require 'metalua.compiler.ast_to_luastring'
+a2s = require 'metalua.compiler.ast_to_luastring'
 
 sbar = +{block:
          local a, b, c, f
@@ -18,10 +18,10 @@ sbar = +{block:
 g = gamma_new()
 
 print "\nterm:"
-print(ast2string(sbar))
+print(a2s(sbar))
 --table.print(sbar, 1)
 print "\ntype:"
-table.print(typeof.sbar(g, sbar))
+a2s(typeof.sbar(g, sbar))
 print "\ngamma:"
 --table.print(g, 1)
 print(g :tostring())
