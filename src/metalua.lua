@@ -1,14 +1,17 @@
 --*-lua-*-
 
 -- Main file for the metalua executable
-require 'metalua.package2'
-require 'metalua.compiler.globals'
-local compiler = require 'metalua.compiler.convert'
+require 'metalua.base'
+require 'metalua.compiler.globals' -- metalua-aware loadstring, dofile etc.
+
+local compiler = require 'metalua.compiler'
 local clopts   = require 'metalua.clopts'
 
-AST_COMPILE_ERROR_NUMBER        = -1
-RUNTIME_ERROR_NUMBER            = -3
-BYTECODE_SYNTHESE_ERROR_NUMBER  = -100
+local M = { }
+
+local AST_COMPILE_ERROR_NUMBER        = -1
+local RUNTIME_ERROR_NUMBER            = -3
+local BYTECODE_SYNTHESE_ERROR_NUMBER  = -100
 
 local chunks  = { }
 local runargs = { }
@@ -19,7 +22,7 @@ local function acc_chunk(kind)
     end
 end
 
-parser = clopts {
+M.cmdline_parser = clopts {
    -- Chunk loading
    {  short = 'f', long = 'file', type = 'string', action = acc_chunk 'File',
       usage = 'load a file to compile and/or run'
@@ -59,8 +62,8 @@ parser = clopts {
    {  short = 's', long = 'sharpbang', type = 'string',
       usage = 'set a first line to add to compiled file, typically "#!/bin/env mlr"'
    },
-   {  long  = 'no-runtime', type = 'boolean',
-      usage = "prevent the automatic requirement of metalua runtime"
+   {  long  = 'no-base-lib', type = 'boolean',
+      usage = "prevent the automatic requirement of metalua base lib"
    },
    {  long  = '', short = 'p', type = '*',
       action= function (newargs) runargs=table.icat(runargs, newargs) end,
@@ -88,9 +91,9 @@ flags are absent, metalua tries to adopt a "Do What I Mean" approach:
   forbids it.
 ]]}
 
-local function main (...)
+function M.main (...)
 
-   local cfg = parser(...)
+   local cfg = M.cmdline_parser(...)
 
    -------------------------------------------------------------------
    -- Print messages if in verbose mode
@@ -187,7 +190,7 @@ local function main (...)
    -- Source printing
    if cfg['print-src'] then
       verb_print "Resulting sources:"
-      require 'metalua.package2'
+      require 'metalua.package'
       local ast2string = require 'metalua.compiler.ast_to_luastring'
       for x in ivalues(code) do
          printf("--- Source From %s: ---", table.tostring(x.source, 'nohash'))
@@ -199,13 +202,13 @@ local function main (...)
    -- FIXME: canonize/check AST
 
    -------------------------------------------------------------------
-   -- Insert runtime loader
-   if cfg['no-runtime'] then
-      verb_print "Prevent insertion of command \"require 'metalua.runtime'\""
+   -- Insert base lib loader
+   if cfg['no-base-lib'] then
+      verb_print "Prevent insertion of command \"require 'metalua.base'\""
    else
        local req_runtime = { tag='Call',
                              {tag='Id', "require"},
-                             {tag='String', "metalua.runtime"} }
+                             {tag='String', "metalua.base"} }
        table.insert(code, 1, req_runtime)
    end
 
@@ -267,5 +270,9 @@ local function main (...)
 
 end
 
-if debug.getinfo(1).what=='main' then main(...)
-else return main end
+-- If the lib is being loaded, the sentinel token is currently
+-- put as a placeholder in its package.loaded entry.
+local called_as_a_lib = type(package.loaded.metalua)=='userdata'
+
+if not called_as_a_lib then M.main(...)
+else return M end
