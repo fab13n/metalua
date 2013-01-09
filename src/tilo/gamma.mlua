@@ -105,7 +105,7 @@ function GAMMA :eq_te(te1, te2)
     | `TId{ name }, te | te, `TId{ name } ->
         if self.prim_types[name] then
             if te.tag=='TId' then te, name = te1, te2[1] -- swap
-            else error (name.." is a primitive type, not a type var") end
+            else type_error ('te', te1, '=', te2) end -- primitive = non-variable
         end
         local x = self.te.eq[name]
         if not x then x={ }; self.te.eq[name]=x end

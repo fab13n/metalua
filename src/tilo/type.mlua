@@ -25,6 +25,7 @@
 -- te ::= `TDyn | `TId{ <string> }
 --      | `TFunction{ tebar, tebar }
 --      | `TTable{ tf, { `TPair{ P, tf }* }, is_unreferenced }
+--      | `TTabsub{ te, P, tf } -- change a table's field.
 --
 -- tebar ::= `TDynbar | `TCatbar{ te, tebar } | `TIdbar{ <string>
 --         | { te* }
@@ -135,7 +136,8 @@ function typeof.sbar(gamma, sbar, from)
     log('TYPING', 'DEBUG', "S:  %s", a2s(s1))
     match s1 with
     | `Annot{ s }         -> return typeof.Annot(gamma, s, sbar, from+1)
-    | `Local{ vars, ... } -> typeof.Local(gamma, vars)
+    | `Local{ left, right } -> typeof.Local(gamma, left);  typeof.Set(gamma, left, right, { })
+    | `Local{ left, right, annots } -> typeof.Local(gamma, left);  typeof.Set(gamma, left, right, annots)
     | `Set{ left, right, annots } -> typeof.Set(gamma, left, right, annots)
     | `Set{ left, right } -> typeof.Set(gamma, left, right, { })
     | `Call{ f, ... }     -> typeof.e(gamma, s1)
@@ -164,7 +166,7 @@ end
 -- Type all variables in `vars` to `nil`
 function typeof.Local(gamma, vars)
     checks('gamma', 'vbar')
-    for _, var in pairs(vars) do
+    for _, var in ipairs(vars) do
         local var_name = var[1]
         gamma :new_var (var_name, `TCurrently{ `TId 'nil' })
     end
@@ -246,6 +248,22 @@ function get_field_type(ttable, k)
     return tf_default
 end
 
+-- Return a modification of table type ttable, where field k
+-- has field type tf
+function set_field_type(ttable, k, new_tf)
+    checks('te', 'p', 'tf')
+    local tf_default, tf_pairs, unref = unpack(ttable)
+    local new_pairs, new_item, found = { }, `TPair{ k, new_tf }, false
+    for i, item in ipairs(tf_pairs) do
+        local k_candidate, tf_candidate = unpack(item)
+        if prim_equal(k_candidate, k) then
+            new_pairs[i], found = new_item, true
+        else new_pairs[i] = item end
+    end
+    if not found then table.insert(new_pairs, new_item) end
+    return `TTable{ tf_default, new_pairs, unref }
+end
+
 -- I need to know the type of what's in field k from gamma!!!
 function typeof.Index(gamma, t, k)
     checks('gamma', 'e', 'e')
@@ -261,7 +279,7 @@ function typeof.Index(gamma, t, k)
         -- aren't normally hidden in a `TId.
         gamma :sub_te (tt, tt_max)
         return v
-    | `TTable{ default, ... } ->
+    | `TTable{ ... } | `TTabsub{ ... }->
         match get_field_type(tt, k) with
         | { tag=_, e } -> return e -- currently/var/const
         | `TField -> error "Can't read private field"
@@ -293,45 +311,42 @@ function typeof.Function(gamma, params, body, annots)
     return `TFunction{ tebar_params, tebar_result }
 end
 
-
+-- ell: left-hand-side term receiveing the assignment
+-- old_tf: type of ell before assignment
+-- new_tf: future type of ell after assignment
 function assign(gamma, ell, old_tf, new_tf)
     checks('gamma', 'ell', 'tf', 'tf')
     match old_tf, new_tf with
     | `TVar{ te1 }, `TVar{ te2 } ->
         gamma :eq_te (te1, te2)
-    | `TCurrently{ old_te }, _ | `TDyn, _ ->
+    | `TCurrently{ _ }, _ | `TDyn, _ ->
         match ell with
-        | `Index{ et, ek } -> assign_index(gamma, et, ek, old_te, new_tf)
-        | `Id{ name } -> assign_id(gamma, name, new_tf)
+        | `Index{ et, ek } -> assign_index(gamma, et, ek, new_tf)
+        | `Id{ name }      -> assign_id(gamma, name, new_tf)
         | _ -> error "Can't type assignment's LHS"
         end
     | _, _ -> error "Can't assign in this field type"
     end
 end
 
-function assign_index(gamma, etable, ekey, old_te, new_tf)
-    checks('gamma', 'e', 'e', 'te', 'tf')
-    match old_te with
-    | `TDyn -> -- pass
-    | `TId{ name } ->
-        local te_max = `TTable{
-            `TField,
-            { `Pair{ ekey, `TCurrently{ fresh_tvar 'set_index' }}},
-            false }
-        gamma :sub_te (old_te, te_max)
-    | `TTable{ default, tf_pairs, unref } ->
-        local tf_field = get_field_type(old_te, ekey)
-        if tf_field.tag ~= 'TCurrently' then error "can't update field" end
-        local new_tf_pairs = { }
-        local new_te = `TTable{ default, new_tf_pairs, unref }
-        for i, p in ipairs(tf_pairs) do
-            if not prim_equal(p[1], ekey) then new_tf_pairs[i] = p end
-        end
-        table.insert(new_tf_pairs, `Pair{ ekey, new_tf })
-        assign(gamma, etable, `TCurrently{ old_te }, `TCurrently{ new_te })
-    | _ -> error "Can't write an index in this"
+
+-- Change the type of etable[ekey] to new_tf in gamma.  It's already
+-- been checked that etable[ekey] has a "currently" type.
+--
+-- etable: indexed table in the lhs term
+-- ekey: key of the lhs term
+-- new_tf: type to be given to etable[ekey]
+function assign_index(gamma, etable, ekey, new_tf)
+    checks('gamma', 'e', 'e', 'tf')
+    local old_tf_table = typeof.ell(gamma, etable)
+    match old_tf_table with
+    | `TCurrently{ `TTable{ ... } == tt } ->
+        local new_tf_table = `TCurrently{ set_field_type(tt, ekey, new_tf) }
+        assign(gamma, etable, old_tf_table, new_tf_table)
+    | _ -> error ("Don't know how to change a field type in "..old_tf_table)
     end
 end
+
 
 function assign_id(gamma, name, new_tf)
     checks('gamma', 'string', 'tf')
@@ -362,7 +377,7 @@ function typeof.ell(gamma, ell)
             local tf = { tag=guessed_tag, v }
             gamma :sub_te (te_t, `TTable{ `TField; {`TPair{p_k, tf}}, false })
             return tf
-        | `TTable{ ... } ->
+        | `TTable{ ... } | `TTabsub{ ... }->
              return get_field_type(te_t, p_k)
         | `TDyn -> return `TCurrently{ `TDyn } -- TODO: is "currently" ok here?
         end
@@ -378,14 +393,17 @@ function typeof.Set(gamma, terms_left, terms_right, annots)
         local te_right = tebar_right[i]
         local old_tf   = typeof.ell(gamma, term_left)
         local new_tf   = annots[i]
-        if not new_tf then -- Guess a decent type
+        if not new_tf then -- Guess a decent future field type
             match old_tf with
-            | `TVar{ tef }   -> new_tf = old_tf
-            | `TConst{ tef } -> error "Don't override a constant field"
-            | `TCurrently{ tef } -> new_tf = `TCurrently{ gamma :sharp_te(te_right) }
+            | `TVar{ _ }   -> new_tf = old_tf
+            | `TConst{ _ } -> error "Don't override a constant field"
+            | `TCurrently{ _ } -> new_tf = `TCurrently{ gamma :sharp_te(te_right) }
             | `TField -> error "Don't write in a private field"
             end
-        gamma :accept(te_right, new_tf)
+        end
+        -- Is it legal to write term_right into term_left?
+        gamma :accept (te_right, new_tf)
+        -- If it is, perform the appropriate changes on gamma.
         assign(gamma, term_left, old_tf, new_tf)
     end
     return `TPass

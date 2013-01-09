@@ -312,7 +312,7 @@ end
 
 --- Surrounds evaluation functions with some trace printing calls.
 if true then
-    ast2string = require 'metalua.compiler.convert'.ast_to_luastring
+    ast2string = require 'metalua.compiler'.ast_to_luastring
 
     TRACE_WIDTH = 40
     PRINT_AS_SOURCE = false
