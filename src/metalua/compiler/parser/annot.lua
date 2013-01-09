@@ -8,10 +8,10 @@ lexer.lexer :add '->'
 
 function M.type_id(lx)
     local w = lx :next()
-    if w.tag=='Keyword' then w.tag='TId'
-    elseif w.tag=='Id' then w.tag='TId'
+    local t = w.tag
+    if t=='Keyword' and w[1] :match '^[%a_][%w_]*$' or w.tag=='Id' then
+        return {tag=t; lineinfo=w.lineinfo; w[1]}
     else error 'type_id expected' end
-    return w
 end
 
 local function _annot(...) return M.annot(...) end
@@ -35,6 +35,7 @@ end
 M.annot = gg.expr{
     primary = gg.multisequence{ name = 'annotation',
         { M.type_id, builder=function(x) return x[1] end },
+        { '*', builder = 'TDyn' },
         { "(",
           gg.list{
               primary=_annot,
@@ -61,7 +62,13 @@ M.annot = gg.expr{
       } -- "[ ... ]"
     }, -- primary
     infix = {
-        {"->", prec=50, builder=function(a, _, b) return {tag='TFunction', a, b} end } } }
+        { "->", prec = 50, assoc = 'right', builder =
+          function (a, _, b) return {tag='TFunction', a, b} end } } }
+
+-- TODO: add parsers for statements:
+-- #return tebar
+-- #alias = te
+-- #ell = tf
 
 M.stat_annot = gg.sequence{
     gg.list{ primary=M.type_id, separators='.' },
@@ -91,10 +98,4 @@ function M.split(lst)
     if some then return x, a else return lst end
 end
 
-if false then
-mlp.expr.suffix :add{
-    "#", M.field_annot, builder = function (e, a)
-         printf("Annoting %s with %s", table.tostring(e), table.tostring(a))
-         e.annot=a; return e end }
-end
 return M
