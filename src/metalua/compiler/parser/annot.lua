@@ -10,7 +10,7 @@ function M.type_id(lx)
     local w = lx :next()
     local t = w.tag
     if t=='Keyword' and w[1] :match '^[%a_][%w_]*$' or w.tag=='Id' then
-        return {tag=t; lineinfo=w.lineinfo; w[1]}
+        return {tag='TId'; lineinfo=w.lineinfo; w[1]}
     else error 'type_id expected' end
 end
 
