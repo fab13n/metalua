@@ -11,7 +11,7 @@ function log(mod, level, fmt, ...)
     printf("[%s]\t%s", mod, msg)
 end
 
-local GAMMA = { }
+GAMMA = { }
 GAMMA.__index = GAMMA
 GAMMA.__type  = 'gamma'
 
@@ -79,6 +79,11 @@ function GAMMA :eq_tebar(tebar1, tebar2)
         log('GAMMA', 'DEBUG', "TEBAR: %s = %s", name, a2s(tebar))
     | `TDynbar, _  | _, `TDynbar -> -- pass
     | `TCatbar, _ | _, `TCatbar -> error "not implemented"
+    | _, _ if tebar1.tag==nil and tebar2.tag==nil ->
+        local n = math.max(#tebar1, #tebar2)
+        for i=1,n do
+            gamma :eq_te(tebar1[i] or `TId "nil", tebar2[i] or `TId "nil")
+        end
     end
 end
 

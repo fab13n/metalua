@@ -534,7 +534,7 @@ function M:Op (node, op, a, b)
       self:node (b)
       self:acc  (right_paren and ")")
 
-   else -- unary operator.     
+   else -- unary operator.
       local paren
       match a with
       | `Op{ op_a, ... } if op_prec[op] >= op_prec[op_a] -> paren = true
@@ -635,7 +635,7 @@ end
 
 function M:TPair (node, k, v)
     self:node (k)
-    self:acc ': '
+    self:acc '='
     self:node (v)
 end
 

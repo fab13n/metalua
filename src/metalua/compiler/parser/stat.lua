@@ -172,7 +172,7 @@ local elseifs_parser = gg.list {
 
 local annot_expr = gg.sequence {
     expr,
-    gg.onkeyword{ "#", annot.field_annot },
+    gg.onkeyword{ "#", annot.tf },
     builder = function(x) 
                   local e, a = unpack(x)
                   if a then return { tag='Annot', e, a }

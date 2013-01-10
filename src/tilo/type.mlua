@@ -64,7 +64,7 @@ function tebar_to_te(gamma, tebar, n)
     local r = { }
     match tebar with
     | { tag=nil, ... } ->
-        for i=1, n do r[i] = tebar[i] or `Nil end
+        for i=1, n do r[i] = tebar[i] or `TId 'nil' end
     | `TIdbar{ name } ->
         local tebar2 = fresh_tbarvar(name.."_rest")
         for i=n, 1, -1 do
@@ -304,7 +304,7 @@ function typeof.Function(gamma, params, body, annots)
     local tebar_result
     match ts_body with
     | `TReturn{ tebar } -> tebar_result = tebar
-    | `TPass -> tebar_result = { `Nil }
+    | `TPass -> tebar_result = { `TId 'nil' }
     end
     gamma :leave_frame()
     gamma :leave_frame()
@@ -387,7 +387,7 @@ end
 function typeof.Set(gamma, terms_left, terms_right, annots)
     checks('gamma', 'table', 'table', 'table')
     local tebar_right = typeof.ebar(gamma, terms_right)
-    tebar = { tebar_to_te(gamma, tebar_right, #terms_left) }
+    tebar_right = { tebar_to_te(gamma, tebar_right, #terms_left) }
 
     for i, term_left in ipairs(terms_left) do
         local te_right = tebar_right[i]

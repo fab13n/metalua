@@ -1,0 +1,59 @@
+require 'tilo.type'
+require 'tilo.gamma'
+
+a2s = require 'metalua.compiler.ast_to_luastring'
+
+sbar = +{block:
+         local table
+         table = { }
+         function table.concat(t #const table)
+             return "concatenated"
+         end
+         local a, b, c, d, f
+         a = { x=1 }
+         c #var string = "hello"
+         c = 'foo'
+         d = 'current string'
+         function f(x #const T, y #var Y)
+                 x.foo = y
+                 return x
+             end
+         f(a.x,c)
+         return a.x }
+
+g = gamma_new()
+
+ts = typeof.sbar(g, sbar)
+
+print "\nterm:"
+print(a2s(sbar))
+--table.print(sbar, 1)
+print ("\ntype: "..a2s(ts))
+print "\ngamma:"
+--table.print(g, 1)
+print(g :tostring())
+
+-- How to resolve gamma constraints?
+--
+-- equalities must be solved by substitution. It might have to occur
+-- more than once, due to chained variable equalitites.
+--
+-- var <: t1, t2, ... must be solved with a min.
+--
+-- non-linearities: I'm not sure what might make them appear. They can
+-- at least be checked, and it might be nice to try and change some
+-- types from curently to var.
+--
+
+
+-- syntax notes:
+-- function params field types must default to const
+-- local default to currently, unless they're used as upvalues; then they
+-- default to var.
+-- however, if a table is mutated before being used as upvalue, the currently->var
+-- mutation must be performed at an intermediate point, by introducing a phony
+-- t #var [...] = t instruction.
+
+-- How to test TIdbar? They're produced by functions, so I need a
+-- completely unknown function.
+

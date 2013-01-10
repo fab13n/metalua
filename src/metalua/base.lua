@@ -6,11 +6,10 @@
 ----------------------------------------------------------------------
 ----------------------------------------------------------------------
 
-if not metalua then rawset(getfenv(), 'metalua', { }) end
-metalua.version             = "v-0.5"
+if global then global('rawpairs', 'rawipairs') end
 
 if not rawpairs then
-   rawpairs, rawipairs, rawtype = pairs, ipairs, type
+   rawpairs, rawipairs = pairs, ipairs
 end
 
 function pairs(x)

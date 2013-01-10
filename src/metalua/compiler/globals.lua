@@ -12,8 +12,7 @@ local X = {
     load       = load,
     loadfile   = loadfile,
     loadstring = loadstring,
-    dofile     = dofile,
-    dostring   = dostring }
+    dofile     = dofile }
 
 local lua_loadstring = loadstring
 local lua_loadfile = loadfile

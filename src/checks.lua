@@ -28,7 +28,7 @@ function checks(...)
         local name, val = debug.getlocal(2, i)
         local success = check_many(name, arg, val)
         if not success then
-            local fname = debug.getinfo(2, n).name
+            local fname = debug.getinfo(2, 'n').name
             local fmt = "bad argument #%d to '%s' (%s expected, got %s)"
             local msg = string.format(fmt, i, fname or "?", arg, type(val))
             error(msg, 3)
