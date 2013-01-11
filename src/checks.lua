@@ -14,6 +14,7 @@ end
 
 local function check_many(name, expected, val)
     if expected=='?' then return true
+    elseif expected=='!' then return (val~=nil)
     elseif type(expected) ~= 'string' then
         error 'strings expected by checks()'
     elseif val==nil and expected :sub(1,1) == '?' then return true end
