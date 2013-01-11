@@ -99,8 +99,12 @@ local function raw_parse_sequence (lx, p)
       if failed then
          if type(e)=="string" then table.insert(r, M.earlier_error(lx)) end
       elseif type(e) == "string" then
-         if not lx :is_keyword (lx :next(), e) then
-            table.insert(r, {tag='Error', "A keyword was expected, probably `"..e.."'."})
+         local kw = lx :next()
+         if not lx :is_keyword (kw, e) then
+            table.insert(r, {
+                tag = 'Error',
+                lineinfo = kw.lineinfo,
+                "A keyword was expected, probably `"..e.."'."})
             failed=true
          end
       elseif M.is_parser (e) then
