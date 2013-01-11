@@ -83,6 +83,25 @@ end
 
 M.check_ast = check_ast
 
+local function find_error(ast, nested)
+    checks('table', '?table')
+    nested = nested or { }
+    if nested[ast] then return "Cyclic AST" end
+    nested[ast]=true
+    if ast.tag=='Error' then 
+        local pos = tostring(ast.lineinfo.first)
+        return pos..": "..ast[1]
+    end
+    for _, item in ipairs(ast) do
+        if type(item)=='table' then
+            local err=find_error(item)
+            if err then return err end
+        end
+    end
+    nested[ast]=nil
+    return nil
+end
+
 function M.luafile_to_luastring(x, name)
     checks('string', '?string')
     name = name or '@'..x
@@ -107,10 +126,18 @@ function M.lexstream_to_ast(lx, name)
     return r, name
 end
 
-M.ast_to_proto = require 'metalua.compiler.bytecode.compile'.ast_to_proto
+function M.ast_to_proto(ast, name)
+    checks('table', '?string')
+    --table.print(ast, 'nohash', 1)
+    local err = find_error(ast)
+    if err then error(err) end
+    local f = require 'metalua.compiler.bytecode.compile'.ast_to_proto
+    return f(ast, name), name
+end
 
 function M.proto_to_luacstring(proto, name)
-    return require 'metalua.compiler.bytecode'.dump_string(proto), name
+    local bc = require 'metalua.compiler.bytecode'
+    return bc.dump_string(proto), name
 end
 
 function M.luacstring_to_function(bc, name)
