@@ -43,7 +43,7 @@ end
 -- the only key being lifted in this version is ["tag"]
 --------------------------------------------------------------------------------
 function M.quote (t)
-   --print("QUOTING:", table.tostring(t, 60))
+   --print("QUOTING:", table.tostring(t, 60,'nohash'))
    local cases = { }
    function cases.table (t)
       local mt = { tag = "Table" }
@@ -62,7 +62,9 @@ function M.quote (t)
    end
    function cases.number (t) return { tag = "Number", t, quote = true } end
    function cases.string (t) return { tag = "String", t, quote = true } end
-   return cases [type(t)] (t)
+   function cases.boolean (t) return { tag = t and "True" or "False", t, quote = true } end
+   local f = cases [type(t)]
+   if f then return f(t) else error ("Cannot quote an AST containing "..tostring(t)) end
 end
 
 --------------------------------------------------------------------------------

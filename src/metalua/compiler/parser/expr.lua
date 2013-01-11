@@ -98,7 +98,7 @@ M.method_args = gg.multisequence{
 -- definitions.
 --------------------------------------------------------------------------------
 M.func_params_content = gg.list{ name="function parameters",
-   gg.multisequence{ { "...", builder = "Dots" }, annot.annot_id },
+   gg.multisequence{ { "...", builder = "Dots" }, annot.opt(id, 'te') },
    separators  = ",", terminators = {")", "|"} }
 
 M.func_val = gg.sequence{ name="function body",

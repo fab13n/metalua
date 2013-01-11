@@ -94,14 +94,16 @@ M.stat_annot = gg.sequence{
     M.annot,
     builder = 'Annot' }
 
-M.annot_id = gg.sequence{
-    misc.id,
-    gg.onkeyword{ "#", M.tf },
-    builder = function(x)
-                  local id, annot = unpack(x)
-                  if annot then return { tag='Annot', id, annot }
-                  else return id end
-              end }
+function M.opt(primary, a_type)
+    checks('table|function', 'string')
+    return gg.sequence{
+        primary,
+        gg.onkeyword{ "#", assert(M[a_type]) },
+        builder = function(x)
+                      local t, annot = unpack(x)
+                      return annot and { tag='Annot', t, annot } or t
+                  end }
+end
 
 -- split a list of "foo" and "`Annot{foo, annot}" into a list of "foo"
 -- and a list of "annot".

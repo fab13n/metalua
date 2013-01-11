@@ -180,7 +180,7 @@ local annot_expr = gg.sequence {
               end }
 
 local annot_expr_list = gg.list {
-    primary = annot_expr, separators = ',' }
+    primary = annot.opt(expr, 'tf'), separators = ',' }
 
 --------------------------------------------------------------------------------
 -- assignments and calls: statements that don't start with a keyword
@@ -231,7 +231,7 @@ M.local_stat_parser = gg.multisequence{
     -- local <id_list> ( = <expr_list> )?
     default = gg.sequence{ 
         gg.list{
-            primary = annot.annot_id,
+            primary = annot.opt(mlp_misc.id, 'tf'),
             separators = ',' },
         gg.onkeyword{ "=", expr_list },
         builder = function(x)
