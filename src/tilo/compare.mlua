@@ -1,3 +1,5 @@
+-- equal, min, max operators on types.
+
 require 'tilo.gamma'
 
 -{extension 'match'}
@@ -34,6 +36,8 @@ end
 
 local eq = { }
 
+-- Structural equality between arbitrary ASTs. No semantic awareness,
+-- e.g. table fields won't be reordered nor expanded.
 function eq.ast(a,b)
     if a==b then return true
     elseif type(a) ~= 'table' then return false
@@ -44,6 +48,7 @@ function eq.ast(a,b)
     return true
 end
 
+-- Equality between expression types.
 function eq.te(a, b)
     checks('te', 'te')
     if eq.ast(a, b) then return true end
@@ -61,11 +66,13 @@ function eq.te(a, b)
     end
 end
 
+-- Equality between field types.
 function eq.tf(a, b)
     checks('tf', 'tf')
     return a==b or a.tag==b.tag and eq.te(a[1], b[1])
 end
 
+-- Equality between expression sequence types.
 function eq.tebar(a, b)
     checks('tebar', 'tebar')
     if a.tag or a.tag then return false end
@@ -79,9 +86,18 @@ function eq.tebar(a, b)
     return true
 end
 
+-- Min and max binary operators, factored together. The minmax.*
+-- operators take "this_op" and "opposite_op" as additional
+-- parameters; the former contains the current binary operator (min
+-- for min, max for max); the later contains the dual operator, to
+-- implement contravariance.
 local minmax = { }
 
+-- Binary min/max for expression types.
 function minmax.te(this_op, opposite_op, a, b)
+    local a2s = require 'metalua.compiler.ast_to_luastring'
+    printf ("%s(%s)", this_op.name, a2s(a), a2s(b))
+
     if eq.te(a, b) then return a end
     match a, b with
     | `TFunction{ pa, ra }, `TFunction{ pb, rb } ->
@@ -103,10 +119,11 @@ function minmax.te(this_op, opposite_op, a, b)
         end
         local uc = ua and ub
         return `TTable{ dc, pc, uc }
-    | _, _ -> return false
+    | _, _ -> return false -- absorbing element instead?
     end
 end
 
+-- Binary min/max for expression sequence types.
 function minmax.tebar(this_op, opposite_op, tebar1, tebar2)
     if tebar1.tag or tebar2.tag then return false end
     local n = math.max(#tebar1, #tebar2)
@@ -125,7 +142,8 @@ function minmax.tebar(this_op, opposite_op, tebar1, tebar2)
     return r
 end
 
-function minmax.tf(tf1, tf2)
+-- Binary min/max for field types.
+function minmax.tf(this_op, opposite_op, tf1, tf2)
     match tf1, tf2 with
     | `TField, `TField -> return tf1
     | `TField, tf ->
@@ -144,11 +162,12 @@ function minmax.tf(tf1, tf2)
     end
 end
 
+-- Transform a binary family of operators `op2` into a n-ary one.
 local function fold(op2, k)
     return function(...)
         local args  = {...}
         local nargs = #args
-        if     nargs==0 then return op2.ultimum
+        if     nargs==0 then return op2.unit
         elseif nargs==1 then return ... else
             local f = op2[k]
             local x = f(args[1], args[2])
@@ -161,9 +180,11 @@ local function fold(op2, k)
     end
 end
 
+-- binary min2 and max2 operator families, 
+-- folded into n-ary M.min and M.max public operator families.
 local min, max = { }, { }
-local min2 = { name='min', ultimum=false }
-local max2 = { name='max', ultimum=`TField }
+local min2 = { name='min', unit=`TField }
+local max2 = { name='max', unit=false }
 for _, k in ipairs{ 'te', 'tf', 'tebar', 'ts' } do
     min2[k] = |...| minmax[k] (min2, max2, ...)
     max2[k] = |...| minmax[k] (max2, min2, ...)
@@ -171,4 +192,16 @@ for _, k in ipairs{ 'te', 'tf', 'tebar', 'ts' } do
     max[k] = fold(max2, k)
 end
 
-return { eq=eq, min=min, max=max }
+local function subst(where, this, that)
+    if eq.ast(where, this) then return that else
+        local changed, result = false
+        for i, item in ipairs(where) do
+            local new_item = subst(item, this, that)
+            changed = changed or item==new_item
+            result[i] = new_item
+        end
+        return changed and result or where
+    end
+end
+
+return { eq=eq, min=min, max=max, subst=subst }

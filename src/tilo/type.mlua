@@ -38,9 +38,7 @@
 -{ extension 'match' }
 
 local a2s = require 'metalua.compiler.ast_to_luastring'
-
 require 'tilo.gamma'
-
 require 'tilo.checkers'
 
 typeof = { }
@@ -211,7 +209,7 @@ function typeof.Call(gamma, f, args)
         tebar_args = { tebar_to_te(gamma, tebar_args, #tebar_params) }
         for i, te_param in ipairs(tebar_params) do
             local te_arg = tebar_args[i]
-            gamma :accept(te_arg, te_param)
+            gamma :accept (te_arg, `TVar{ te_param })
         end
         return tebar_results
     | `TId{ name } -> -- we just learned it's a function
@@ -295,9 +293,9 @@ function typeof.Function(gamma, params, body, annots)
     gamma :enter_frame()
     for i, var in ipairs(params) do
         local name  = var[1]
-        local annot = annots[i] or `TVar{ `TDyn }
-        gamma :new_var(name, annot)
-        tebar_params[i] = annot
+        local te    = annots[i] or `TDyn
+        gamma :new_var(name, `TVar{ te })
+        tebar_params[i] = te
     end
     gamma :enter_frame() -- will force to complete param types
     local ts_body = typeof.sbar(gamma, body)

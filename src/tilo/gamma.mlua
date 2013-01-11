@@ -176,9 +176,9 @@ function GAMMA :sub_te(te1, te2)
         log('GAMMA', 'DEBUG', "TE: %s :> %s", name, a2s(te))
     | `TFunction{ args1, res1 }, `TFunction{ args2, res2 } ->
         for i=1, math.max(#args1, #args2) do
-            local arg1 = args1[i] or `TCurrently{ `Nil }
-            local arg2 = args2[i] or `TCurrently{ `Nil }
-            self :sub_tf(arg2, arg1)
+            local arg1 = args1[i] or `TCurrently{ `TId 'nil' }
+            local arg2 = args2[i] or `TCurrently{ `TId 'nil' }
+            self :sub_te(arg2, arg1)
         end
         self :sub_tebar(res1, res2)
     | `TTable{ def1, pairs1, unref1 }, `TTable{ def2, pairs2, unref2 } ->
@@ -289,7 +289,6 @@ function type_error(t, a, op, b)
     error(msg)
 end
 
-
 function GAMMA :tostring()
 
     local lines = { }
@@ -319,6 +318,161 @@ function GAMMA :tostring()
     return table.concat(lines, '\n')
 end
 
+-- Simplify the constraints if possible, causes an error if the
+-- constraints can't be satisfied.
+-- The simplification is more restrictive than the original gamma,
+-- it converts some "<:" constraints into "==" ones,
+-- get sane types.
+function GAMMA :simplify()
+    local compare = require 'tilo.compare'
+
+    local function set_eq(name, te)
+        local x = self.te.eq[name]
+        if x then table.insert(x, te) else self.te.eq[name]={te} end
+    end
+
+    local function is_var(x)
+        return x.tag=='TId' and not self.prim_types[x[1]] and x[1]
+    end
+
+    -- Iterates over pairs of variables represented in x.
+    -- x must be an `eq` or `sub_*` subfield of gamma.
+    local function var_pairs(x)
+        local var, list = next(x)
+        local i = 1
+        local function iterate()
+            local t
+            t, i = list[i], i+1
+            if t~=nil then
+                if is_var(t) then return var, t[1]
+                else return iterate() end
+            end
+            i, var, list = 1, next(x, var) -- next var/list pair
+            if not var then return nil, nil end
+            return iterate()
+        end
+        return iterate
+    end
+
+    -- Convert v1<:v2 constraints into v1==v2
+    for v1, v2 in var_pairs(self.te.sub_pos) do set_eq(v1, `TId{v2}) end
+    for v1, v2 in var_pairs(self.te.sub_neg) do set_eq(v1, `TId{v2}) end
+
+    -- Get the transitive closure of equality between variables.
+    local synonyms = { } -- name -> name set
+    for v1, v2 in var_pairs(self.te.eq) do
+        local synonyms_v1=synonyms[v1]
+        if synonyms_v1 then synonyms_v1[v2]=true
+        else synonyms[v1]={ [v1]=true, [v2]=true } end
+    end
+
+    -- Flatten synonyms.
+    -- (find a single representant for each equality class).
+    repeat
+        local again = false
+        local v1 = next(synonyms)
+        local synonyms_v1 = synonyms[v1]
+        for v2 in pairs(synonyms_v1) do
+            local synonyms_v2 = synonyms[v2]
+            if v1~=v2 and synonyms_v2 then -- move synonyms from v2 to v1
+                again=true
+                for v3 in pairs(synonyms_v2) do 
+                    synonyms_v1[v3]=true
+                end
+                synonyms[v2] = nil -- remove them from v2
+            end
+        end
+    until not again
+
+    -- Debug trace
+    print "synonyms:"
+    for v, set in pairs(synonyms) do
+        local lst = { }
+        for x in pairs(set) do table.insert(lst, x) end
+        printf("%s -> %s", v, table.concat(lst, ', '))
+    end
+
+    -- TODO: not useful anymore
+    -- Reverse synonyms: associates to each var its canonical one.
+    -- representant[v] = canonical representant of
+    local canonical = { }
+    for v1, synonyms_v1 in pairs(synonyms) do
+        for v2 in pairs(synonyms_v1) do
+            canonical[v2] = v1
+        end
+    end
+
+    -- Move all relationships to the canonical variable.
+    for _, rel in ipairs{ self.te.eq, self.te.sub_pos, self.te.sub_neg } do
+        for v1, synonyms_v1 in pairs(synonyms) do
+            local new_terms_v1 = { }
+            for v2 in pairs(synonyms_v1) do
+                -- Add to v1
+                for _, term in ipairs(rel[v2] or { }) do
+                    table.insert(new_terms_v1, term)
+                end
+                rel[v2] = nil -- Remove from v2
+            end
+            rel[v1] = new_terms_v1
+        end
+    end
+
+    -- Collect upper bounds of variables: get the min of
+    -- non-variables (v <: t_n forall n ==> v <: min(t_n forall n)),
+    -- unless t_n is a variable.
+    local upper_bounds = { }
+    for name, items in pairs(self.te.sub_pos) do
+        local supers = { } -- types bigger than item
+        for _, item in ipairs(items) do
+            if not is_var(item) then table.insert(supers, item) end
+        end
+--table.print(supers)
+        local super = compare.min.te(unpack(supers))
+        if not super then error("Can't find an upper bound for "..name) end
+        upper_bounds[name] = super
+    end
+
+    -- Collect upper bounds of variables: get the max of
+    -- non-variables (v :> t_n forall n ==> v :> max(t_n forall n)),
+    -- unless t_n is a variable.
+    local lower_bounds = { }
+    for name, items in pairs(self.te.sub_neg) do
+        local subs = { }
+        for _, item in ipairs(items) do
+            if not is_var(item) then table.insert(subs, item) end
+        end
+        local sub = compare.max.te(unpack(subs))
+        if not sub then error("Can't find a lower bound for "..name) end
+        lower_bounds[name] = sub
+    end
+
+    -- Check that upper bounds don't violate lower bound constraints,
+    -- change tham into equalities (v<:t ==> v==t)
+    for name, upper in pairs(upper_bounds) do
+        local lower = lower_bounds[name]
+        if lower then printf("TODO: check %s <: %s", a2s(lower), a2s(upper)) end
+        set_eq(name, upper)
+    end
+
+    -- Re-establish equalities between synonyms
+    for v1, synonyms_v1 in pairs(synonyms) do
+        local only_v1 = { `TId{ v1 } }
+        for v2 in pairs(synonyms_v1) do
+            self.te.eq[v2]=only_v1
+        end
+    end
+
+    for var, min in pairs(upper_bounds) do
+        self.te.sub_pos[var] = { min }
+    end
+
+    for var, max in pairs(lower_bounds) do
+        self.te.sub_neg[var] = { max }
+    end
+end
+
+
+--- Empty environmnent constructor
 function gamma_new()
     local self = {
         prim_types = {number=1,string=1,boolean=1,['nil']=1},

@@ -6,7 +6,7 @@ a2s = require 'metalua.compiler.ast_to_luastring'
 sbar = +{block:
          local table
          table = { }
-         function table.concat(t #const table)
+         function table.concat(t #table)
              return "concatenated"
          end
          local a, b, c, d, f
@@ -14,7 +14,7 @@ sbar = +{block:
          c #var string = "hello"
          c = 'foo'
          d = 'current string'
-         function f(x #const T, y #var Y)
+         function f(x #T, y #Y)
                  x.foo = y
                  return x
              end
@@ -31,6 +31,11 @@ print(a2s(sbar))
 print ("\ntype: "..a2s(ts))
 print "\ngamma:"
 --table.print(g, 1)
+print(g :tostring())
+
+print "\nsimplifying..."
+g :simplify()
+print "\nsimplified gamma:"
 print(g :tostring())
 
 -- How to resolve gamma constraints?
