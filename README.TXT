@@ -2,7 +2,7 @@ README.TXT
 ==========
 For installation matters, cf. INSTALL.TXT
 
-Metalua 0.5
+Metalua 0.6
 ===========
 
 Metalua is a static metaprogramming system for Lua: a set of tools
@@ -113,6 +113,15 @@ Library-wise, Metalua offers a set of syntax tree manipulation tools:
   ways, so that their features can be effectively reused in other
   extensions.
 
+
+Noteworthy changes in 0.6
+=========================
+
+The organisation has been further simplified. Just put src/ in your
+LUA_PATH, and it works, without any need for bootstrapping.
+
+The compiler supports Tidal Lock, an extension which allows gradual
+static typing of Lua programs.
 
 Noteworthy changes from 0.4.1 to 0.5
 ====================================

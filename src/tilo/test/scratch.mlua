@@ -9,17 +9,18 @@ sbar = +{block:
          function table.concat(t #table)
              return "concatenated"
          end
-         local a, b, c, d, f
-         a = { x=1 }
-         c #var string = "hello"
-         c = 'foo'
-         d = 'current string'
-         function f(x #T, y #Y)
-                 x.foo = y
-                 return x
-             end
-         f(a.x,c)
-         return a.x }
+         local x_record, str, num
+         x_record #const [currently nil; "x"=var XField]= { x=1 }
+         str #var string = "hello"
+         str = 'foo'
+         num = 123
+         local f;
+         function f(param1 #P1, param2 #P2)
+             param1.x = param2
+             return param1
+         end
+         f(x_record, num)
+         return x_record.x }
 
 g = gamma_new()
 

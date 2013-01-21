@@ -115,7 +115,9 @@ function minmax.te(this_op, opposite_op, a, b)
             local k, fa, fb = unpack(item)
             local tf = this_op.tf(fa, fb)
             if not tf then return false
-            elseif not eq.tf(tf, dc) then table.insert(pc, `TPair{ k, tf}) end
+            elseif not eq.tf(tf, dc) then
+                table.insert(pc, `TPair{ k, tf})
+            end
         end
         local uc = ua and ub
         return `TTable{ dc, pc, uc }
@@ -146,7 +148,7 @@ end
 function minmax.tf(this_op, opposite_op, tf1, tf2)
     match tf1, tf2 with
     | `TField, `TField -> return tf1
-    | `TField, tf ->
+    | `TField, tf | tf, `TField ->
         return this_op.name == 'min' and tf or `TField
     | `TVar{te1}, `TVar{te2} | `TCurrently{te1}, `TCurrently{te2} ->
         if eq.te(te1, te2) then return tf1 else return false end
@@ -167,7 +169,7 @@ local function fold(op2, k)
     return function(...)
         local args  = {...}
         local nargs = #args
-        if     nargs==0 then return op2.unit
+        if     nargs==0 then return false
         elseif nargs==1 then return ... else
             local f = op2[k]
             local x = f(args[1], args[2])
@@ -183,8 +185,8 @@ end
 -- binary min2 and max2 operator families, 
 -- folded into n-ary M.min and M.max public operator families.
 local min, max = { }, { }
-local min2 = { name='min', unit=`TField }
-local max2 = { name='max', unit=false }
+local min2 = { name='min' }
+local max2 = { name='max' }
 for _, k in ipairs{ 'te', 'tf', 'tebar', 'ts' } do
     min2[k] = |...| minmax[k] (min2, max2, ...)
     max2[k] = |...| minmax[k] (max2, min2, ...)
@@ -192,16 +194,19 @@ for _, k in ipairs{ 'te', 'tf', 'tebar', 'ts' } do
     max[k] = fold(max2, k)
 end
 
-local function subst(where, this, that)
-    if eq.ast(where, this) then return that else
-        local changed, result = false
-        for i, item in ipairs(where) do
-            local new_item = subst(item, this, that)
-            changed = changed or item==new_item
-            result[i] = new_item
-        end
-        return changed and result or where
+local function subst(term, sigma)
+    if type(term)=='table'
+    and (term.tag=='TId' or term.tag=='TIdbar') then
+        local new_subterm = sigma[term[1]]
+        return new_subterm or term
     end
+    local changed, result = false
+    for i, item in ipairs(where) do
+        local new_item = subst(item, sigma)
+        changed = changed or item==new_item
+        result[i] = new_item
+    end
+    return changed and result or where
 end
 
 return { eq=eq, min=min, max=max, subst=subst }

@@ -11,7 +11,7 @@ function M.tid(lx)
     local t = w.tag
     if t=='Keyword' and w[1] :match '^[%a_][%w_]*$' or w.tag=='Id' then
         return {tag='TId'; lineinfo=w.lineinfo; w[1]}
-    else error 'tid expected' end
+    else return gg.parse_error (lx, 'tid expected') end
 end
 
 local function expr(...) return mlp.expr(...) end
@@ -22,7 +22,8 @@ local field_types = { var='TVar'; const='TConst';
                       currently='TCurrently'; field='TField' }
 
 function M.tf(lx)
-    local w = M.tid(lx)[1]
+    local tk = lx:next()
+    local w = tk[1]
     local tag = field_types[w]
     if not tag then error ('Invalid field type '..w)
     elseif tag=='TField' then return {tag='TField'} else

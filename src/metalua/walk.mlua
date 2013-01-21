@@ -315,3 +315,5 @@ function walk.guess (cfg, x, ...)
    if not x.tag             then return walk.block(cfg, x, ...) end
    error ("Can't guess the AST type from tag "..(x.tag or '<none>')) 
 end
+
+return walk

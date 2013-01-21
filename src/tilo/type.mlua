@@ -24,7 +24,7 @@
 -- =====
 -- te ::= `TDyn | `TId{ <string> }
 --      | `TFunction{ tebar, tebar }
---      | `TTable{ tf, { `TPair{ P, tf }* }, is_unreferenced }
+--      | `TTable{ tf, { `TPair{ P, tf }* } }
 --      | `TTabsub{ te, P, tf } -- change a table's field.
 --
 -- tebar ::= `TDynbar | `TCatbar{ te, tebar } | `TIdbar{ <string>
@@ -140,7 +140,7 @@ function typeof.sbar(gamma, sbar, from)
     | `Set{ left, right } -> typeof.Set(gamma, left, right, { })
     | `Call{ f, ... }     -> typeof.e(gamma, s1)
     | `Return{ ... }      -> return typeof.Return(gamma, {...})
-    | _ -> error (table.tostring(e).." isn't a valid statement")
+    | _ -> error (table.tostring(s1).." isn't a valid statement")
     end
     return typeof.sbar(gamma, sbar, from+1)
 end
