@@ -281,7 +281,7 @@ local function unescape_string (s)
          a = "\a", b = "\b", f = "\f",
          n = "\n", r = "\r", t = "\t", v = "\v",
          ["\\"] = "\\", ["'"] = "'", ['"'] = '"', ["\n"] = "\n" }
-      return t[x] or error([[Unknown escape sequence '\]]..x..[[']])
+      return t[x] or x
    end
 
    s = s: gsub ("(\\+)(z%s*)", unesc_z)  -- Lua 5.2
