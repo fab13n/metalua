@@ -1,3 +1,0 @@
-module walk_id
-  expr; block; stat; expr_list; guess
-end
