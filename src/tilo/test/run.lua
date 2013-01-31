@@ -1,7 +1,7 @@
 require 'tilo'
 
 local mlc = require 'metalua.compiler'
-local a2s = mlc.ast_to_luastring
+local a2s = mlc.ast_to_src
 local annot = require 'metalua.compiler.parser.annot'
 local cmp = require 'tilo.compare'
 
@@ -19,7 +19,7 @@ cases = require 'tilo.test.cases'
 
 function parse_annot(k, src)
     local parser = annot[k]
-    local lx = mlc.luastring_to_lexstream (src)
+    local lx = mlc.src_to_lexstream (src)
     return parser(lx)
 end
 
@@ -28,9 +28,9 @@ function main()
 
     for name, item in pairs(cases.typeof) do
         local str_e, str_expected_tebar = unpack(item)
-        local e = mlc.luastring_to_ast(str_e)
+        local e = mlc.src_to_ast(str_e)
         local str_tmp = 'local f #var ()->('..str_expected_tebar..')'
-        local tmp = mlc.luastring_to_ast(str_tmp)
+        local tmp = mlc.src_to_ast(str_tmp)
         local expected_tebar = {tag='TReturn', tmp[1][3][1][1][2] }
         local g = gamma_new()
         local status, actual_tebar = pcall(typeof.sbar, g, e)

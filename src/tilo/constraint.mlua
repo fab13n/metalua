@@ -1,0 +1,58 @@
+
+CONSTRAINT = { }
+CONSTRAINT.__index = CONSTRAINT
+CONSTRAINT.__type  = 'gamma.constraint'
+
+function CONSTRAINT :add(var_name, val)
+    checks('gamma.constraint', 'string', 'table')
+    local x = self.content[var_name]
+    if x then x[val]=true else self.content[var_name] = { [val]=true } end
+    log('GAMMA', 'DEBUG', "%s: %s %s %s",
+        self.name, var_name, self.op_name, a2s(val))
+end
+
+-- Iterator returning a variable name and a list of values
+function CONSTRAINT :lists()
+    checks('gamma.constraint')
+    local r = { }
+    for name, set in pairs(self.content) do
+        local list = { }
+        for k, _ in pairs(set) do table.insert(list, k) end
+        r[name]=list
+    end
+    return pairs(r)
+end
+
+function CONSTRAINT :remove(v, t)
+    checks('gamma.constraint', 'string', 'table')
+    local set = self.content[v]
+    set[t]=nil
+    if not next(set) then self.content[v]=nil end
+end
+
+-- Iterates over variable/term pairs represented in x.
+-- x must be an `eq` or `sub_*` subfield of gamma.
+function CONSTRAINT :var_term_pairs()
+    checks('gamma.constraint')
+    local var, set = next(self.content)
+    local term = nil
+    local function iterate()
+        if not set then return nil, nil end
+        term = next(set, term)
+        if term~=nil then return var, term end
+        term, var, set = nil, next(self.content, var) -- next var/list pair
+        return iterate()
+    end
+    return iterate
+end
+
+function new_constraint(set_name, op_name)
+    checks('string', 'string')
+    local self  = {
+        name    = set_name,
+        op_name = op_name,
+        content = { } }
+    return setmetatable(self, CONSTRAINT)
+end
+
+return new_constraint

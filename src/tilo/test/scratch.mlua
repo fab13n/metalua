@@ -1,7 +1,8 @@
 require 'tilo.type'
 require 'tilo.gamma'
+require 'tilo.simplify'
 
-a2s = require 'metalua.compiler.ast_to_luastring'
+a2s = require 'metalua.compiler.ast_to_src'
 
 sbar = +{block:
          local table

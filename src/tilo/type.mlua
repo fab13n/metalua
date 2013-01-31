@@ -32,12 +32,13 @@
 --
 -- ts ::= `TPass | `TReturn{ {te*} }
 --
--- tf ::= `TField | `TConst{ te } | `TVar{ te } | `TCurrently{ te }
+-- tf ::= `TField | `TConst{ te } | `TVar{ te }
+--      | `TCurrently{ te } | `Just{ te }
 --
 
 -{ extension 'match' }
 
-local a2s = require 'metalua.compiler.ast_to_luastring'
+local a2s = require 'metalua.compiler.ast_to_src'
 require 'tilo.gamma'
 require 'tilo.checkers'
 
@@ -181,7 +182,7 @@ end
 function typeof.Table(gamma, t)
     checks('gamma', 'e')
     local prs = { }
-    local result = `TTable{ `TCurrently{ `TId 'nil' }, prs, true }
+    local result = `TTable{ `TJust{ `TId 'nil' }, prs }
     local i = 0
     for _, item in ipairs(t) do
         local k, v
@@ -193,7 +194,7 @@ function typeof.Table(gamma, t)
             -- TODO: try to weaken the table's type to `Dyn
             error "Only primitive keys are supported"
         end
-        table.insert(prs, `TPair{k, `TCurrently{tv}})
+        table.insert(prs, `TPair{k, `TJust{tv}})
     end
     return result
 end
@@ -209,7 +210,7 @@ function typeof.Call(gamma, f, args)
         tebar_args = { tebar_to_te(gamma, tebar_args, #tebar_params) }
         for i, te_param in ipairs(tebar_params) do
             local te_arg = tebar_args[i]
-            gamma :accept (te_arg, `TVar{ te_param })
+            gamma :accept (`TVar{ te_param }, `TJust{ te_arg })
         end
         return tebar_results
     | `TId{ name } -> -- we just learned it's a function
@@ -246,11 +247,11 @@ function get_field_type(ttable, k)
     return tf_default
 end
 
--- Return a modification of table type ttable, where field k
--- has field type tf
+-- Return a type equal to table type `ttable`, except that field `k`
+-- is associated with field type `new_tf`.
 function set_field_type(ttable, k, new_tf)
     checks('te', 'p', 'tf')
-    local tf_default, tf_pairs, unref = unpack(ttable)
+    local tf_default, tf_pairs = unpack(ttable)
     local new_pairs, new_item, found = { }, `TPair{ k, new_tf }, false
     for i, item in ipairs(tf_pairs) do
         local k_candidate, tf_candidate = unpack(item)
@@ -259,7 +260,40 @@ function set_field_type(ttable, k, new_tf)
         else new_pairs[i] = item end
     end
     if not found then table.insert(new_pairs, new_item) end
-    return `TTable{ tf_default, new_pairs, unref }
+    return `TTable{ tf_default, new_pairs }
+end
+
+-- Return an iterator on pairs of fields from two tables, sorted by key.
+function field_pairs(t1, t2)
+    checks('te', 'te')
+    assert(t1.tag=='TTable' and t2.tag=='TTable')
+    local def1, pairs1 = unpack(t1)
+    local def2, pairs2 = unpack(t2)
+    local can1, can2 = { }, { }
+    local function canonize(p)
+        return p[1] and p.tag..' '..p[1] or p.tag
+    end
+    local r = { {def1, def2, false} }
+    for _, p   in ipairs (pairs1) do can1[canonize(p[1])] = p[2] end
+    for _, p   in ipairs (pairs2) do can2[canonize(p[1])] = p[2] end
+    for k, tf1 in pairs(can1) do table.insert(r, {tf1, can2[k] or def2, k}) end
+    for k, tf2 in pairs(can2) do if not can1[k] then table.insert(r, {def1, tf2, k}) end end
+    local i=0
+    return function()
+        i=i+1; local p=r[i]; if p then return unpack(p) end
+    end
+end
+
+function table_map(te1, f)
+    checks('te', 'function')
+    assert(te1.tag=='TTable')
+    local def1, fields1 = unpack(te1)
+    local fields2 = { }
+    for i, p in pairs(fields1) do
+        local k, tf = unpack(p)
+        fields2[i] = `TPair{k, f(tf) }
+    end
+    return `TTable{ f(def1), fields2 }
 end
 
 -- I need to know the type of what's in field k from gamma!!!
@@ -345,7 +379,6 @@ function assign_index(gamma, etable, ekey, new_tf)
     end
 end
 
-
 function assign_id(gamma, name, new_tf)
     checks('gamma', 'string', 'tf')
     gamma :set_var_type(name, new_tf)
@@ -382,6 +415,24 @@ function typeof.ell(gamma, ell)
     end
 end
 
+-- Returns the smallest tf which accepts `tf_right`, with a preference
+-- for `TCurrently over `TVar.
+-- Used by typeof.Set to guess a type for a variable
+function guess_lhs(gamma, tf_right)
+    checks('gamma', 'tf')
+    match tf_right with
+    | `TCurrently{ ... } | `TField -> return `TField
+    | `TConst{ ... } | `TVar{ ... } -> return tf_right
+    | `TJust{ te }->
+        match te with
+        | `TId{ ... } | `TDyn | `TFunction{ ... } -> 
+            return `TCurrently{ te }
+        | `TTable{ ... } ->
+            return `TCurrently{ table_map(te, |tf| guess_lhs(gamma, tf)) }
+        end
+    end
+end
+
 function typeof.Set(gamma, terms_left, terms_right, annots)
     checks('gamma', 'table', 'table', 'table')
     local tebar_right = typeof.ebar(gamma, terms_right)
@@ -389,20 +440,21 @@ function typeof.Set(gamma, terms_left, terms_right, annots)
 
     for i, term_left in ipairs(terms_left) do
         local te_right = tebar_right[i]
-        local old_tf   = typeof.ell(gamma, term_left)
-        local new_tf   = annots[i]
-        if not new_tf then -- Guess a decent future field type
-            match old_tf with
-            | `TVar{ _ }   -> new_tf = old_tf
-            | `TConst{ _ } -> error "Don't override a constant field"
-            | `TCurrently{ _ } -> new_tf = `TCurrently{ gamma :sharp_te(te_right) }
-            | `TField -> error "Don't write in a private field"
+        local old_left = typeof.ell(gamma, term_left)
+        local new_left = annots[i]
+        if not new_left then -- Guess a decent future field type
+            match old_left with
+            | `TCurrently{ _ } -> new_left = guess_lhs(gamma, `TJust{ te_right })
+            | `TVar{ _ }       -> new_left = old_left
+            | `TConst{ _ }     -> error "Don't override a constant field"
+            | `TField          -> error "Don't write in a private field"
+            | `TJust{ _ }      -> assert(false) -- cannot be on left
             end
         end
         -- Is it legal to write term_right into term_left?
-        gamma :accept (te_right, new_tf)
+        gamma :accept (new_left, `TJust{te_right})
         -- If it is, perform the appropriate changes on gamma.
-        assign(gamma, term_left, old_tf, new_tf)
+        assign(gamma, term_left, old_left, new_left)
     end
     return `TPass
 end

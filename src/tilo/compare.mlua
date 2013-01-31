@@ -95,7 +95,7 @@ local minmax = { }
 
 -- Binary min/max for expression types.
 function minmax.te(this_op, opposite_op, a, b)
-    local a2s = require 'metalua.compiler.ast_to_luastring'
+    local a2s = require 'metalua.compiler.ast_to_src'
     printf ("%s(%s)", this_op.name, a2s(a), a2s(b))
 
     if eq.te(a, b) then return a end

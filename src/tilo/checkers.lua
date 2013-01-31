@@ -57,10 +57,12 @@ function checkers.vbar(x)
     return true
 end
 
+local tf_tags={ TField=1,TVar=1,TConst=1,TCurrently=1,TJust=1 }
+
 function checkers.tf(x)
     if type(x)~='table' then return false end
-    local t = {TField=1,TVar=1,TConst=1,TCurrently=1}
-    return t[x.tag]
+    if x.tag=='TField' then return x[1]==nil
+    else return tf_tags[x.tag] and x[1] end
 end
 
 function checkers.ell(x)
