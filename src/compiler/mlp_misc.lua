@@ -169,7 +169,11 @@ function skip_initial_sharp_comment (lx)
    -- FIXME: redundant with lexer:newstream()
    lx :sync()
    local i = lx.src:match ("^#.-\n()", lx.i)
-   if i then lx.i, lx.column_offset, lx.line = i, i, lx.line+1 end
+   if i then
+      lx.i = i
+      lx.column_offset = i
+      lx.line = lx.line and lx.line + 1 or 1
+   end
 end
 
 local function _chunk (lx)

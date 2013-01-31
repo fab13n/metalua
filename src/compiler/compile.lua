@@ -725,10 +725,10 @@ function stat.Return (fs, ast)
          end
          first = fs.nactvar
          nret = luaK.LUA_MULTRET  -- return all values
-      elseif nret == 1 then 
-         --printf("[RETURN] 1 val: e=%s", tostringv(e))
-         first = luaK:exp2anyreg(fs, e)
-         --printf("[RETURN] 1 val in reg %i", first)
+      elseif nret == 1 then
+         if ast[1].tag ~= "Error" then
+            first = luaK:exp2anyreg(fs, e)
+         end
       else
          --printf("* Return multiple vals in nextreg %i", fs.freereg)
          luaK:exp2nextreg(fs, e)  -- values must go to the 'stack'
@@ -1211,7 +1211,7 @@ function expr.Stat (fs, ast, v)
    -- "local foo = -{`Stat{...}}", variable foo will be messed up by
    -- the compilation of `Stat.
    -- FIX: save the active variables at indices >= nactvar in
-   -- save_actvar, and restore them after `Stat has been computer.
+   -- save_actvar, and restore them after `Stat has been computed.
    --
    -- I use a while rather than for loops and length operators because
    -- fs.actvar is a 0-based array...
@@ -1253,7 +1253,7 @@ function expr.Stat (fs, ast, v)
    --printf(" * End of Stat")
 end
 
-
+function expr.Error() end
 
 ------------------------------------------------------------------------
 -- Main function: ast --> proto
