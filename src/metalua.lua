@@ -147,9 +147,9 @@ function M.main (...)
           ast = { tag='Call',
                   {tag='Id', "require" },
                   {tag='String', val } }
-      elseif tag=='Literal' then ast = compiler.luastring_to_ast(val)
+      elseif tag=='Literal' then ast = compiler.src_to_ast(val)
       elseif tag=='File' then
-         ast = compiler.luafile_to_ast(val)
+         ast = compiler.srcfile_to_ast(val)
          -- Isolate each file in a separate fenv
          ast = { tag='Call', 
                  { tag='Function', { { tag='Dots'} }, ast }, 
@@ -191,7 +191,7 @@ function M.main (...)
    if cfg['print-src'] then
       verb_print "Resulting sources:"
       require 'metalua.package'
-      local ast2string = require 'metalua.compiler.ast_to_luastring'
+      local ast2string = require 'metalua.compiler.ast_to_src'
       for x in ivalues(code) do
          printf("--- Source From %s: ---", table.tostring(x.source, 'nohash'))
          if x.origin and x.origin.tag=='File' then x=x[1][1][2] end
@@ -212,7 +212,7 @@ function M.main (...)
        table.insert(code, 1, req_runtime)
    end
 
-   local bytecode = compiler.ast_to_luacstring (code)
+   local bytecode = compiler.ast_to_bytecode (code)
    code = nil
 
    -------------------------------------------------------------------
@@ -243,7 +243,7 @@ function M.main (...)
    -- Run compiled code
    if cfg.run then
       verb_print "Running"
-      local f = compiler.luacstring_to_function (bytecode)
+      local f = compiler.bytecode_to_function (bytecode)
       bytecode = nil
       -- FIXME: isolate execution in a ring
       -- FIXME: check for failures

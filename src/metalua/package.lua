@@ -53,7 +53,7 @@ function package.metalua_loader (name)
    local luastring = file:read '*a'
    file:close()
    local mlc = require 'metalua.compiler'
-   return mlc.luastring_to_function (luastring, name)
+   return mlc.src_to_function (luastring, name)
 end
 
 ----------------------------------------------------------------------

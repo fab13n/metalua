@@ -223,21 +223,21 @@ function luaU:DumpByte(y, D)
 end
 
 ------------------------------------------------------------------------
--- dumps a 32-bit signed integer (for int)
+-- dumps a signed integer of size `format.int_size` (for int)
 ------------------------------------------------------------------------
 function luaU:DumpInt(x, D)
   self:DumpBlock(self:from_int(x, format.int_size), D)
 end
 
 ------------------------------------------------------------------------
--- dumps a 32-bit unsigned integer (for size_t)
+-- dumps an unsigned integer of size `format.size_t_size` (for size_t)
 ------------------------------------------------------------------------
 function luaU:DumpSize(x, D)
   self:DumpBlock(self:from_int(x, format.size_t_size), D)
 end
 
 ------------------------------------------------------------------------
--- dumps a LUA_NUMBER (hard-coded as a double)
+-- dumps a LUA_NUMBER; can be an int or double depending on the VM.
 ------------------------------------------------------------------------
 function luaU:DumpNumber(x, D)
    if format.integral then

@@ -23,7 +23,7 @@ function M.loadstring(str, name)
    local n = str:match '^#![^\n]*\n()'
    if n then str=str:sub(n, -1) end
    -- FIXME: handle erroneous returns (return nil + error msg)
-   local success, f = pcall (M.luastring_to_function, str, name)
+   local success, f = pcall (M.src_to_function, str, name)
    if success then return f else return nil, f end
 end
 

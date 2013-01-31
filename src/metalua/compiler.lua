@@ -33,16 +33,16 @@ M.metabugs = false
 -- names to numbers.
 --------------------------------------------------------------------------------
 M.sequence = {
-   'luafile',  'luastring', 'lexstream', 'ast', 'proto', 
-   'luacstring', 'function' }
+   'srcfile',  'src', 'lexstream', 'ast', 'proto', 
+   'bytecode', 'function' }
 
 local arg_types = {
-    luafile    = { 'string', '?string' },
-    luastring  = { 'string', '?string' },
+    srcfile    = { 'string', '?string' },
+    src        = { 'string', '?string' },
     lexstream  = { 'lexer.stream', '?string' },
     ast        = { 'table', '?string' },
     proto      = { 'table', '?string' },
-    luacstring = { 'string', '?string' },
+    bytecode   = { 'string', '?string' },
 }
 
 M.order = table.transpose(M.sequence)
@@ -102,7 +102,7 @@ local function find_error(ast, nested)
     return nil
 end
 
-function M.luafile_to_luastring(x, name)
+function M.srcfile_to_src(x, name)
     checks('string', '?string')
     name = name or '@'..x
     local f, msg = io.open (x, 'rb')
@@ -113,7 +113,7 @@ function M.luafile_to_luastring(x, name)
     return r, name
 end
 
-function M.luastring_to_lexstream(src, name)
+function M.src_to_lexstream(src, name)
     checks('string', '?string')
     local r = mlp.lexer :newstream (src, name)
     return r, name
@@ -135,12 +135,12 @@ function M.ast_to_proto(ast, name)
     return f(ast, name), name
 end
 
-function M.proto_to_luacstring(proto, name)
+function M.proto_to_bytecode(proto, name)
     local bc = require 'metalua.compiler.bytecode'
     return bc.dump_string(proto), name
 end
 
-function M.luacstring_to_function(bc, name)
+function M.bytecode_to_function(bc, name)
     checks('string', '?string')
     return loadstring(bc, name)
 end
@@ -173,11 +173,11 @@ end
 --------------------------------------------------------------------------------
 -- This one goes in the "wrong" direction, cannot be composed.
 --------------------------------------------------------------------------------
-M.function_to_luacstring = string.dump
+M.function_to_bytecode = string.dump
 
-function M.ast_to_luastring(...)
+function M.ast_to_src(...)
     require 'metalua.package' -- ast_to_string isn't written in plain lua
-    return require 'metalua.compiler.ast_to_luastring' (...)
+    return require 'metalua.compiler.ast_to_src' (...)
 end
 
 return M

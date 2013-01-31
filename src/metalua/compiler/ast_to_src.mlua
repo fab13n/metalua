@@ -622,7 +622,7 @@ function M:TFunction(node, p, r)
     self:tebar(r)
 end
 
-function M:TTable (node, default, pairs, unique)
+function M:TTable (node, default, pairs)
     self:acc '['
     self:node (default)
     if next(pairs) then
@@ -630,7 +630,6 @@ function M:TTable (node, default, pairs, unique)
         self:list (pairs, ', ')
     end
     self:acc ']'
-    if unique then self:acc '0' end
 end
 
 function M:TPair (node, k, v)
@@ -647,19 +646,11 @@ function M:tebar(node)
     end
 end
 
-function M:TConst(node, te)
-    self:acc 'const '
-    self:node(te)
-end
-
-function M:TVar(node, te)
-    self:acc 'var '
-    self:node(te)
-end
-
-function M:TCurrently(node, te)
-    self:acc 'currently '
-    self:node(te)
+for name, tag in pairs{ const='TConst', var='TVar', currently='TCurrently', just='TJust' } do
+    M[tag] = function(self, node, te)
+        self:acc (name..' ')
+        self:node(te)
+    end
 end
 
 return (|x| M.run(x))

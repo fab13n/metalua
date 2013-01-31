@@ -45,7 +45,7 @@ function M.run()
          src = table.concat (lines, "\n")
       until #line>0
 
-      lx  = mlc.luastring_to_lexstream(src) 
+      lx  = mlc.src_to_lexstream(src) 
       success, ast = pcall(mlc.lexstream_to_ast, lx)
       if success then
          local check_status, check_msg = pcall(mlc.check_ast, ast)
