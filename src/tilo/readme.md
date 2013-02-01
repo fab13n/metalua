@@ -85,7 +85,7 @@ and bottom's defining characteristics, it's distinct from both, and
 orthogonal with respect to the subtyping relationship. This allows to
 integrate it in a sound type system, without collapsing the whole
 subtyping by forcing `top=bottom`. Please refer to Jeremy Siek,
-especially "Gradual Typing for Objects"[1] for formal developments.
+especially "Gradual Typing for Objects" [1] for formal developments.
 
 [1] http://ecee.colorado.edu/~siek/pubs/pubs/2006/siek06_sem_cpp.pdf
 
@@ -99,49 +99,51 @@ Primitive expression types
 Table types
 -----------
 
-`[e1: F1, ..., en: En | Fd]` is the type of a table which associates
-a value of type `F1` to the primitive expression `e1`, ..., a value of
-type `Fn` to the primitive expression `en`, and type `Fd` to all other
-keys, not explicitly listed before. Types `Fn` are "field types",
-i.e. they're annotated with accessibility modifiers such as `var` or
-`const`.
+`[e1: F1, ..., en: En | Fd]` is the type of a table which associates a
+value of type `F1` to the primitive expression `e1`, `F2` to `e2`,
+etc. `Fn` to `en`, and type `Fd` to all other keys, not explicitly
+listed before. The default `Fd` type is normally some variant of
+`nil`.
 
-For tables whose keys are either not primitives, or not known
-statically, a generic hashtable parametrized with key type and value
-type `[E=>F]` can easily be added to the system. By making either key
-type or value type dynamic, one can further relax the constraints on a
-table's content. Such facilities haven't been put in the type system
-yet, though.
+Types `Fn` are "field types", i.e. they're annotated with
+accessibility modifiers such as `var` or `const`, which will be
+described later.
+
+For tables used as real hashtables or lists, rather than as records, a
+generic hashtable parametrized with key type and value type `[E=>F]`
+can easily be added to the system. By making the key type and/or the
+value type dynamic, we can further relax the constraints on a table's
+content. Such facilities haven't been put in the type system yet,
+though.
 
 
 Local variable types
 --------------------
 
-As table values, variable are annotated with "field types", i.e. with
-accessibility modifiers. A noteworthy feature is the `currently` field
-modifier, which allows to change a variable's type within a
-program. It is necessary to type many idiomatic Lua programs, as we
-shall see later.
+As table values, variable are annotated with "field types", i.e.
+accessibility modifiers. A noteworthy modifier is `currently`, which
+allows to change a variable's type within a program. It is necessary
+to type many idiomatic Lua programs, as we shall see later.
 
 
 Expression sequence types
 -------------------------
 
 Expression sequences have a central importance in Lua: functions
-return them, take them as parameters, and they are central to the way
-variable assignment works in Lua. Sequences are explicitly surrounded
-with parentheses, as in `(number, string)`.
+return them, take them as parameters, and they are are unpacked by
+variable assignment statements. Type sequences are explicitly
+surrounded with parentheses, as in `(number, string)`.
 
-An expression sequence and its expression types sequence don't
-necessarily have the same length, e.g. `x, y()` might have a type of
-length 3 if function `y` returns 2 values.
+An expression sequence and its type sequence don't necessarily have
+the same length, e.g. `x, y()` might have a type of length 3 if
+function `y` returns 2 values.
 
 
 Function types
 --------------
 
-Functions types are written as an arrow between the parameter types
-sequence and the result types sequence, e.g. `(number, string) ->
+Functions types are written as an arrow between the parameters
+sequence and the results sequence, e.g. `(number, string) ->
 (boolean)`.
 
 
@@ -158,7 +160,7 @@ to as "slots") are decorated with modifiers. These modifiers can be:
 * `currently E`: the slot contains a value of type `E`. This content
   can be changed for another expression, whose type can be different
   from `E`. There are restrictions on how those slots can be used, so
-  that the type system can keep track of them.
+  that the type system can keep track of their type.
 * `field`: the slot's content is unknown, private. The type system
   will neither let read nor change this content.
 
@@ -178,19 +180,20 @@ Static duck typing
 
 Subtyping and type equality are structural: two tables are equal if
 and only if all their fields are equal. This is in contrast with
-languages inspired from C, where two `struct`s with the same fields
-but different `typedef` names aren't comparable.
+languages inspired from C, where two `struct`s or `class`es with the
+same fields but different `typedef` names aren't comparable.
 
 
 Subtyping
 ---------
 
-An important property of a type system is subtyping: which type can be
-substituted with which one. As mentioned above, Tidal Lock uses
+An important property of many type system is subtyping: which type can
+be substituted with which other. As mentioned above, Tidal Lock uses
 structural type comparisons. We define a partial order over field
 types and expression types, `E1 <: E2`, which means that `E1` is a
-subtype of `E2`. The consequence is that everywhere a term of type
-`E2` is accepted, a term of type `E1` must also be accepted.
+subtype of `E2`. The consequence `E1` being a subtype of `E2` is that
+everywhere a term of type `E2` is accepted, a term of type `E1` must
+also be accepted.
 
 Subtyping is defined as follows:
 
@@ -200,27 +203,34 @@ Subtyping is defined as follows:
 
 * `const E <: field`.
 
-* `var E <: field`. This could be inferred in two steps from
-  `var E <: const E <: field`.
+* `var E <: field` (this could actually be inferred in two steps from
+  `var E <: const E <: field`).
 
 * `currently E <: field`.
 
 * `[p1:F1...pn:Fn|Fd] <: [p1:F1'...pn:Fn'|Fd']` iff `Fx <: Fx'` for
   all `x`, and `Fd <: Fd'`. Adjust for fields reordering and expansion
-  of the default type. For instance,
+  of the default type; for instance,
   `[x:var number; y:var number | const nil] <:
-   [y:var number; x:var number; z:const nil | const nil]`).
+   [y:var number; x:var number; z:const nil | const nil]`.
 
 * `(Ei1...Ein) -> (Eo1...Eom) <:(Ei1'...Ein') -> (Eo1'...Eom')` iff
   `Eix' <: Eix` and `Eox <: Eox'` for all `x`. Adjust for `nil` types
-  on the right, which can be omitted. For instance, `(point, nil) ->
-  ()  <: (colored_point) -> (nil)`.
+  on the right, which can be omitted; for instance, `(point, nil) ->
+  ()  <: (colored_point) -> (nil)`. Notice the reversed direction of
+  the `<:` operator on parameters.
 
-Notice that we don't have `var E1 <: var E2`, even if `E1 <: E2`. An
-object of type `[p: var colored_point]` cannot be used where a
-`[p: var point]` is expected, even if `colored_point <: point`. I can
-update the latter's `p` field with a non-colored point, whereas I
-can't do that with the former. Because `var` field can be written to
+Notice that we don't have `var E1 <: var E2`, even if `E1 <: E2`. This
+means that an object of type `[p: var colored_point]` cannot be used
+where a `[p: var point]` is expected, even if `colored_point <:
+point`. Indeed, the latter's `p` field can be updated with a
+non-colored point, whereas it would be illegal on the former.
+
+The fact that subtyping doesn't "go through" `var` modifiers is called
+`var`'s invariance. It follows from the fact that one can write in
+`var` slots. By contrast, `const` is said to be covariant
+(`[p:const colored_point] <:[p:const point]`), and enjoys this
+property because users are forbidden from writing in it.
 
 There's also no subtyping relationship between `currently` and `var`:
 only the former can change its content's type, and the latter can be
@@ -239,17 +249,17 @@ operations; more precisely, it requires to make sure that the content
 of `currently` slot cannot be reached from more than one path. If two
 variables `a` and `b` refer to the same table of type
 `[x: currently number]`, and `a.x="abc"` is performed, the type system
-can remember that `a`'s type changed, but won't realize that `b`'s
+can remember that `a.x`'s type changed, but won't realize that `b.x`'s
 type changed too.
 
 To solve this, whenever a second reference is made to a term, it will
 be "delinearized", i.e. all of its `currently` fields will be made
 private in the copy, by typing them as `field`. Here's an illustration:
 
-    local a #currently[x: currently number; y:var number] = { x=1; y=2 }
-    local b #currently[x: field; y:var number] = a
-    a.x #currently string = "foo" -- OK: b must ignore private field b.
-    b.x = false -- Illegal: x is private in b, can't be written.
+    local a #currently [x: currently number; y:var number] = { x=1; y=2 }
+    local b #currently [x: field; y:var number] = a
+    a.x #currently string = "foo" -- OK: b ignores its private field x, it won't mind if it becomes a string.
+    b.x #currently boolean = false -- Illegal: b.x is a private field, we can't write in it.
 
 To maintain linearity of `currently` variables, we force
 delinearization:
@@ -263,12 +273,13 @@ delinearization:
   time, we don't know what might have happened to an upvalue between
   the function's definition and its application. All `currently`
   variables which aren't local to the function must therefore be
-  ignored. Upvalues must be typed as `var` or `const` (the inference
-  system will attempt to guess such a type whenever appropriate).
+  ignored. Upvalues must therefore be typed as `var` or `const` (the
+  inference system will attempt to guess such a type whenever
+  appropriate).
 
 The handling of linear types is the trickiest part of the type system,
-and a rigorous presentation of it goes far beyond this summary. A
-paper will be published later about how this works, formally and
+and a rigorous presentation of it goes beyond this summary. A paper
+will be published later about how this works, formally and
 pragmatically.
 
 
@@ -278,21 +289,26 @@ Syntax
 Type annotations are introduced with the "#" character, after the slot
 they alter. It can appear:
 
-* after a function parameter: `function string.rep(str #string, n
-  #number) ... end`;
+* after a function parameter:
+  `function string.rep(str #string, n #number) ... end`;
 
 * in the left-hand-side of an assignment. It then precedes a field
   annotation: `local n #var number, x #currently string = 1, "foo"`.
   It can also modify a table field, `t.x #currently number = 3`, but
-  for this to be legal, both `t` and `t.x` must be `currently` slots.
+  for this to be legal, both `t` and `t.x` must be `currently` slots
+  (since `t`'s type also changes as a result).
 
-* in front of a sequence of statements, introduced by "return". For
+* in front of a sequence of statements, introduced by `return`. For
   instance, if a block returns a pair of numbers, it can be written
   `#return number, number; local x #const number = foo(); return x,
   x+1`. In most cases, such annotations aren't necessary, as statement
   types are reliably guessed by the type inference system.
 
-Some support for type aliases
+Some support for type aliases is planned, to avoid repeating long
+structural type. They will probably look like
+`#point=[x:const number; y:const number]`; but they present no
+theoretical interest, and haven't been implemented yet. Notice that
+the question of their scope will have to be addressed.
 
 
 Future extensions
@@ -302,17 +318,17 @@ Globals
 -------
 
 Global variables in Lua are stored in a special table, with their name
-as a key. An access to global variable `foo` is equivalent to
+as a string key. An access to global variable `foo` is equivalent to
 `_ENV["foo"]`, with `_ENV` a variable holding the global variables
-table. It is even implemented that way in the Lua 5.2 VM. That's how
+table (i)t is even implemented that way in the Lua 5.2 VM). That's how
 we'll eventually type global variables.
 
 The global table's content will have to be passed to modules, for them
 to check the use of primitive functions. Some interesting questions
-remain about the field annotations, though:
+remain about the most appropriate field annotations, though:
 
 * global functions should be typed `const`: monkey-patching them is
-  generally a poor idea; in the very few cases where it would make
+  generally a poor idea. In the very few cases where it would make
   sense, forcing the type system off with strategically placed `*`
   types seems a very reasonable warning. Conceptually ugly code should
   be visually ugly.
@@ -320,19 +336,19 @@ remain about the field annotations, though:
 * unset global variables can be typed `field`: this would completely
   prevent from accessing them.
 
-* they could also be typed `const nil`: this is more accurate, but
-  an access to a known-as-nil variable is maybe more likely to be an
-  error than made on purpose. It supposes that we know the exhaustive
-  list of all actual global variables, included those which might have
-  been created by old-style modules.
+* they could also be typed `const nil`: this is more accurate, but an
+  access to a known-as-nil variable is maybe more likely to be an
+  error than performed on purpose. It also supposes that we know the
+  exhaustive list of all actual global variables, included those which
+  might have been created by old-style modules.
 
-* typing them `var nil` has little interest, as they could only be
-  overwritten with another `nil` (you can't change the type in a `var`
-  slot).
+* typing them `var nil` has little interest, as a `var nil` could only
+  be overwritten with another `nil` (you can't change the type in a
+  `var` slot).
 
-* `var *` and `const *` lets you use global variables as you want,
+* `var *` and `const *` let you use global variables as you want,
   either in read-write or in read-only mode. It's probably nice to
-  allow this as an option, but it should certainly not be the default
+  allow this as an option, but it shouldn't be the default
   configuration.
 
 * `currently nil` can be interesting, but suffers from the same
@@ -345,11 +361,11 @@ remain about the field annotations, though:
   type changes.
 
 Of these possibilities, the two most interesting ones are `field` and
-`currently *`; they'll probably be both accessible in a parametrizable
-way.
+`currently *`; they'll probably be both accessible as two options of
+the compiler.
 
-Module requiring
-----------------
+Requiring modules
+-----------------
 
 Modules which alter the global variables table are pretty much
 intractable. Since they're discouraged anyway in Lua 5.2, we choose
@@ -361,7 +377,7 @@ A module is compiled as a function body; a call to `local M = require
 this parameter-less function.
 
 Keeping track of `require` will be done by putting a "magic type" in
-global `require`, rather than following dereferrencing of the variable
+the global variable `require`, rather than following the variable
 itself. This way, idioms such as `local require = require` will be
 handled gracefully and automatically.
 
@@ -374,8 +390,8 @@ cases. `__index` metafields can be tracked effectively as long as
 they're tables rather than arbitrary functions.
 
 Support for overloaded binary operators would be very complex, and
-probably not worth it. Moreover, I would argue that most operator
-overloading use I've seen borders on abuse, and has no place in a
+probably not worth it. Moreover, I'll argue that most operator
+overloading uses I've seen borders on abuse, and have no place in a
 code base which fancies itself as maintainable.
 
 `__newindex` is mostly used with a function, and as such remains
@@ -387,22 +403,22 @@ intractable to a static type system.
 Nullable or optional types
 --------------------------
 
-The type system s intended to catch nil-indexing errors: those are an
-important proportion of type errors, and although languages descending
-from Algol traditionally don't try to catch them, languages of the ML
-family do it soundly, and without requiring much additional bookkeeping
-from their users.
+The type system is intended to catch nil-indexing errors: those make
+up an important proportion of type errors, and although languages
+descending from Algol traditionally don't try to catch them, languages
+of the ML family have been doing soundly since the early 70's, without
+requiring much additional bookkeeping from their users.
 
 This means that to be usable, the type system will require either a
-"nullable" modifier "?", as in "`?number`", or a union type, as in
-"`nil|number`". The latter seems more satisfying intellectually, but
+"nullable" modifier `?`, as in `?number`, or a union type, as in
+`nil|number`. The latter seems more satisfying intellectually, but
 it remains to be seen whether it's worth it in terms of type complexity.
 
-To support nullable types, one needs a deconstructor, a language
+To support nullable types, we need a deconstructor: a language
 feature which guarantees that a given instance of a nullable type
 isn't null. Since we don't want to extend Lua, this will be done by
 recognizing the pattern `if E==nil then ... end` and its variants: the
-versions in `else` or `elseif` clauses and the shorter `if E then`
+versions in `else` or `elseif` clauses, and the shorter `if E then`
 when E can't be `false`. Pathological use cases will have to remain
 dynamically typed.
 
@@ -411,14 +427,14 @@ Hashtables
 ----------
 
 The type system treats hashtables as records, with keys taken from the
-set of Lua primitives, which is enumerable and enjoys a
-straightforward definition of equality. An additional "generic
-hashtable" type can be added without great difficulty: from a type
-system point of view, it behaves similarly to a function with one
-parameter and one result. It will probably be written `[E=>E]` (no
-need to put a slot annotation on the values type: the type system
-won't be able to keep track of constants, let alone the types of
-`currently` slots).
+set of Lua primitives (this set has nice properties, most notably
+being enumerable and enjoying a straightforward definition of
+equality). An additional "generic hashtable" type can be added without
+great difficulty: from a type system point of view, it behaves
+similarly to a function with one parameter and one result. It will
+probably be written `[E=>E]` (no need to put a slot annotation on the
+values type: the type system won't be able to keep track of constants,
+let alone the types of `currently` slots).
 
 A notable type is `[number=>E]`, i.e. the lists of `E`. It's probably
 worthy of some syntax sugar.
@@ -428,32 +444,62 @@ get types such as `[number=>*]`, a list of dynamic values. `[*=>*]` is
 an hasshtable about which we don't know anything, besides the fact
 that it's a hashtable.
 
+However, it's difficult to create hybrid types between hash-table and
+record-table types: we would have to make sure that hash-table keys
+can't overwrite record-table keys. Some special cases, such as
+list-table + string-keyed record-tables are theoretically possible; it
+remains to be seen whether they're practical, but such structures are
+heavily used, for instance, by Metalua.
+
+
+Homebrew class systems
+----------------------
+
+Just like every other junior lisper recreates his own parenthese-free
+dialect of the language (the first one actually predates Lisp itself
+[2]), every other junior Lua hacker rolls out his own object
+framework. No de-facto standard ever emerged, and things are likely to
+remain that way.
+
+Simple objects and classes, which rely on straight tables in `__index`
+index metafields, should be understood by the current system. Fancier
+systems with ad-hoc inheritance will not. It should be possible to
+salvage such objects with more annotations (mostly in constructors).
+
+However, I wonder how much of an issue this actually is: I haven't
+seen a lot of those fancy object hierarchies in actually reused code,
+and I suspect that the reason why there's still no standard
+inheritance mechanism in Lua is that very few people really need them:
+their main interest is that they're fun to write.
+
+[2] http://en.wikipedia.org/wiki/M-expression
 
 Sigma binders
 -------------
 
 You must be an academic if you're wondering about this :)
 
-The typing of object-oriented language is often studied through the
-"sigma-calculus", a formal calculus which constitutes the OO
+The typing of object-oriented languages is often studied through the
+sigma-calculus [3], a formal calculus which constitutes the OO
 counterpart to the lambda-calculus. It introduces a notion of
 recursive types: an object type can reference itself in its own
-definition. For instance, a point which as a method `move(dx)`, which
-returns a copy of the point shifted `dx` units to the right, will have
-type `S(T)[move:(number)->(T)]`, where `T` is bound to the object's
-type. This is important in presence of inheritance, and when objects
-casually return modified versions of themselves. This doesn't fit
-Lua's typical usage: there's no well established inheritance
+definition. For instance consider a point with a method `move(dx)`,
+which returns a copy of the point shifted `dx` units to the right; it
+will have type `S(T)[move:(number)->(T)]`, where `T` is bound to the
+object's type. This feature is important to handle inheritance when
+objects casually return modified versions of themselves. This doesn't
+fit Lua's typical usage: there's no well established inheritance
 mechanism, and tables typically alter themselves rather than returning
 functional copies.
 
-In addition to be of dubious use in realistic Lua programs, sigma
-binders dramatically complicate the type system, and the ability to
+In addition to being of dubious use in realistic Lua programs, sigma
+binders dramatically complicate type systems, and the ability to
 perform inference on them. For those reasons, they're most likely to
 stay out of Tidal Lock forever. If type variables were to be
-introduced in the system, ML-style polymorphism would probably be much
+introduced in the system, ML-style polymorphism would surely be much
 more beneficial. But even this doesn't cohabit too easily with
-subtyping, and is probably not worth the trouble. Anecdotal evidences
-of this include Go's lack of generics, and the misunderstanding of
-Java's generics by most seasoned Java developers.
+subtyping, and might be worth the pain. Anecdotal evidences of this
+include Go's lack of generics, and the misunderstanding of Java's
+generics by most seasoned Java developers.
 
+[3] http://lucacardelli.name/indexPapers.html#Objects
