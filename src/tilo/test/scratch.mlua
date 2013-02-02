@@ -11,7 +11,7 @@ sbar = +{block:
              return "concatenated"
          end
          local x_record, str, num
-         x_record #const [currently nil; "x"=var XField]= { x=1 }
+         x_record #const ["x"=var XField]= { x=1 }
          str #var string = "hello"
          str = 'foo'
          num = 123

@@ -77,7 +77,7 @@ function parse_comment(txt)
 end
     
 
-ast = mlc.luafile_to_ast[[/home/fabien/src/scratch/test.lua]]
+ast = mlc.srcfile_to_ast[[/home/fabien/src/scratch/test.lua]]
 
 lx = M.lexer:newstream[[ blah blah @tagname[x=y,z="t r o i s"] ]]
 x  = M.tag(lx)

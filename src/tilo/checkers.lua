@@ -10,7 +10,7 @@ end
 
 function checkers.e(x)
     if type(x)~='table' then return false end
-    local t = { Function=1,Table=1,Call=1,Index=1,Id=1 }
+    local t = { Function=1,Table=1,Call=1,Index=1,Id=1,Op=1 }
     if t[x.tag] then return true
     else return checkers.p(x) end
 end

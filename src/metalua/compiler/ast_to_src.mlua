@@ -626,7 +626,7 @@ function M:TTable (node, default, pairs)
     self:acc '['
     self:list (pairs, ', ')
     if default.tag~='TField' then
-        self:acc ' | '
+        self:acc '|'
         self:node (default)
     end
     self:acc ']'

@@ -99,6 +99,7 @@ function typeof.e(gamma, e)
     | `Call{f, ...}  -> return typeof.Call(gamma, f, {...})
     | `Id{name, ...} -> return { typeof.Id(gamma, name) }
     | `Index{t, k}   -> return { typeof.Index(gamma, t, k) }
+    | `Op{name, ...} -> return { typeof.Op(gamma, name, {...}) }
     | `Function{ params, body, annots } -> return { typeof.Function(gamma, params, body, annots) }
     | `Function{ params, body } -> return { typeof.Function(gamma, params, body, { }) }
     | _ -> error(table.tostring(e).." isn't a valid expression")
@@ -144,6 +145,21 @@ function typeof.sbar(gamma, sbar, from)
     | _ -> error (table.tostring(s1).." isn't a valid statement")
     end
     return typeof.sbar(gamma, sbar, from+1)
+end
+
+local tn = `TId "number"
+local op_types = { add=tn, sub=tn, mul=tn, div=tn, mod=tn, pow=tn, unm=tn,
+                   concat = `TId "string" }
+
+function typeof.Op(gamma, name, args)
+    checks('gamma', 'string', 'ebar')
+    local t = op_types[name] or `TDyn
+    for _, e in ipairs(args) do
+        local tebar = typeof.e(gamma, e)
+        local te = tebar_to_te(gamma, tebar)
+        gamma :eq_te (te, t)
+    end
+    return t
 end
 
 -- Returns a variable's type. If it hasn't been defined in
@@ -273,7 +289,7 @@ function field_pairs(t1, t2)
     local function canonize(p)
         return p[1] and p.tag..' '..p[1] or p.tag
     end
-    local r = { {def1, def2, false} }
+    local r = { { def1, def2, false } }
     for _, p   in ipairs (pairs1) do can1[canonize(p[1])] = p[2] end
     for _, p   in ipairs (pairs2) do can2[canonize(p[1])] = p[2] end
     for k, tf1 in pairs(can1) do table.insert(r, {tf1, can2[k] or def2, k}) end

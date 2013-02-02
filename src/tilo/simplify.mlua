@@ -75,7 +75,7 @@ function GAMMA :simplify()
         for v, t in sub :var_term_pairs() do
             if t.tag=='TId' and not self.prim_types[t[1]] then
                 self.te.eq :add (v, t)
-                sub :remove(v, t)
+                sub :remove (v, t)
             end
         end
     end
@@ -183,7 +183,7 @@ print(self :tostring())
 
     local compare = require 'tilo.compare'
     local sigma_vars = { }
-    
+
     -- TODO: not useful anymore
     -- Reverse synonyms: associates to each var its canonical one.
     -- representant[v] = canonical representant of

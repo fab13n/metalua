@@ -555,6 +555,6 @@ end
 --------------------------------------------------------------------------------
 require 'metalua.compiler'
 local filename = (arg[2] or arg[1]) or arg[0]
-local ast = mlc.luafile_to_ast (filename)
+local ast = mlc.srcfile_to_ast (filename)
 
 print(synth.run(ast))

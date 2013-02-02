@@ -110,7 +110,7 @@ local f = assert (io.open (filename, 'r'))
 local src = f:read '*a'
 f:close()
 
-local ast = mlc.luastring_to_ast (src, name)
+local ast = mlc.src_to_ast (src, name)
 if not next(ast) then
    io.write (src) -- Empty ast, probably empty file, or comments only
 else
