@@ -171,8 +171,10 @@ function M.skip_initial_sharp_comment (lx)
    -- Dirty hack: I'm happily fondling lexer's private parts
    -- FIXME: redundant with lexer:newstream()
    lx :sync()
-   local i = lx.src:match ("^#.-\n()", lx.i)
-   if i then lx.i, lx.column_offset, lx.line = i, i, lx.line+1 end
+   if lx.src :sub(1,1)=='#' then
+       local i = lx.src :find '\n' + 1
+       if i then self.i=i end
+   end
 end
 
 local function chunk (lx)
