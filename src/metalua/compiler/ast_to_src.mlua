@@ -624,10 +624,10 @@ end
 
 function M:TTable (node, default, pairs)
     self:acc '['
-    self:node (default)
-    if next(pairs) then
-        self:acc ', '
-        self:list (pairs, ', ')
+    self:list (pairs, ', ')
+    if default.tag~='TField' then
+        self:acc ' | '
+        self:node (default)
     end
     self:acc ']'
 end

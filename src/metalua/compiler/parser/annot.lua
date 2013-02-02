@@ -51,21 +51,18 @@ M.te = gg.multisequence{
     { M.tid, builder=function(x) return x[1] end },
     { '*', builder = 'TDyn' },
     { "[",
-      M.tf,
-      gg.onkeyword{ keywords = {";", ","},
-                    primary  = gg.list{
-                        primary = gg.sequence{
-                            expr, "=", M.tf,
-                            builder = 'TPair'
-                        },
-                        separators = { ",", ";" },
-                        terminators = "]" } },
+      gg.list{
+          primary = gg.sequence{
+              expr, "=", M.tf,
+              builder = 'TPair'
+          },
+          separators  = { ",", ";" },
+          terminators = { "]", "|" } },
+      gg.onkeyword{ "|", M.tf },
       "]",
-      -- TODO: get the 0
       builder = function(x)
-                    local other, fields = unpack(x)
-                    fields = fields or { }
-                    return { tag='TTable', other, fields, false }
+                    local fields, other = unpack(x)
+                    return { tag='TTable', other or {tag='TField'}, fields }
                 end
     }, -- "[ ... ]"
     { '(', tebar_content, ')', '->', '(', tebar_content, ')',
