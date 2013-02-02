@@ -137,6 +137,7 @@ local op_symbol = {
 --------------------------------------------------------------------------------
 function M:node (node)
    assert (self~=M and self._acc)
+   if node==nil then self:acc'<<error>>'; return end
    if not node.tag then -- tagless block.
       self:list (node, self.nl)
    else

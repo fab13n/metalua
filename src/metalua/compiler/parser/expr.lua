@@ -74,18 +74,18 @@ M.expr_list = gg.list{ primary=expr, separators="," }
 --------------------------------------------------------------------------------
 -- Helpers for function applications / method applications
 --------------------------------------------------------------------------------
-M.func_args_content = gg.list{ 
+M.func_args_content = gg.list{
     name        = "function arguments",
     primary     = expr,
-    separators  = ",", 
-    terminators = ")" } 
+    separators  = ",",
+    terminators = ")" }
 
 -- Used to parse methods
 M.method_args = gg.multisequence{
    name = "function argument(s)",
    { "{",  mlp_table.content, "}" },
    { "(",  M.func_args_content, ")", builder = unpack },
-   { "+{", mlp_meta.quote_content, "}" }, 
+   { "+{", mlp_meta.quote_content, "}" },
    function(lx) local r = mlp.opt_string(lx); return r and {r} or { } end }
 
 --------------------------------------------------------------------------------

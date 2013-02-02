@@ -128,9 +128,10 @@ function GAMMA :sub_te(te1, te2)
     | `TDyn{...}, _ | _, `TDyn{...} -> -- pass
     | `TId{ name }, `TId{ name } -> -- pass
     | `TId{ name }, te if not self.prim_types[name]->
-        self.te.sub_pos :add(name, te)
-    | `TId{ a }, `TId{ b }
-        if self.prim_types[a] and self.prim_types[b] ->
+        if te.tag=='TId' and self.prim_types[te[1]]
+        then self.te.eq :add (name, te) -- `x<:prim` only possible if `x=prim`
+        else self.te.sub_pos :add(name, te) end
+    | `TId{ a }, `TId{ b } if self.prim_types[a] and self.prim_types[b] ->
         type_error('te', te1, '<:', te2)
     | te, `TId{ name } ->
         self.te.sub_neg :add(name, te)
@@ -241,7 +242,7 @@ end
 
 function GAMMA :tostring()
 
-    local r = { }
+    local r = { "Gamma:" }
     local function acc(...) 
         local line = table.concat{...}
         if line ~= '' then table.insert(r, line) end
@@ -266,17 +267,27 @@ end
 
 function GAMMA :close()
     -- Check that upper bounds are indeed bigger than lower bounds
-    for v1 in self.te.sub_pos :vars() do
-        local vars1, bound_up   = self.te.sub_pos :get_content(v1)
-        local vars2, bound_down = self.te.sub_neg :get_content(v1)
-        if bound1 and bound2 then self :sub_te(bound_down, bound_up) end
+    for v1 in self.te.sub_pos :get_vars() do
+        local vars1, bound1 = self.te.sub_pos :get_content(v1)
+        local vars2, bound2 = self.te.sub_neg :get_content(v1)
+        if bound1 and bound2 then self :sub_te(bound2, bound1) end
     end
-    for v1 in self.tebar.sub_pos :vars() do
-        local vars1, bound_up   = self.tebar.sub_pos :get_content(v1)
-        local vars2, bound_down = self.tebar.sub_neg :get_content(v1)
-        if bound1 and bound2 then self :sub_tebar(bound_down, bound_up) end
+    for v1 in self.tebar.sub_pos :get_vars() do
+        local vars1, bound1 = self.tebar.sub_pos :get_content(v1)
+        local vars2, bound2 = self.tebar.sub_neg :get_content(v1)
+        if bound1 and bound2 then self :sub_tebar(bound2, bound1) end
     end
     -- TODO: transform var/var inequalities into equalities
+end
+
+function GAMMA :simplify(t)
+    checks('gamma', 'te|tf|ts')
+    match t with
+    | `TId{ name } -> 
+        local vars1, bound1 = self.tebar.sub_pos :get_content(v1)
+        local vars2, bound2 = self.tebar.sub_neg :get_content(v1)
+        if bound1 and bound2 then self :sub_tebar(bound2, bound1) end
+    end
 end
 
 --- Empty environmnent constructor

@@ -17,6 +17,16 @@ function CONSTRAINT :add (var_name, val)
         self.set_name, var_name, self.op_name, a2s(val))
 end
 
+function CONSTRAINT :get_vars()
+    return pairs(self.content)
+end
+
+function CONSTRAINT :get_content(var_name)
+    checks('gamma.constraint', 'string')
+    local cell = self.content[var_name]
+    if cell then return cell.vars, cell.bound end
+end
+
 function CONSTRAINT :tostring()
     local r = { }
     local function acc(...) table.insert(r, table.concat{...}) end
@@ -30,7 +40,7 @@ function CONSTRAINT :tostring()
         elseif #v==1 then
             acc(name, " ", self.op_name, " ", v[1])
         end
-        if x.bound then acc(name, " ", op, a2s(x.bound)) end
+        if x.bound then acc(name, " ", self.op_name, a2s(x.bound)) end
     end
     return table.concat(r, "\n")
 end
@@ -40,15 +50,16 @@ function new_constraint(set_name, op_name, combine)
 
     local function c2(a, b)
         local bound =
-            self.op_name=='<:' and 'max' or
-            self.op_name==':>' and 'min' or
-            self.op_name=='='  and 'equality' or
+            op_name=='<:' and 'min' or
+            op_name==':>' and 'max' or
+            op_name=='='  and 'equality' or
             assert(false, "bad operator")
         local r = combine(a, b)
         if not r then
             error(string.format("No %s of %s and %s",
                                 bound, a2s(a), a2s(b)))
         else
+            -- local a2s=table.tostring
             log('CONSTRAINT', 'DEBUG', "%s(%s, %s) = %s",
                 bound, a2s(a), a2s(b), a2s(r))
             return r

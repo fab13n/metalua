@@ -55,6 +55,13 @@ end
 function checkers.te(x)
     if type(x)~='table' then return false end
     local t = {TDyn=1,TId=1,TFunction=1,TTable=1}
+    if x.tag=='TTable' then
+        if #x~=2 then return false end
+        if x[2].tag then return false end
+        for _, p in ipairs(x[2]) do
+            if p.tag~='TPair' then return false end
+        end
+    end
     return t[x.tag]
 end
 

@@ -2,37 +2,6 @@
 
 -{extension 'match'}
 
--- Combines table fields: takes two `TTable, return a table
--- with arbitrary keys, and as values, triplets { key, tf1, tf2 }
--- where field types are substituted with defaults when missing.
--- For instance, 
--- combine_fields([Fad; P1:Fa1; P2:Fa2], [Fbd; P1:Fb1; P3:Fb3]) =
--- { [_1]: {P1, Fa1, Fb1}; [_2]: {P2, Fa2, Fad]; [_3]: {P3, Fad, Fb3} }
---
-local function combine_fields(ta, tb)
-    checks('te', 'te')
-    -- TODO: use the new iterator
-    -- Helper to match fields lists together
-    local function canonize(key)
-        checks('p')
-        return key[1] and key.tag..' '..key[1] or key.tag
-    end
-    local da, pa = unpack(ta)
-    local db, pb = unpack(tb)
-    local fp = { } -- field pairs, by key, indexed by canonized key
-    for _, item in ipairs(pa) do
-        local key, tf = unpack(item)
-        fp[canonize(key)] = { key, tf, db }
-    end
-    for _, item in ipairs(pb) do
-        local key, tf = unpack(item)
-        local ck = canonize(key)
-        local x = fp[ck]
-        if x then x[3] = tf else fp[ck]= { key, da, tf } end
-    end
-    return fp
-end
-
 local eq = { }
 
 -- Structural equality between arbitrary ASTs. No semantic awareness,
@@ -54,10 +23,9 @@ function eq.te(a, b)
     match a, b with
     | `TFunction{ pa, ra }, `TFuntion{ pb, rb } ->
         return eq.tebar(pa, pb) and eq.tebar(ra, rb)
-    | `TTable{ da, pa, ua }, `TTable{ db, pb, ub } ->
-        if not eq.tf(da, db) or not ua ~= not ub then return false end
-        for _, item in pairs(combine_fields(a, b)) do
-            local k, tfa, tfb = unpack(item)
+    | `TTable{ da, pa }, `TTable{ db, pb } ->
+        if not eq.tf(da, db) then return false end
+        for tfa, tfb, k in field_pairs(a, b) do
             if not eq.tf(tfa, tfb) then return false end
         end
         return true
@@ -68,7 +36,8 @@ end
 -- Equality between field types.
 function eq.tf(a, b)
     checks('tf', 'tf')
-    return a==b or a.tag==b.tag and eq.te(a[1], b[1])
+    return a==b or
+        a.tag==b.tag and (a.tag=='TField' or eq.te(a[1], b[1]))
 end
 
 -- Equality between expression sequence types.
@@ -95,7 +64,7 @@ local minmax = { }
 -- Binary min/max for expression types.
 function minmax.te(this_op, opposite_op, a, b)
     local a2s = require 'metalua.compiler.ast_to_src'
-    printf ("%s(%s)", this_op.name, a2s(a), a2s(b))
+    printf ("%s(%s, %s)", this_op.name, a2s(a), a2s(b))
 
     if eq.te(a, b) then return a end
     match a, b with
@@ -105,21 +74,18 @@ function minmax.te(this_op, opposite_op, a, b)
         local rc = this_op.tebar(ra, rb)
         if not rc then return false
         else return `TFunction{ pc, rc } end
-    | `TTable{ da, pa, ua }, `TTable{ db, pb, ub } ->
-        local dc = this_op.tf(da, db)
-        if not dc then return false end
-        local cf = combine_field_tables(a, b)
-        local pc = { }
-        for _, item in pairs(fp) do
-            local k, fa, fb = unpack(item)
-            local tf = this_op.tf(fa, fb)
-            if not tf then return false
-            elseif not eq.tf(tf, dc) then
-                table.insert(pc, `TPair{ k, tf})
+    | `TTable{ def_a, pairs_a }, `TTable{ def_b, pairs_b } ->
+        local def_c = this_op.tf(def_a, def_b)
+        if not def_c then return false end
+        local pairs_c = { }
+        for tf_a, tf_b, k in field_pairs(a, b) do
+            local tf_c = this_op.tf(tf_a, tf_b)
+            if not tf_c then return false
+            elseif not eq.tf(tf_c, def_c) then
+                table.insert(pairs_c, `TPair{ k, tf_c})
             end
         end
-        local uc = ua and ub
-        return `TTable{ dc, pc, uc }
+        return `TTable{ def_c, pairs_c }
     | _, _ -> return false -- absorbing element instead?
     end
 end

@@ -280,20 +280,24 @@ function set_field_type(ttable, k, new_tf)
 end
 
 -- Return an iterator on pairs of fields from two tables, sorted by key.
+-- `for tf_left, tf_right, key in field_pairs(table_left, table_right) do ... end`
 function field_pairs(t1, t2)
     checks('te', 'te')
     assert(t1.tag=='TTable' and t2.tag=='TTable')
     local def1, pairs1 = unpack(t1)
     local def2, pairs2 = unpack(t2)
     local can1, can2 = { }, { }
+    local keys = { }
     local function canonize(p)
-        return p[1] and p.tag..' '..p[1] or p.tag
+        local k = p[1] and p.tag..' '..p[1] or p.tag
+        keys[k] = p
+        return k
     end
     local r = { { def1, def2, false } }
     for _, p   in ipairs (pairs1) do can1[canonize(p[1])] = p[2] end
     for _, p   in ipairs (pairs2) do can2[canonize(p[1])] = p[2] end
-    for k, tf1 in pairs(can1) do table.insert(r, {tf1, can2[k] or def2, k}) end
-    for k, tf2 in pairs(can2) do if not can1[k] then table.insert(r, {def1, tf2, k}) end end
+    for k, tf1 in pairs(can1) do table.insert(r, {tf1, can2[k] or def2, keys[k]}) end
+    for k, tf2 in pairs(can2) do if not can1[k] then table.insert(r, {def1, tf2, keys[k]}) end end
     local i=0
     return function()
         i=i+1; local p=r[i]; if p then return unpack(p) end
@@ -322,7 +326,7 @@ function typeof.Index(gamma, t, k)
     | `TDyn -> -- pass
     | `TId{ name } ->
         local v = fresh_tvar(name..'_k')
-        local tt_max = `TTable{ `TField, `TPair{ k, `TConst{ v }}}
+        local tt_max = `TTable{ `TField, {`TPair{ k, `TConst{ v }}} }
         -- It should work with `TCurrently as well, but such fields
         -- aren't normally hidden in a `TId.
         gamma :sub_te (tt, tt_max)
@@ -422,7 +426,7 @@ function typeof.ell(gamma, ell)
             local k_name = p_k[1] or p_k.tag :lower()
             local v = fresh_tvar(tvar_name..'_'..k_name)
             local tf = { tag=guessed_tag, v }
-            gamma :sub_te (te_t, `TTable{ `TField; {`TPair{p_k, tf}}, false })
+            gamma :sub_te (te_t, `TTable{ `TField; {`TPair{p_k, tf}} })
             return tf
         | `TTable{ ... } | `TTabsub{ ... }->
              return get_field_type(te_t, p_k)
