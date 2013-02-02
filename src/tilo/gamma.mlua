@@ -1,5 +1,6 @@
 -{ extension 'match' }
 
+cmp = require 'tilo.compare'
 a2s = require 'metalua.compiler.ast_to_src'
 new_constraint = require 'tilo.constraint'
 
@@ -75,12 +76,14 @@ function GAMMA :eq_te(te1, te2)
     match te1, te2 with
     | `TDyn, _ | _, `TDyn -> -- pass
     | `TId{ name }, `TId{ name } -> -- pass
+    | `TId{ n1 }, `TId{ n2 } -> -- n1 ~= n2
+        local p1, p2 = self.prim_types[n1], self.prim_types[n2]
+        if p1 and p2 then  type_error ('te', te1, '=', te2)
+        elseif p1 and not p2 then  self.te.eq :add (n2, te1)
+        else self.eq :add (n1, te2) end
     | `TId{ name }, te | te, `TId{ name } ->
-        if self.prim_types[name] then
-            if te.tag=='TId' then te, name = te1, te2[1] -- swap
-            else type_error ('te', te1, '=', te2) end -- primitive = non-variable
-        end
-        self.te.eq :add(name, te)
+        if self.prim_types[name] then type_error ('te', te1, '=', te2)
+        else self.te.eq :add(name, te) end
     | `TTable{...}, `TTable{...} ->
         for tf1, tf2 in field_pairs(te1, te2) do
             self :eq_tf (tf1, tf2)
@@ -238,20 +241,16 @@ end
 
 function GAMMA :tostring()
 
-    local lines = { }
-    local function acc(...) table.insert(lines, table.concat{...}) end
-    local cat = |...| table.concat(table.imap(...), ', ')
-    for name, list in self.te.eq:lists() do
-        acc ('  ', name, ' = ', cat(a2s, list))
+    local r = { }
+    local function acc(...) 
+        local line = table.concat{...}
+        if line ~= '' then table.insert(r, line) end
     end
-    for name, list in self.te.sub_pos:lists() do
-        acc ('  ', name, ' <: ', cat(a2s, list))
-    end
-    for name, list in self.te.sub_neg:lists() do
-        acc ('  ', name, ' :> ', cat(a2s, list))
-    end
-    for name, list in self.tebar.eq:lists() do
-        acc ('  ', name, ' = ', cat(a2s, list))
+
+    for _, k in ipairs{ 
+        self.te.eq, self.te.sub_pos, self.te.sub_neg,
+        self.tebar.eq,  self.tebar.sub_pos, self.tebar.sub_neg } do
+        acc(k :tostring())
     end
     if next(self.te.sharp) then
         local sharps = { }
@@ -262,7 +261,22 @@ function GAMMA :tostring()
     for name, cell in pairs(self.var_types) do
         acc ('  ', name, ': ', a2s(cell.type))
     end
-    return table.concat(lines, '\n')
+    return table.concat(r, '\n')
+end
+
+function GAMMA :close()
+    -- Check that upper bounds are indeed bigger than lower bounds
+    for v1 in self.te.sub_pos :vars() do
+        local vars1, bound_up   = self.te.sub_pos :get_content(v1)
+        local vars2, bound_down = self.te.sub_neg :get_content(v1)
+        if bound1 and bound2 then self :sub_te(bound_down, bound_up) end
+    end
+    for v1 in self.tebar.sub_pos :vars() do
+        local vars1, bound_up   = self.tebar.sub_pos :get_content(v1)
+        local vars2, bound_down = self.tebar.sub_neg :get_content(v1)
+        if bound1 and bound2 then self :sub_tebar(bound_down, bound_up) end
+    end
+    -- TODO: transform var/var inequalities into equalities
 end
 
 --- Empty environmnent constructor
@@ -274,13 +288,13 @@ function gamma_new()
         var_types = { },
         te = {
             sharp = { },
-            eq      = new_constraint('TE', '='),
-            sub_pos = new_constraint('TE', '<:'),
-            sub_neg = new_constraint('TE', ':>') },
+            eq      = new_constraint('TE', '=',  cmp.eq.te),
+            sub_pos = new_constraint('TE', '<:', cmp.min.te),
+            sub_neg = new_constraint('TE', ':>', cmp.max.te) },
         tebar = {
-            eq      = new_constraint('TEBAR', '='),
-            sub_pos = new_constraint('TEBAR', '<:'),
-            sub_neg = new_constraint('TEBAR', ':>') } }
+            eq      = new_constraint('TEBAR', '=',  cmp.eq.tebar),
+            sub_pos = new_constraint('TEBAR', '<:', cmp.min.tebar),
+            sub_neg = new_constraint('TEBAR', ':>', cmp.max.tebar) } }
     return setmetatable(self, GAMMA)
 end
 

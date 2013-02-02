@@ -1,7 +1,5 @@
 -- equal, min, max operators on types.
 
-require 'tilo.gamma'
-
 -{extension 'match'}
 
 -- Combines table fields: takes two `TTable, return a table
@@ -13,6 +11,7 @@ require 'tilo.gamma'
 --
 local function combine_fields(ta, tb)
     checks('te', 'te')
+    -- TODO: use the new iterator
     -- Helper to match fields lists together
     local function canonize(key)
         checks('p')

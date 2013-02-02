@@ -2,6 +2,13 @@ require 'checks'
 
 -- gamma is checked through it metatable's __type field.
 
+local debug_metatable = debug.metatable
+function checkers.callable(f)
+    if type(f)=='function' then return true end
+    local mt = debug_metatable(f)
+    return mt and mt.__call
+end
+
 function checkers.tebar(x)
     if type(x)~='table' then return false end
     for _, y in ipairs(x) do if not checkers.te(y) then return false end end

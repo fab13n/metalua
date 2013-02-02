@@ -308,9 +308,15 @@ they alter. It can appear:
 
 Some support for type aliases is planned, to avoid repeating long
 structural type. They will probably look like
-`#point=[x:const number; y:const number]`; but they present no
+`#point:=[x:const number; y:const number]`; but they present no
 theoretical interest, and haven't been implemented yet. Notice that
 the question of their scope will have to be addressed.
+
+Finally, typing statements will probably prove necessary to integrate
+dynamic modules in typed ones, and check their proper use. A sentence
+like `#string.rep: const (string,number)->(string)` means "trust me,
+this slot has exactly this type; now you can ensure that I use it
+soundly".
 
 
 Future extensions
