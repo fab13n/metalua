@@ -35,20 +35,20 @@ publishable state yet. I can send drafts upon request, though.
 
 The compiler is, at this stage, still an exploratory tool to test the
 paper's theories. It's written in Metalua, an self-extensible dialect
-of Lua which supports interesting code manipulation features. As a
-result, it currently only targets Lua 5.1.
+of Lua which supports interesting code manipulation features (it
+analyses regular Lua code, though). since Metalua hasn't been ported
+to Lua 5.2, Tidal Lock currently only targets Lua 5.1.
 
-It only recognizes a subset of Lua, exhibiting the parts of the
-language most interesting and challenging to type. Unsupported parts
-of the language therefore fall in two categories:
+The current compiler only recognizes a subset of Lua, exhibiting the
+parts of the language most interesting and challenging to type.
+Unsupported parts of the language therefore fall in two categories:
 
 * reasonably easy to support, but of limited theoretical interest;
-
 * so hard to type that they probably aren't worth it. The magic of
-  gradual typing is that they will remain usable by people, only
-  dynamically typed.
+  gradual typing is that they will remain usable, simply they'll
+  remain dynamically typed.
 
-The subset of the language currently supported are:
+The subset of the language currently supported is:
 
 * local variables declaration and use;
 * assignments (in multiple variables and/or table slots);
@@ -67,25 +67,27 @@ programs.
 Available types
 ===============
 
-The type system doesn't support generic types (use dynamic types for
-that). It's intended to catch nil-indexings, although this part isn't
-operational yet.
-
-
 Dynamic type
 ------------
 
-Written `*`, as a wildcard, it's the dynamic type. An object of this
-type is accepted everywhere (as the "bottom" type found in many formal
-type systems with subtyping), and every object is allowed to have type
-`*` (as the "top" type in formal systems).
+The dynamic type is written `*`, as a wildcard. An object of this type
+is accepted everywhere (as the `bottom` type found in many formal type
+systems), and every object is allowed to have type `*`
+(as the `top` type in formal systems).
 
-The key insight of gradual typing is that although `*` shares top's
-and bottom's defining characteristics, it's distinct from both, and
+The key insight of gradual typing is that although `*` shares top and
+bottom's defining characteristics, it's distinct from both, and
 orthogonal with respect to the subtyping relationship. This allows to
 integrate it in a sound type system, without collapsing the whole
-subtyping by forcing `top=bottom`. Please refer to Jeremy Siek,
-especially "Gradual Typing for Objects" [1] for formal developments.
+subtyping by forcing `top=bottom`.
+
+A gradual type system doesn't have the soundness property ("a well
+typed program can't cause an error"), but it offers a weaker version
+thereof: a program that causes an error can only do so because of a
+dynamically typed fragment.
+
+Please refer to Jeremy Siek, especially "Gradual Typing for Objects"
+[1] for formal developments.
 
 [1] http://ecee.colorado.edu/~siek/pubs/pubs/2006/siek06_sem_cpp.pdf
 
@@ -101,7 +103,7 @@ Table types
 
 `[e1: F1, ..., en: En | Fd]` is the type of a table which associates a
 value of type `F1` to the primitive expression `e1`, `F2` to `e2`,
-etc. `Fn` to `en`, and type `Fd` to all other keys, not explicitly
+etc. `Fn` to `en`, and type `Fd` to all other keys not explicitly
 listed before. The default `Fd` type is normally some variant of
 `nil`.
 
