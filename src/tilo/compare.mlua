@@ -28,7 +28,8 @@ function eq.te(a, b)
         for tfa, tfb, k in field_pairs(a, b) do
             if not eq.tf(tfa, tfb) then return false end
         end
-        return true
+        return true, { }
+    | `TId{ a }, `TId{ b } -> 
     | _, _ -> return false
     end
 end

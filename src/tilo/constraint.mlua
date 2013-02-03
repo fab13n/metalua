@@ -4,6 +4,8 @@ CONSTRAINT.__type  = 'gamma.constraint'
 
 function CONSTRAINT :add (var_name, val)
     checks('gamma.constraint', 'string', 'table')
+    log('CONTRAINT', 'DEBUG', "%s: %s %s %s",
+        self.set_name, var_name, self.op_name, a2s(val))
     local x = self.content[var_name]
     match val, x with
     | `TId{ name }, { vars=v } -> v[name]=true; x=nil
@@ -13,8 +15,6 @@ function CONSTRAINT :add (var_name, val)
     | t, { bound=b } -> x.bound=self.combine(b, t); x=nil
     end
     if x then self.content[var_name]=x end
-    log('CONTRAINT', 'DEBUG', "%s: %s %s %s",
-        self.set_name, var_name, self.op_name, a2s(val))
 end
 
 function CONSTRAINT :get_vars()
