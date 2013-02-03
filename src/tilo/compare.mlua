@@ -29,8 +29,8 @@ function eq.te(gamma, a, b)
             if not eq.tf(gamma, tfa, tfb) then return false end
         end
         return true, { }
-    | `TId{ na }, _ if not gamma.prim_types[na] -> gamma.te.eq :add (na, b)
-    | _, `TId{ nb } if not gamma.prim_types[nb] -> gamma.te.eq :add (nb, a)
+    | `TId{ na }, _ if not gamma.prim_types[na] -> gamma.te.eq :add (na, b); return b
+    | _, `TId{ nb } if not gamma.prim_types[nb] -> gamma.te.eq :add (nb, a); return a
     | _, _ -> return false
     end
 end
@@ -90,6 +90,8 @@ function minmax.te(gamma, this_op, opposite_op, a, b)
             end
         end
         return `TTable{ def_c, pairs_c }
+    | `TId{ na }, _ if not gamma.prim_types[na] -> gamma.te.eq :add (na, b); return b
+    | _, `TId{ nb } if not gamma.prim_types[nb] -> gamma.te.eq :add (nb, a); return a
     | _, _ -> return false -- absorbing element instead?
     end
 end

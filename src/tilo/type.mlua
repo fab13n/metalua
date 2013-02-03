@@ -366,7 +366,7 @@ function typeof.Function(gamma, params, body, annots)
     return `TFunction{ tebar_params, tebar_result }
 end
 
--- ell: left-hand-side term receiveing the assignment
+-- ell: left-hand-side term receiving the assignment
 -- old_tf: type of ell before assignment
 -- new_tf: future type of ell after assignment
 function assign(gamma, ell, old_tf, new_tf)
@@ -374,13 +374,17 @@ function assign(gamma, ell, old_tf, new_tf)
     match old_tf, new_tf with
     | `TVar{ te1 }, `TVar{ te2 } ->
         gamma :eq_te (te1, te2)
-    | `TCurrently{ _ }, _ | `TDyn, _ ->
+    | `TVar{ te1 }, `TConst{ te2 } -> -- TODO not in the paper!!!
+        gamma :sub_te (te1, te2)
+    | `TCurrently{ _ }, _ ->
         match ell with
         | `Index{ et, ek } -> assign_index(gamma, et, ek, new_tf)
         | `Id{ name }      -> assign_id(gamma, name, new_tf)
         | _ -> error "Can't type assignment's LHS"
         end
-    | _, _ -> error "Can't assign in this field type"
+    | _, _ ->
+        error("Assignment can't update field "..
+              a2s(old_tf).." into "..a2s(new_tf))
     end
 end
 
@@ -449,7 +453,7 @@ function guess_lhs(gamma, tf_right)
     | `TConst{ ... } | `TVar{ ... } -> return tf_right
     | `TJust{ te }->
         match te with
-        | `TId{ ... } | `TDyn | `TFunction{ ... } -> 
+        | `TId{ ... } | `TDyn | `TFunction{ ... } ->
             return `TCurrently{ te }
         | `TTable{ ... } ->
             return `TCurrently{ table_map(te, |tf| guess_lhs(gamma, tf)) }
