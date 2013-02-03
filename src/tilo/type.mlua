@@ -325,7 +325,7 @@ function typeof.Index(gamma, t, k)
     match tt with
     | `TDyn -> -- pass
     | `TId{ name } ->
-        local v = fresh_tvar(name..'_k')
+        local v = fresh_tvar(name..'_idx')
         local tt_max = `TTable{ `TField, {`TPair{ k, `TConst{ v }}} }
         -- It should work with `TCurrently as well, but such fields
         -- aren't normally hidden in a `TId.
@@ -404,6 +404,7 @@ function assign_id(gamma, name, new_tf)
     gamma :set_var_type(name, new_tf)
 end
 
+-- Type an expression on the left-hand-side of an assignment
 function typeof.ell(gamma, ell)
     checks('gamma', 'ell')
     match ell with

@@ -129,37 +129,22 @@ function minmax.tf(this_op, opposite_op, tf1, tf2)
     end
 end
 
--- Transform a binary family of operators `op2` into a n-ary one.
-local function fold(op2, k)
-    return function(...)
-        local args  = {...}
-        local nargs = #args
-        if     nargs==0 then return false
-        elseif nargs==1 then return ... else
-            local f = op2[k]
-            local x = f(args[1], args[2])
-            for i=3, nargs do
-                if not x then return false end
-                x = f(x, args[i])
-            end
-            return x
-        end
-    end
-end
 
--- binary min2 and max2 operator families, 
--- folded into n-ary M.min and M.max public operator families.
+-- Create separate min and max operator families from minmax
 local min, max = { }, { }
 local min2 = { name='min' }
 local max2 = { name='max' }
 for _, k in ipairs{ 'te', 'tf', 'tebar', 'ts' } do
-    min2[k] = |...| minmax[k] (min2, max2, ...)
-    max2[k] = |...| minmax[k] (max2, min2, ...)
-    min[k] = fold(min2, k)
-    max[k] = fold(max2, k)
+    min[k] = |...| minmax[k] (min, max, ...)
+    max[k] = |...| minmax[k] (max, min, ...)
 end
 
+-- Substitutes occurences of `TId and `TIdbar with
+-- their name's counterpart in sigma the substitution table.
+-- Example: subst(`Op{ 'add', `TId 'x', `TId 'y' }, { x=`String "FOO" })
+-- ==> `Op{ 'add', `String "FOO", `TId 'y' }
 local function subst(term, sigma)
+    checks('!', 'table')
     if type(term)=='table'
     and (term.tag=='TId' or term.tag=='TIdbar') then
         local new_subterm = sigma[term[1]]
