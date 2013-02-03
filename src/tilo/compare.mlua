@@ -17,40 +17,41 @@ function eq.ast(a,b)
 end
 
 -- Equality between expression types.
-function eq.te(a, b)
-    checks('te', 'te')
+function eq.te(gamma, a, b)
+    checks('gamma', 'te', 'te')
     if eq.ast(a, b) then return true end
     match a, b with
     | `TFunction{ pa, ra }, `TFuntion{ pb, rb } ->
-        return eq.tebar(pa, pb) and eq.tebar(ra, rb)
+        return eq.tebar(gamma, pa, pb) and eq.tebar(gamma, ra, rb)
     | `TTable{ da, pa }, `TTable{ db, pb } ->
-        if not eq.tf(da, db) then return false end
+        if not eq.tf(gamma, da, db) then return false end
         for tfa, tfb, k in field_pairs(a, b) do
-            if not eq.tf(tfa, tfb) then return false end
+            if not eq.tf(gamma, tfa, tfb) then return false end
         end
         return true, { }
-    | `TId{ a }, `TId{ b } -> 
+    | `TId{ na }, _ if not gamma.prim_types[na] -> gamma.te.eq :add (na, b)
+    | _, `TId{ nb } if not gamma.prim_types[nb] -> gamma.te.eq :add (nb, a)
     | _, _ -> return false
     end
 end
 
 -- Equality between field types.
-function eq.tf(a, b)
-    checks('tf', 'tf')
+function eq.tf(gamma, a, b)
+    checks('gamma', 'tf', 'tf')
     return a==b or
-        a.tag==b.tag and (a.tag=='TField' or eq.te(a[1], b[1]))
+        a.tag==b.tag and (a.tag=='TField' or eq.te(gamma, a[1], b[1]))
 end
 
 -- Equality between expression sequence types.
-function eq.tebar(a, b)
-    checks('tebar', 'tebar')
+function eq.tebar(gamma, a, b)
+    checks('gamma', 'tebar', 'tebar')
     if a.tag or a.tag then return false end
     local n = math.max(#a, #b)
     local r = { }
     for i=1, n do
         local ta = a[i] or `TId 'nil'
         local tb = b[i] or `TId 'nil'
-        if not eq.te(ta, tb) then return false end
+        if not eq.te(gamma, ta, tb) then return false end
     end
     return true
 end
@@ -63,26 +64,28 @@ end
 local minmax = { }
 
 -- Binary min/max for expression types.
-function minmax.te(this_op, opposite_op, a, b)
+function minmax.te(gamma, this_op, opposite_op, a, b)
+    checks('gamma', 'table', 'table', 'te', 'te')
+
     local a2s = require 'metalua.compiler.ast_to_src'
     printf ("%s(%s, %s)", this_op.name, a2s(a), a2s(b))
 
-    if eq.te(a, b) then return a end
+    if eq.te(gamma, a, b) then return a end
     match a, b with
     | `TFunction{ pa, ra }, `TFunction{ pb, rb } ->
-        local pc = opposite_op.tebar(pa, pb)
+        local pc = opposite_op.tebar(gamma, pa, pb)
         if not pc then return false end
-        local rc = this_op.tebar(ra, rb)
+        local rc = this_op.tebar(gamma, ra, rb)
         if not rc then return false
         else return `TFunction{ pc, rc } end
     | `TTable{ def_a, pairs_a }, `TTable{ def_b, pairs_b } ->
-        local def_c = this_op.tf(def_a, def_b)
+        local def_c = this_op.tf(gamma, def_a, def_b)
         if not def_c then return false end
         local pairs_c = { }
         for tf_a, tf_b, k in field_pairs(a, b) do
-            local tf_c = this_op.tf(tf_a, tf_b)
+            local tf_c = this_op.tf(gamma, tf_a, tf_b)
             if not tf_c then return false
-            elseif not eq.tf(tf_c, def_c) then
+            elseif not eq.tf(gamma, tf_c, def_c) then
                 table.insert(pairs_c, `TPair{ k, tf_c})
             end
         end
@@ -92,14 +95,16 @@ function minmax.te(this_op, opposite_op, a, b)
 end
 
 -- Binary min/max for expression sequence types.
-function minmax.tebar(this_op, opposite_op, tebar1, tebar2)
+function minmax.tebar(gamma, this_op, opposite_op, tebar1, tebar2)
+    checks('gamma', 'table', 'table', 'tebar', 'tebar')
+
     if tebar1.tag or tebar2.tag then return false end
     local n = math.max(#tebar1, #tebar2)
     local r = { }
     for i=1, n do
         local ta = tebar1[i] or `TId 'nil'
         local tb = tebar2[i] or `TId 'nil'
-        local tc = this_op.te(ta, tb)
+        local tc = this_op.te(gamma, ta, tb)
         if not tc then return false end
         r[i]=tc
     end
@@ -111,18 +116,19 @@ function minmax.tebar(this_op, opposite_op, tebar1, tebar2)
 end
 
 -- Binary min/max for field types.
-function minmax.tf(this_op, opposite_op, tf1, tf2)
+function minmax.tf(gamma, this_op, opposite_op, tf1, tf2)
+    checks('gamma', 'table', 'table', 'tf', 'tf')
     match tf1, tf2 with
     | `TField, `TField -> return tf1
     | `TField, tf | tf, `TField ->
         return this_op.name == 'min' and tf or `TField
     | `TVar{te1}, `TVar{te2} | `TCurrently{te1}, `TCurrently{te2} ->
-        if eq.te(te1, te2) then return tf1 else return false end
+        if eq.te(gamma, te1, te2) then return tf1 else return false end
     | `TConst{te1}, `TConst{te2} ->
-        local te = this_op.te(te1, te2)
+        local te = this_op.te(gamma, te1, te2)
         if te then return `TConst{ te } else return false end
     | `TVar{ te1 }, `TConst{ te2 } | `TConst{ te2 }, `TVar{ te1 } ->
-        local te = this_op.te(te1, te2)
+        local te = this_op.te(gamma, te1, te2)
         if not te then return false end
         local tag = this_op.name == 'min' and 'TVar' or 'TConst'
         return { tag=tag; te }
@@ -135,8 +141,8 @@ end
 local min = { name='min' }
 local max = { name='max' }
 for _, k in ipairs{ 'te', 'tf', 'tebar', 'ts' } do
-    min[k] = |...| minmax[k] (min, max, ...)
-    max[k] = |...| minmax[k] (max, min, ...)
+    min[k] = |gamma, ...| minmax[k] (gamma, min, max, ...)
+    max[k] = |gamma, ...| minmax[k] (gamma, max, min, ...)
 end
 
 -- Substitutes occurences of `TId and `TIdbar with

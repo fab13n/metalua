@@ -12,7 +12,7 @@ function CONSTRAINT :add (var_name, val)
     | `TId{ name }, nil -> x = { vars={[name]=true}, bound=false }
     | t, { bound=false } -> x.bound=t; x=nil
     | t, nil -> x = { vars={ }; bound=t }
-    | t, { bound=b } -> x.bound=self.combine(b, t); x=nil
+    | t, { bound=b } -> x.bound=self.combine(self.gamma, b, t); x=nil
     end
     if x then self.content[var_name]=x end
 end
@@ -48,13 +48,13 @@ end
 function new_constraint(set_name, op_name, combine)
     checks('string', 'string', 'callable')
 
-    local function c2(a, b)
+    local function c2(gamma, a, b)
         local bound =
             op_name=='<:' and 'min' or
             op_name==':>' and 'max' or
             op_name=='='  and 'equality' or
             assert(false, "bad operator")
-        local r = combine(a, b)
+        local r = combine(gamma, a, b)
         if not r then
             error(string.format("No %s of %s and %s",
                                 bound, a2s(a), a2s(b)))

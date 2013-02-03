@@ -267,6 +267,7 @@ end
 
 function GAMMA :close()
     -- Check that upper bounds are indeed bigger than lower bounds
+    log('GAMMA', 'DEBUG', "Checking boundaries consistency")
     for v1 in self.te.sub_pos :get_vars() do
         local vars1, bound1 = self.te.sub_pos :get_content(v1)
         local vars2, bound2 = self.te.sub_neg :get_content(v1)
@@ -306,6 +307,11 @@ function gamma_new()
             eq      = new_constraint('TEBAR', '=',  cmp.eq.tebar),
             sub_pos = new_constraint('TEBAR', '<:', cmp.min.tebar),
             sub_neg = new_constraint('TEBAR', ':>', cmp.max.tebar) } }
+    for _, x in ipairs{ 'te', 'tebar' } do
+        for _, y in ipairs{ 'eq', 'sub_pos', 'sub_neg' } do
+            self[x][y].gamma = self
+        end
+    end
     return setmetatable(self, GAMMA)
 end
 
