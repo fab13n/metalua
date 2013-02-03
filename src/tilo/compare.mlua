@@ -131,9 +131,8 @@ end
 
 
 -- Create separate min and max operator families from minmax
-local min, max = { }, { }
-local min2 = { name='min' }
-local max2 = { name='max' }
+local min = { name='min' }
+local max = { name='max' }
 for _, k in ipairs{ 'te', 'tf', 'tebar', 'ts' } do
     min[k] = |...| minmax[k] (min, max, ...)
     max[k] = |...| minmax[k] (max, min, ...)

@@ -325,7 +325,10 @@ function typeof.Index(gamma, t, k)
     match tt with
     | `TDyn -> -- pass
     | `TId{ name } ->
-        local v = fresh_tvar(name..'_idx')
+        local suffix = 'idx'
+        if k.tag=='String' and string['match'](k[1], "^[A-Za-z0-9_]+$")
+        then suffix=k[1] end
+        local v = fresh_tvar(name..'_'..suffix)
         local tt_max = `TTable{ `TField, {`TPair{ k, `TConst{ v }}} }
         -- It should work with `TCurrently as well, but such fields
         -- aren't normally hidden in a `TId.
