@@ -44,6 +44,9 @@ function GAMMA :eq_tebar(tebar1, tebar2)
     checks('gamma', 'tebar', 'tebar')
     match tebar1, tebar2 with
     | `TIdbar{ name }, `TIdbar{ name } -> -- pass
+    | `TIdbar{ name1 }, `TIdbar{ name2 } ->
+        self.tebar.eq :add(name1, tebar2)
+        self.tebar.eq :add(name2, tebar1)
     | `TIdbar{ name }, tebar | tebar, `TIdbar{ name } ->
         self.tebar.eq :add(name, tebar)
     | `TDynbar, _  | _, `TDynbar -> -- pass
@@ -77,17 +80,21 @@ function GAMMA :eq_te(te1, te2)
     | `TDyn, _ | _, `TDyn -> -- pass
     | `TId{ name }, `TId{ name } -> -- pass
     | `TId{ n1 }, `TId{ n2 } -> -- n1 ~= n2
+        -- TODO: determine if symmteric equality has consequences on transitive closure
         local p1, p2 = self.prim_types[n1], self.prim_types[n2]
-        if p1 and p2 then  type_error ('te', te1, '=', te2)
-        elseif p1 and not p2 then  self.te.eq :add (n2, te1)
-        else self.eq :add (n1, te2) end
-    | `TId{ name }, te | te, `TId{ name } ->
+        if p1 and p2 then  type_error ('te', te1, '=', te2) end
+        if not p1 then self.te.eq :add (n1, te2) end
+        if not p2 then self.te.eq :add (n2, te1) end
+    | `TId{ name }, te | te, `TId{ name } -> -- te isn't a TId nor a TDyn
         if self.prim_types[name] then type_error ('te', te1, '=', te2)
         else self.te.eq :add(name, te) end
     | `TTable{...}, `TTable{...} ->
         for tf1, tf2 in field_pairs(te1, te2) do
             self :eq_tf (tf1, tf2)
         end
+    | `TFunction{ tebar_1a, tebar_1b }, `TFunction{ tebar_2a, tebar_2b } ->
+        self :eq_tebar(tebar_1a, tebar_2a)
+        self :eq_tebar(tebar_1b, tebar_2b)
     | _, _ -> type_error ('te', te1, '=', te2)
     end
 end
@@ -103,12 +110,15 @@ function GAMMA :sub_tebar(tebar1, tebar2)
     | `TDynbar, _ | _, `TDynbar -> -- pass
     | `TIdbar{ name }, `TIdbar{ name } -> -- pass
     | _, _ if tebar1.tag==nil and tebar2.tag==nil ->
-    --| {tag=nil}, {tag=nil} -> --bug in match?!
+        --| {tag=nil}, {tag=nil} -> --bug in match?!
         for i=1, math.max(#tebar1, #tebar2) do
             local te1 = tebar1[i] or `TId 'nil'
             local te2 = tebar2[i] or `TId 'nil'
             self :sub_te(te1, te2)
         end
+    | `TIdbar{ name1 }, `TIdbar{ name2 } ->
+        self.tebar.sub_pos :add (name1, tebar2)
+        self.tebar.sub_neg :add (name2, tebar1)
     | `TIdbar{ name }, tebar ->
         self.tebar.sub_pos :add(name, tebar)
     | tebar, `TIdbar{ name } ->
@@ -127,12 +137,14 @@ function GAMMA :sub_te(te1, te2)
     match te1, te2 with
     | `TDyn{...}, _ | _, `TDyn{...} -> -- pass
     | `TId{ name }, `TId{ name } -> -- pass
+    | `TId{ name1 }, `TId{ name2 } ->
+        local p1 = self.prim_types[name1]
+        local p2 = self.prim_types[name2]
+        if p1 and p2 then type_error('te', te1, "<:", te2) end
+        if not p1    then self.te.sub_pos :add (name1, te2) end
+        if not p2    then self.te.sub_neg :add (name2, te1) end
     | `TId{ name }, te if not self.prim_types[name]->
-        if te.tag=='TId' and self.prim_types[te[1]]
-        then self.te.eq :add (name, te) -- `x<:prim` only possible if `x=prim`
-        else self.te.sub_pos :add(name, te) end
-    | `TId{ a }, `TId{ b } if self.prim_types[a] and self.prim_types[b] ->
-        type_error('te', te1, '<:', te2)
+        self.te.sub_pos :add(name, te)
     | te, `TId{ name } ->
         self.te.sub_neg :add(name, te)
     | `TFunction{ args1, res1 }, `TFunction{ args2, res2 } ->
@@ -242,13 +254,13 @@ end
 
 function GAMMA :tostring()
 
-    local r = { "Gamma:" }
-    local function acc(...) 
+    local r = { "# Gamma:", "## Constraints:"}
+    local function acc(...)
         local line = table.concat{...}
         if line ~= '' then table.insert(r, line) end
     end
 
-    for _, k in ipairs{ 
+    for _, k in ipairs{
         self.te.eq, self.te.sub_pos, self.te.sub_neg,
         self.tebar.eq,  self.tebar.sub_pos, self.tebar.sub_neg } do
         acc(k :tostring())
@@ -259,40 +271,55 @@ function GAMMA :tostring()
         table.sort(sharps)
         acc('  non-linear variable types: ', table.concat(sharps, ', '))
     end
+    acc "## Variable types:"
     for name, cell in pairs(self.var_types) do
-        acc ('  ', name, ': ', a2s(cell.type))
+        acc (name, ': ', a2s(cell.type))
     end
+    acc "# End of gamma"
     return table.concat(r, '\n')
 end
 
-function GAMMA :close()
-    -- Check that upper bounds are indeed bigger than lower bounds
-    log('GAMMA', 'DEBUG', "Checking boundaries consistency")
-    for v1 in self.te.sub_pos :get_vars() do
-        local vars1, bound1 = self.te.sub_pos :get_content(v1)
-        local vars2, bound2 = self.te.sub_neg :get_content(v1)
-        if bound1 and bound2 then self :sub_te(bound2, bound1) end
-    end
-    for v1 in self.tebar.sub_pos :get_vars() do
-        local vars1, bound1 = self.tebar.sub_pos :get_content(v1)
-        local vars2, bound2 = self.tebar.sub_neg :get_content(v1)
-        if bound1 and bound2 then self :sub_tebar(bound2, bound1) end
-    end
-    -- TODO: transform var/var inequalities into equalities
-end
 
-function GAMMA :simplify(t)
-    checks('gamma', 'te|tf|ts')
-    match t with
-    | `TId{ name } -> 
-        local vars1, bound1 = self.tebar.sub_pos :get_content(v1)
-        local vars2, bound2 = self.tebar.sub_neg :get_content(v1)
-        if bound1 and bound2 then self :sub_tebar(bound2, bound1) end
+function GAMMA :close()
+
+    -- Check that a<:b when x:>a and x<:b
+    -- TODO: also check equality's consistency when applicable
+    log('GAMMA', 'DEBUG', "Checking boundaries consistency")
+    for relation, set in pairs{sub_te=self.te; sub_tebar=self.tebar} do
+        --print("***"..relation)
+        --table.print(set.eq.content, 1)
+        for v1 in set.sub_pos :get_vars() do
+            local vars1, bound1 = set.sub_pos :get_content(v1)
+            local vars2, bound2 = set.sub_neg :get_content(v1)
+            if bound1 and bound2 then self[relation](self, bound2, bound1) end
+        end
+    end
+
+    -- Turn boundaries into equalities when there's no equality
+    log('GAMMA', 'DEBUG', "Changing some '<:' into '='.")
+    for _, set in ipairs{ self.te; self.tebar } do
+        for _, constraint in ipairs{ set.eq, set.sub_pos, set.sub_neg } do
+            for v in constraint :get_vars() do
+                local vars1, bound1 = set.eq :get_content(v)
+                local vars2, bound2 = set.sub_pos :get_content(v)
+                local vars3, bound3 = set.sub_neg :get_content(v)
+                local x = bound1 or bound2 or bound3
+                if not x then x = vars2 and next(vars2) or vars3 and next(vars3)
+                    if x then x=`TId{x} end
+                end
+                if x then set.eq :add (v, x) end
+            end
+        end
     end
 end
 
 --- Empty environmnent constructor
 function gamma_new()
+    -- cmp.eq.* return true/false. To use them as min/max like operators,
+    -- they need to return false when the two terms are different, and
+    -- one of the terms when they're equal. `f` transforms the former kind
+    -- of equality operators into the latter.
+    local f = |eq| |gamma, a, b| eq(gamma, a, b) and a or false
     local self = {
         prim_types = { number=1, string=1, boolean=1, ['nil']=1 },
         stacked_frames = { },
@@ -300,11 +327,11 @@ function gamma_new()
         var_types = { },
         te = {
             sharp = { },
-            eq      = new_constraint('TE', '=',  cmp.eq.te),
+            eq      = new_constraint('TE', '=',  f(cmp.eq.te)),
             sub_pos = new_constraint('TE', '<:', cmp.min.te),
             sub_neg = new_constraint('TE', ':>', cmp.max.te) },
         tebar = {
-            eq      = new_constraint('TEBAR', '=',  cmp.eq.tebar),
+            eq      = new_constraint('TEBAR', '=',  f(cmp.eq.tebar)),
             sub_pos = new_constraint('TEBAR', '<:', cmp.min.tebar),
             sub_neg = new_constraint('TEBAR', ':>', cmp.max.tebar) } }
     for _, x in ipairs{ 'te', 'tebar' } do

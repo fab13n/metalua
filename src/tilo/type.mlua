@@ -345,12 +345,11 @@ function typeof.Index(gamma, t, k)
 end
 
 function typeof.Function(gamma, params, body, annots)
-    checks('gamma', 'vbar', 'sbar', 'table')
-    local tebar_params = { }
+    checks('gamma', 'vbar', 'sbar', 'table')    local tebar_params = { }
     gamma :enter_frame()
     for i, var in ipairs(params) do
         local name  = var[1]
-        local te    = annots[i] or `TDyn
+        local te    = annots[i] or fresh_tvar('arg')
         gamma :new_var(name, `TVar{ te })
         tebar_params[i] = te
     end
@@ -366,11 +365,14 @@ function typeof.Function(gamma, params, body, annots)
     return `TFunction{ tebar_params, tebar_result }
 end
 
+-- Computes sigma in gamma |- assign(ell, new_tf) = sigma
+--
 -- ell: left-hand-side term receiving the assignment
 -- old_tf: type of ell before assignment
 -- new_tf: future type of ell after assignment
 function assign(gamma, ell, old_tf, new_tf)
     checks('gamma', 'ell', 'tf', 'tf')
+    --printf("Compute gamma |- assign(%s, %s), old_tf=%s", a2s(ell), a2s(new_tf), a2s(old_tf))
     match old_tf, new_tf with
     | `TVar{ te1 }, `TVar{ te2 } ->
         gamma :eq_te (te1, te2)
@@ -398,11 +400,17 @@ end
 function assign_index(gamma, etable, ekey, new_tf)
     checks('gamma', 'e', 'e', 'tf')
     local old_tf_table = typeof.ell(gamma, etable)
+    printf("Compute gamma |- assign(%s[%s], %s), old_etable=%s",
+           a2s(etable), a2s(ekey), a2s(new_tf), a2s(old_tf_table))
     match old_tf_table with
     | `TCurrently{ `TTable{ ... } == tt } ->
         local new_tf_table = `TCurrently{ set_field_type(tt, ekey, new_tf) }
         assign(gamma, etable, old_tf_table, new_tf_table)
-    | _ -> error ("Don't know how to change a field type in "..old_tf_table)
+    | `TVar{ `TTable{ ... } == tt } ->
+        local new_tf_table = `TCurrently{ set_field_type(tt, ekey, new_tf) }
+        gamma :sub_tf (new_tf_tabe, old_tf_table)
+    | `TCurrently{ `TDyn } | `TVar{ `TDyn } -> -- pass, it stays a `TDyn
+    | _ -> error ("Don't know how to change a field type in "..a2s(old_tf_table))
     end
 end
 

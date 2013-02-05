@@ -3,13 +3,14 @@ CONSTRAINT.__index = CONSTRAINT
 CONSTRAINT.__type  = 'gamma.constraint'
 
 function CONSTRAINT :add (var_name, val)
-    checks('gamma.constraint', 'string', 'table')
+    checks('gamma.constraint', 'string', 'te|tebar')
     log('CONSTRAINT', 'DEBUG', "%s: %s %s %s",
         self.set_name, var_name, self.op_name, a2s(val))
     local x = self.content[var_name]
+    local isnt_prim = val.tag=='TId' and not self.gamma.prim_types[val[1]]
     match val, x with
-    | `TId{ name }, { vars=v } -> v[name]=true; x=nil
-    | `TId{ name }, nil -> x = { vars={[name]=true}, bound=false }
+    | `TId{ name }, { vars=v } if isnt_prim -> v[name]=true; x=nil
+    | `TId{ name }, nil if isnt_prim -> x = { vars={[name]=true}, bound=false }
     | t, { bound=false } -> x.bound=t; x=nil
     | t, nil -> x = { vars={ }; bound=t }
     | t, { bound=b } -> x.bound=self.combine(self.gamma, b, t); x=nil
@@ -40,9 +41,81 @@ function CONSTRAINT :tostring()
         elseif #v==1 then
             acc(name, " ", self.op_name, " ", v[1])
         end
-        if x.bound then acc(name, " ", self.op_name, a2s(x.bound)) end
+        if x.bound then acc(name, " ", self.op_name, " ", a2s(x.bound)) end
     end
     return table.concat(r, "\n")
+end
+
+-- Builds a list of directly connected variable names 
+-- (name -> name list) out a a gamma.constraint.
+local function get_synonyms(constraint)
+    checks('gamma.constraint')
+
+    local synonyms = { } -- name -> name set
+    for v1 in constraint :get_vars() do
+        local vars, _ = constraint :get_content(v1)
+        for v2 in pairs(vars) do
+            local synonyms_v1=synonyms[v1]
+            if synonyms_v1 then synonyms_v1[v2]=true
+            else synonyms[v1]={ [v1]=true, [v2]=true } end
+        end
+    end
+    return synonyms
+end
+
+-- Get the transitive closure of a synonyms set as returned by
+-- `get_synonyms`. If the constraints represents equality, the
+-- resulting sets are the equivalence classes induced by the equality.
+-- (this implementation should be faster than Warshall's algorithm
+-- for graphs with few edges)
+local function close_synonyms(synonyms)
+    if not next(synonyms) then return { } end
+    repeat
+        local again=false
+        for v1, synonyms_v1 in pairs(synonyms) do
+            for v2 in pairs(synonyms_v1) do
+                local synonyms_v2 = synonyms[v2]
+                if v1~=v2 and synonyms_v2 then
+                    again=true
+                    for v3 in pairs(synonyms_v2) do 
+                        synonyms_v1[v3]=true
+                    end
+                    synonyms[v2] = nil -- remove them from v2
+                end
+            end
+        end
+    until not again
+end
+
+-- Convert closed synonyms table (var_name -> var_name set)
+-- into a (var_name -> term) substitution.
+local function synonyms2sigma(synonyms, constraint)
+    local name2term = { }
+    --print"SYNO:"table.print(synonyms)
+    for v1 in constraint :get_vars() do
+        local t = nil
+        local synonyms_v1 = synonyms[v1] or {[v1]=true}
+        for v2 in pairs(synonyms_v1) do
+            local _, bound = constraint :get_content (v2)
+            if bound then
+                if t and not cmp.eq.ast(t, bound) then error "multiple bounds not implemented"
+                else t = bound end
+            end
+        end
+        t = t or `TId{ v1 }
+        --printf("TO T2N: %s -> %s", table.tostring(synonyms_v1), a2s(t))
+        for v2 in pairs(synonyms_v1) do 
+            if t.tag~='TId' or t[1]~=v1 then name2term[v2]=t end
+        end
+    end
+    --print"N2T:" table.print(name2term)
+    return name2term
+end
+
+function CONSTRAINT :get_sigma()
+    local synonyms = get_synonyms(self)
+    close_synonyms(synonyms)
+    return synonyms2sigma(synonyms, self)
 end
 
 function new_constraint(set_name, op_name, combine)
@@ -59,7 +132,7 @@ function new_constraint(set_name, op_name, combine)
             error(string.format("No %s of %s and %s",
                                 bound, a2s(a), a2s(b)))
         else
-            -- local a2s=table.tostring
+            --local a2s=table.tostring
             log('CONSTRAINT', 'DEBUG', "%s(%s, %s) = %s",
                 bound, a2s(a), a2s(b), a2s(r))
             return r

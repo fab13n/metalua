@@ -153,18 +153,25 @@ end
 -- ==> `Op{ 'add', `String "FOO", `TId 'y' }
 local function subst(term, sigma)
     checks('!', 'table')
-    if type(term)=='table'
-    and (term.tag=='TId' or term.tag=='TIdbar') then
+    if type(term)~='table' then return term end
+    if term.tag=='TId' or term.tag=='TIdbar' then
         local new_subterm = sigma[term[1]]
-        return new_subterm or term
+        if new_subterm then
+            --local tmp = new_subterm
+            new_subterm = subst (new_subterm, sigma) -- TODO: cache it
+            --printf("SUBST %s -> %s -> %s", term[1], a2s(tmp), a2s(new_subterm))
+            return new_subterm or term
+        end
     end
-    local changed, result = false
-    for i, item in ipairs(where) do
-        local new_item = subst(item, sigma)
-        changed = changed or item==new_item
-        result[i] = new_item
+    local changed, result = false, { tag=term.tag }
+    for i, item in ipairs(term) do
+        if type(item)=='table' then
+            local new_item = subst(item, sigma)
+            changed = changed or item~=new_item
+            result[i] = new_item
+        end
     end
-    return changed and result or where
+    return changed and result or term
 end
 
 return { eq=eq, min=min, max=max, subst=subst }
