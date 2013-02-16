@@ -47,7 +47,7 @@ function CONSTRAINT :tostring()
 end
 
 -- Builds a list of directly connected variable names 
--- (name -> name list) out a a gamma.constraint.
+-- (name -> name set) out a a gamma.constraint.
 local function get_synonyms(constraint)
     checks('gamma.constraint')
 
@@ -85,6 +85,13 @@ local function close_synonyms(synonyms)
             end
         end
     until not again
+    for canon, synonyms in pairs(synonyms) do
+        local line = { canon, "=" }
+        for s, _ in pairs(synonyms) do
+            table.insert(line, s)
+        end
+        log('CONSTRAINT', 'DEBUG', "Synonyms: %s", table.concat(line, " "))
+    end
 end
 
 -- Convert closed synonyms table (var_name -> var_name set)

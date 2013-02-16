@@ -1,0 +1,91 @@
+fresh_idx = 0
+
+local M = { }
+
+function M.fresh_tvar(prefix)
+    fresh_idx = fresh_idx + 1
+    return `TId{ prefix .. '_' .. fresh_idx }
+end
+
+function M.fresh_tbarvar(prefix)
+    fresh_idx = fresh_idx + 1
+    return `TIdbar{ prefix .. '_' .. fresh_idx }
+end
+
+-- Test two primitive terms for equality
+-- Todo: make local ?
+function M.prim_equal(k1, k2)
+    checks('p', 'p')
+    if k1.tag ~= k2.tag then return false end
+    if #k1 ~= #k2 then return false end
+    for i=1, #k1 do if k1[i] ~= k2[i] then return false end end
+    return true
+end
+
+
+-- Return the field type associated with key `k` in type `ttable`
+function M.get_field_type(ttable, k)
+    checks('te', 'p')
+    local tf_default, tf_pairs = unpack(ttable)
+    for _, p in ipairs(tf_pairs) do
+        local k_candidate, tf_candidate = unpack(p)
+        if M.prim_equal(k_candidate, k) then return tf_candidate end
+    end
+    return tf_default
+end
+
+-- Return a type equal to table type `ttable`, except that field `k`
+-- is associated with field type `new_tf`.
+function M.set_field_type(ttable, k, new_tf)
+    checks('te', 'p', 'tf')
+    local tf_default, tf_pairs = unpack(ttable)
+    local new_pairs, new_item, found = { }, `TPair{ k, new_tf }, false
+    for i, item in ipairs(tf_pairs) do
+        local k_candidate, tf_candidate = unpack(item)
+        if M.prim_equal(k_candidate, k) then
+            new_pairs[i], found = new_item, true
+        else new_pairs[i] = item end
+    end
+    if not found then table.insert(new_pairs, new_item) end
+    return `TTable{ tf_default, new_pairs }
+end
+
+-- Return an iterator on pairs of fields from two tables, sorted by key.
+-- `for tf_left, tf_right, key in field_pairs(table_left, table_right) do ... end`
+function M.field_pairs(t1, t2)
+    checks('te', 'te')
+    assert(t1.tag=='TTable' and t2.tag=='TTable')
+    local def1, pairs1 = unpack(t1)
+    local def2, pairs2 = unpack(t2)
+    local can1, can2 = { }, { }
+    local keys = { }
+    -- TODO move canonize out?
+    local function canonize(p)
+        local k = p[1] and p.tag..' '..p[1] or p.tag
+        keys[k] = p
+        return k
+    end
+    local r = { { def1, def2, false } }
+    for _, p   in ipairs (pairs1) do can1[canonize(p[1])] = p[2] end
+    for _, p   in ipairs (pairs2) do can2[canonize(p[1])] = p[2] end
+    for k, tf1 in pairs(can1) do table.insert(r, {tf1, can2[k] or def2, keys[k]}) end
+    for k, tf2 in pairs(can2) do if not can1[k] then table.insert(r, {def1, tf2, keys[k]}) end end
+    local i=0
+    return function()
+        i=i+1; local p=r[i]; if p then return unpack(p) end
+    end
+end
+
+function M.table_map(te1, f)
+    checks('te', 'function')
+    assert(te1.tag=='TTable')
+    local def1, fields1 = unpack(te1)
+    local fields2 = { }
+    for i, p in pairs(fields1) do
+        local k, tf = unpack(p)
+        fields2[i] = `TPair{k, f(tf) }
+    end
+    return `TTable{ f(def1), fields2 }
+end
+
+return M

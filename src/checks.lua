@@ -36,3 +36,5 @@ function checks(...)
         end
     end
 end
+
+return checks

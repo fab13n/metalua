@@ -1,21 +1,15 @@
 -{ extension 'match' }
 
+log = require 'log'
 cmp = require 'tilo.compare'
 a2s = require 'metalua.compiler.ast_to_src'
 new_constraint = require 'tilo.constraint'
 
-function log(mod, level, fmt, ...)
-    local args = {...}
-    for k, v in pairs(args) do 
-        if type(v)=='table' then args[k]=table.tostring(v) end
-    end
-    local msg = string.format(fmt, unpack(args))
-    printf("[%s]\t%s", mod, msg)
-end
-
 GAMMA = { }
 GAMMA.__index = GAMMA
 GAMMA.__type  = 'gamma'
+
+log.setlevel 'ALL'
 
 -- Checks whether a value of type `tf_r` can be held in a field of
 -- type `tf_l`.

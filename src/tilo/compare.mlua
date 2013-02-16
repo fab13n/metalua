@@ -2,6 +2,8 @@
 
 -{extension 'match'}
 
+local u = require 'tilo.termutils'
+
 local eq = { }
 
 -- Structural equality between arbitrary ASTs. No semantic awareness,
@@ -25,7 +27,7 @@ function eq.te(gamma, a, b)
         return eq.tebar(gamma, pa, pb) and eq.tebar(gamma, ra, rb)
     | `TTable{ da, pa }, `TTable{ db, pb } ->
         if not eq.tf(gamma, da, db) then return false end
-        for tfa, tfb, k in field_pairs(a, b) do
+        for tfa, tfb, k in u.field_pairs(a, b) do
             if not eq.tf(gamma, tfa, tfb) then return false end
         end
         return true, { }
@@ -82,7 +84,7 @@ function minmax.te(gamma, this_op, opposite_op, a, b)
         local def_c = this_op.tf(gamma, def_a, def_b)
         if not def_c then return false end
         local pairs_c = { }
-        for tf_a, tf_b, k in field_pairs(a, b) do
+        for tf_a, tf_b, k in u.field_pairs(a, b) do
             local tf_c = this_op.tf(gamma, tf_a, tf_b)
             if not tf_c then return false
             elseif not eq.tf(gamma, tf_c, def_c) then
