@@ -1,0 +1,42 @@
+%-*-mode:latex; eval:(whizzytex-mode);-*-
+%; whizzy-master lucal.tex
+
+\section{Gradual typing extension}
+
+This section extends the type system with the dynamic type
+$\star$. Its integration with the static type system is done through
+gradual typing, in a way similar to several such integrations. The
+concept of gradual typing is introduced in \cite{XXX}; its sound
+integration with subtyping among dynamic types is studied in
+\cite{XXX}. Several papers explore the ability to integrate it with
+type inference \cite{xxx}\cite{xxx}.
+
+The fundamental principle is that a dynamic type $\star$ is
+introduced; terms typed dynamically are ``trusted'' by the
+type-checker, i.e. they can be used in any typing context. The formal
+definition of this is based on a compatibility equivalence
+relationship $\sim$, which states that two types can be made equal
+through a substitution of $\star$ occurrences in both of them. For
+instance, we have $\Tnumber\sim\star$, $\Tnumber\sim\Tnumber$ and
+$(\Tnumber\rightarrow\star)\sim(\star\rightarrow\Nil)$, but
+$\Tnumber\nsim\Tstring$, $\Tnumber\nsim[\Tconst \star]$ and
+$(\Tnumber\rightarrow\star)\nsim(\Tstring\rightarrow\Nil)$.
+
+The compatibility relationship is orthogonal with subtyping; however,
+by applying the subtyping relationship to the equivalence classes
+defined by compatibility, one gets the partial order $\lesssim$: 
+
+$$
+\frac{
+\T T_1 <: \T T_2
+\quad
+\T T_2 \sim \T T_3
+}{
+\T T_1 \lesssim \T T_3
+}
+$$
+
+We'll introduce two dynamic types: one for expressions $\star_{\T E}$,
+and one for expression types $\star_{\bar{\T E}}$. Some rules will
+have to be rewritten to use $\lesssim$ instead of $<:$, some will be
+added to support $\star$ types,

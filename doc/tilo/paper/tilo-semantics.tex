@@ -1,0 +1,559 @@
+%-*-mode:latex; eval:(whizzytex-mode);-*-
+%; whizzy-master tilo.tex
+
+\section{Calculus}
+
+This section defines a calculus, intended to capture Lua's defining
+features. A compromise shall be found between faithfulness to Lua,
+simplicity of the semantic rules, and ability to support a type
+system.
+
+\subsection{Notations}
+\begin{itemize}
+
+\item
+  $\Sigma[x\leftarrow y]$, with $\Sigma$ a mathematical function,
+  denotes the function which to $x$ associates $y$, and to all other
+  values $x'$ associates $\Sigma(x')$ if defined.
+
+\item
+  $E[v\leftarrow E']$, with $E$ and $E'$ terms, and $v$ a variable
+  possibly occurring in $E$, denotes the term $E$ in which all
+  occurrences of $v$ are replaced with $E'$.
+
+\item
+  If $E$ denotes an element of a given kind, $\bar E$ denotes a
+  sequence of such elements. A sequence has zero, one or several
+  elements, which are ordered and not necessarily unique.
+
+\item
+  $\varnothing$ denotes an empty sequence. When it enhances
+  understanding, it can be subscripted with the type of elements the
+  sequence might have contained. For instance, an empty sequence of
+  expressions might be denoted either $\varnothing$ or
+  $\varnothing_E$.
+
+\item
+  $(x_n)^{\forall n\in[1...m]}$ denotes the sequence of all elements
+  $x_n$ for successive values of $n$ $1, 2, ..., m$. Boundaries $1$
+  and $m$ are inclusive.
+
+\item
+  Sequences are concatenated with a semicolon between parentheses:
+  $(\bar E_1;\bar E_2)$. They can also be concatenated with single
+  elements: $(E; \bar E)$.
+
+\end{itemize}
+
+\subsection{Terms definition}
+
+In a first step, we'll introduce a calculus which captures Lua's
+defining features, such as tables, functions, multi-value returns,
+local variables. We will not deal with classic structures
+(if/then/else statements, for loops etc.) which can be added later in
+a rather straightforward way.
+
+We also won't explicitly support features which can be easily
+encoded. ``{\tt ...}'' trailing function arguments, method
+invocations, globals, combined local variable declaration+assignment
+are intentionally left out of the calculus.
+
+We'll also consider it mandatory for function bodies to end with a
+$\Return{\Nil}$, to save a specific rule about non-returning
+functions (the Lua compiler performs this transformation for the same
+reason).
+
+Finally, we distinguish function applications as expressions $f(\bar
+x)_E$ and as statements $f(\bar x)_S$: the latter discard whatever
+value they might have returned. This distinction is trivial to do when
+encoding a program into the calculus, and simplifies the calculus'
+semantic rules.
+
+$$
+\begin{array}{rcll}
+E &::=& L & \eqlabel{E-Left} \\
+  &|&   P & \eqlabel{E-Primitive} \\
+  &|&   E(\bar E)_E & \eqlabel{E-Apply} \\
+  &|&   \Function{\bar v}{\bar S}  & \eqlabel{E-Function} \\
+  &|&   \Table{ ([E^k_n]=E^v_n)^{\forall n\in[1...m]} } & \eqlabel{E-Table} \\
+~\\
+L &::=& v & \eqlabel{E-Variable} \\
+  &|&   E[E] & \eqlabel{E-Index} \\
+~\\
+P &::=& \langle\textrm{string}\rangle & \eqlabel{E-String} \\
+  &|&   \langle\textrm{number}\rangle & \eqlabel{E-Number} \\
+  &|&   \texttt{true} & \eqlabel{E-True} \\
+  &|&   \texttt{false} & \eqlabel{E-False} \\
+  &|&   \texttt{nil} & \eqlabel{E-Nil} \\
+  &|&   t & \eqlabel{E-TableRef} \\
+  &|&   f & \eqlabel{E-ClosureRef} \\
+~\\
+S &::=& \Local{\bar v} & \eqlabel{S-Local} \\
+  &|&   \bar L = \bar E & \eqlabel{S-Assign} \\
+  &|&   E(\bar E)_S & \eqlabel{S-Apply} \\
+  &|&   \Return \bar E & \eqlabel{S-Return} \\
+\end{array}
+$$
+
+Expression elements are sorted into categories:
+\begin{itemize}
+\item $S$ denotes statements;
+\item $E$ encompasses all expressions;
+\item $P$ denotes primary expressions: expressions which evaluate to
+  themselves, without side effect; we have $P\subset E$.
+\item $L$ denotes left-hand-side values, i.e. values which can legally
+  appear to the left of a $\bar L=\bar E$ assignment statement; we
+  have $L\subset E$ and $L\cap P=\{\ \}$.
+\end{itemize}
+
+Table and function references $t$ and $f$ aren't part of Lua: they are
+what tables and functions are evaluated to, so that the notion of
+identity and mutation sharing in the calculus remain faithful to Lua.
+
+\subsection{Semantics}
+
+We'll now describe how calculus terms are evaluated. We'll do so in
+big-step (``natural'') semantics, i.e. we give a proposition of the
+form ``$\textrm{assumptions} \vdash \textrm{term to evaluate} \evalsto
+\textrm{modified assumptions, fully evaluated term}$''. If no such
+reduction statement can be proved, then the term to evaluate is
+erroneous. This differs from small-step semantics, where one defines a
+single reduction step, and the evaluation of a program is defined as
+the repeated application of the reduction step until no more reduction
+is possible.
+
+More formally, the proposition $\Sigma_0, X_0\evalsto\Sigma_1, X_1$
+reads ``element $X_0$, when evaluated under environment $\Sigma_0$,
+reduces to $X_1$ and changes the environment into $\Sigma_1$''. To
+clarify rules, this operator has been separated into $\evalstoE,
+\evalstoEbar, \evalstoS, \evalstoSbar, \evalstoL, \evalstoLbar$
+depending on the kind of terms on which it operates.
+
+Rules will be presented the usual way in logic: as fraction bars, with
+the premises over the bar, and the proved conclusion under
+it. $a\ b\ c \over d$ means that proposition $d$ is proved if we can
+provide a proof of propositions $a$, $b$ and $c$ (the ``premises''). A
+rule with nothing above the line, such as ${}\over \ d\ $, is an
+axiom: a proposition considered true with no need for any further
+proof. A complete proof is therefore a tree of propositions, with the
+goal proposition as the tree's root, and axioms as its leaves.
+
+\paragraph{Identity of tables and closures}
+In Lua, tables and functions have an identity, i.e. two structurally
+equal tables are not equal, unless they're a shared reference to a
+same local variable (or table element) holding the same value.  For
+instance, in ``{\tt a=\{ \}; b=\{ \}}'', {\tt a} and {\tt b} are not
+equal. Similarly, extensionally equal functions are not equal in the
+Lua sense.
+
+To reflect this in the calculus, we'll let ({\it E-Function}) and
+({\it E-Table}) terms evaluate to a fresh reference $f$ or $t$ every
+time they're evaluated; the association between the reference and its
+definition will be kept in the environment store $\Sigma$. As a result,
+equality works in the calculus as in Lua; for instance, in ``{\tt a=\{
+  \}; b=a}'', {\tt a} and {\tt b} are indeed equal.
+
+Moreover, in order to make mutable variables and first class functions
+cohabit seamlessly, Lua defines up-values, i.e. local variables which
+outlive their syntactical scope. To faithfully represent this in the
+calculus, we'll perform an $\alpha$-renaming to fresh variable names
+every time we encounter a ``$\Local{\bar v}$'' statement. This way,
+all variables live forever in the calculus, although only up-values
+might be referred to out of their scope. Put otherwise, the formal
+calculus never performs garbage collection.
+
+\paragraph{Program environment}
+The program's environment, i.e. the assumptions under which a term is
+evaluated, is represented by a triplet of functions $(\Sigma^L,
+\Sigma^T, \Sigma^F)$. They keep track respectively of local variables'
+content, tables' content and closures. Since in most cases the details
+of the environment don't matter, the triplet is often shortened as
+$\Sigma$.
+
+Formally, the three functions have the following types:
+\begin{itemize}
+\item $\Sigma^L: v \mapsto P$ is a function from variable names 
+  to the evaluated expressions they hold;
+\item $\Sigma^T: (t\times P) \mapsto P$ is a function from
+  table references and key expressions, to the value expressions held
+  under this key in this table;
+\item $\Sigma^F: f \mapsto (\bar v \times \bar S)$ is a function from
+  function references $f$ to function definitions $\Function{\bar
+    v}{\bar S}$.
+\end{itemize}
+
+The environment could also be used capture I/O operations, to describe
+side effects other than variable value changes. This wouldn't
+significantly change the calculus' semantic properties, though, and
+hence will be left out.
+
+\paragraph{Assignment to environment}
+To properly define variable assignment, we'll need an operator
+$\Leftarrow$ on environments, which denotes the update of what's bound
+to variables and table fields in $\Sigma$. Indeed, an assignment
+statement can update a mix of local variables and table contents, so
+we need to describe the simultaneous update of $\Sigma^L$ and
+$\Sigma^T$. The operator $(\Sigma^L, \Sigma^T) \Leftarrow (\bar L,
+\bar P)$ is defined inductively as follows:
+%
+$$
+\begin{array}{rcll}
+%
+(\Sigma^L,\Sigma^T) \Leftarrow (\varnothing_L,\bar P) &=& (\Sigma^L,\Sigma^T) &\eqlabel{A-$\varnothing_L$}\\ 
+%
+(\Sigma^L,\Sigma^T) \Leftarrow (\bar L,\varnothing_P)
+&=&
+(\Sigma^L,\Sigma^T) \Leftarrow (\bar L, \Nil)
+&\eqlabel{A-$\varnothing_P$}\\
+%
+(\Sigma^L,\Sigma^T) \Leftarrow ((v;\bar L),(P;\bar P))
+&=&
+(\Sigma^L[v\leftarrow P], \Sigma^T) \Leftarrow (\bar L; \bar P)
+&\eqlabel{A-Local}\\
+%
+(\Sigma^L,\Sigma^T) \Leftarrow (t[P_k], \bar L; P_v, \bar P)
+&=&
+(\Sigma^L,\Sigma^T[(t,P_k)\leftarrow P_v]) \Leftarrow (\bar L; \bar P)
+&\eqlabel{A-Table}\\
+%
+\end{array}
+$$
+
+Intuitively, $\Leftarrow$ stores variable assignments in $\Sigma^L$
+and table writings in $\Sigma^T$, thanks to the two last rules (the
+two first ones are structural). It expects its third argument to be a
+list of left-values, i.e. either variables or indexing of a primitive
+term by another. As a notation facility, we'll allow to transparently
+pass an extra $\Sigma^F$ argument to $\Leftarrow$. This lets use it
+directly on complete environments $\Sigma$. Formally, the operator is
+overloaded as follows:
+%
+$$(\Sigma^L,\Sigma^T,\Sigma^F) \Leftarrow (\bar L,\bar P) =
+(\Sigma^L_\star,\Sigma^T_\star,\Sigma^F)
+\textrm{ iff }
+(\Sigma^L,\Sigma^T) \Leftarrow (\bar L, \bar P) =
+(\Sigma^L_\star,\Sigma^T_\star)
+$$.
+%
+\todo{ forbid $E_L[\Nil]=E_R$ }
+
+\paragraph{Statements sequences evaluation}
+
+$\varnothing_S$ denotes an empty sequence of statements. It is also the
+result of a sequence which didn't return anything:
+
+$$\frac{
+}{
+\Sigma, \varnothing_S \evalstoSbar \Sigma, \varnothing_S
+}
+\quad(\textit{ES-}\varnothing)$$
+
+\noindent
+If the first element of a sequence doesn't evaluate into a {\tt
+  return}, then the result of the sequence is that of the following
+statements (plus any side effect caused on $\Sigma$ by the first
+statement):
+
+$$\frac{
+\Sigma, S^1 \evalstoS \Sigma_1, \varnothing
+\quad
+\Sigma_1, \bar S \evalstoSbar \Sigma_2, S^\star
+}{
+\Sigma, (S^1;\bar S) \evalstoSbar \Sigma_2, S^\star
+}
+\quad(\textit{ES-$\bar\varnothing$})$$
+
+\noindent
+However, if a statement evaluates to {\tt return},
+the rest of the sequence isn't evaluated:
+
+$$\frac{
+\Sigma, S^1 \evalstoS \Sigma_1, \Return{\bar P}
+}{
+\Sigma, (S^1;\bar S) \evalstoSbar \Sigma_1, \Return{\bar P}
+}
+\quad(\textit{ES-}\overline{\tt return})$$
+
+\paragraph{Statements}
+
+\subparagraph{Return statements}
+Return statements evaluate their returning values. When a function
+body evaluates to $\Return{\bar P}$, it will be ``unwrapped'' back
+into a $\bar P$ by ({\it EE-Apply}).
+%
+$$\frac{
+\Sigma, \bar E \evalstoEbar \Sigma_1, \bar P
+}{
+\Sigma, \Return{\bar E} \evalstoS \Sigma_1, \Return{\bar P}
+}
+\quad(\textit{ES-Return})$$
+
+\subparagraph{Local variables creation}
+Local variable creations are immediately $\alpha$-renamed:
+%
+$$\frac{
+\left(\Sigma^L\left[\bar w \leftarrow\overline\Nil\right],\Sigma^T,\Sigma^F\right), 
+\bar S[\bar v \leftarrow \bar w]
+\evalstoSbar \Sigma_1, S^\star
+\quad
+\bar w \textrm{\ free in }\Sigma^L
+}{
+(\Sigma^L,\Sigma^T,\Sigma^F), (\Local{\bar v}; \bar S)
+\evalstoSbar \Sigma_1, S^\star
+}\quad\eqlabel{ES-Local}$$
+
+\noindent
+The point is to handle upvalues (references to variables defined
+outside of the function body) correctly. Consider for instance the
+following program, featuring an up-value {\tt u}:
+\begin{verbatim}
+local u=1
+local f = function(x)
+  u=u+1
+  return x+u
+end
+_ENV["a"], _ENV["b"] = f(1), f(2)
+\end{verbatim}
+
+\noindent
+The first line {\tt local u} will be evaluated only once, and
+therefore occurrences of {\tt u} in {\tt f} will all be
+$\alpha$-renamed to the same fresh variable: they will indeed be
+shared as expected. Conversely, in the following program:
+
+\begin{verbatim}
+local f = function(x)
+  local u; u=1
+  u=u+1
+  return x+u
+end
+_ENV["a"], _ENV["b"] = f(1), f(2)
+\end{verbatim}
+
+The {\tt local u} statement will be evaluated twice, each time being
+renamed in a different fresh variable, and no sharing can occur.
+
+Evaluation of assignment contains a subtlety: the value-receiving
+fields and variables, on the left of the ``$=$'' sign, must not be
+fully evaluated. Instead, they need to be reduced to a ``left-normal''
+form (variables or index to a table), which is done by a distinct
+evaluation operator $\evalstoLbar$; once both left and right sides of
+``$=$'' are evaluated, modifying the environment adequately is left to
+the $\Leftarrow$ operator defined above:
+
+$$
+\frac{
+\Sigma, \bar L \evalstoLbar \Sigma_1, \bar L^\star
+\qquad
+\Sigma_1, \bar E \evalstoEbar \Sigma_2, \bar P
+}{
+\Sigma_1, \bar L = \bar E
+\evalstoS
+(\Sigma_2\Leftarrow (\bar L^\star, \bar P)), \varnothing_S
+}\quad(\textit{ES-Assign})
+$$
+
+We'll define $\evalstoLbar$ in terms of $\evalstoL$, which operates on
+a single expression. Variables are considered fully evaluated when the
+occur on the left of ``$=$'':
+
+$$
+\frac{
+}{
+\Sigma, v \evalstoL \Sigma, v
+}\eqlabel{EL-v}$$
+
+Indexed values have the table and its key evaluated, but the
+field-content-accessing operation isn't performed:
+
+$$
+\frac{
+\Sigma, E_T \evalstoE \Sigma_1, (P_T^1;\bar P_T)
+\qquad
+\Sigma_1, E_k \evalstoE \Sigma_2, (P_k^1;\bar P_k)
+}{
+\Sigma, E_T[E_k] \evalstoL \Sigma_2, P_T^1[P_k^1]
+}\eqlabel{EL-Index}$$
+
+With this we can easily define $\evalstoLbar$, which chains $\evalstoL$
+operations by stringing their environment modifications together:
+
+$$
+\frac{
+\Sigma, L_1 \evalstoL \Sigma_1, L_1^\star
+\qquad
+\Sigma_1, \bar L \evalstoLbar \Sigma_2, \bar L^\star
+}{
+\Sigma, (L_1;\bar L) \evalstoLbar \Sigma_2, (L_1^\star; \bar L^\star)
+}\eqlabel{EL-$\bar L$}
+\qquad
+\frac{}{\Sigma, \varnothing_L \evalstoLbar \Sigma, \varnothing_L}
+\eqlabel{EL-$\varnothing$}
+$$
+
+\subparagraph{Function applications in statment contexts}
+Function application in a statement context is pretty similar to
+function application in an expression context, except that any
+returned result is thrown out.  The actual
+$\beta$-reduction is therefore delegated to $\eqlabel{EE-Apply}$,
+defined later:
+
+$$ \frac{
+  \Sigma, E_f(\bar E)_E \evalstoE \Sigma_1, \bar P\\
+  }
+  {\Sigma, E_f(\bar E)_S \evalstoS \Sigma_1, \varnothing_S}
+  \quad
+  (\textit{ES-Apply})$$
+
+\paragraph{Expression sequences}
+In Lua, when a single expression evaluates into several results, only
+the first result is kept, except for the last one which is entirely
+appended to the resulting multi-value.  For instance, if we consider
+{\tt f = function(a,b,c) return a,b,c end}, the sequence {\tt
+  f(10,11,12), f(20,21,22), f(30,31,32)} will evaluate to {\tt 10, 20,
+  30, 31, 32}.
+
+The rule below chains expression evaluations by stringing their
+environment modifications together, and discards extraneous returned values:
+
+$$\frac{
+  (\forall n \in [1...m])\ 
+  \Sigma_{n-1}, E_n \evalstoE \Sigma_n, (P_n^1;\bar P_n)
+} {
+  \Sigma_0, (E_n)^{\forall n\in [1...m]} \evalstoEbar \Sigma_m,
+  ((P_n^1)^{\forall n\in[1...m]}; \bar P_m)
+}
+\quad\eqlabel{EE-Sequence}$$
+
+\paragraph{Expressions}
+
+\subparagraph{Variables and primitives}
+Variables are replaced by their content from the store; primitives are
+their own evaluation:
+
+$$ \frac{
+\Sigma^L(v) = P
+}{
+(\Sigma^L,\Sigma^T,\Sigma^F), v \evalstoE P
+}\quad\eqlabel{EE-v}
+\qquad
+\frac{}{
+\Sigma, P \evalstoE \Sigma, P
+}\quad\eqlabel{EE-Primitive}$$
+
+\subparagraph{Function application}
+For function applications, function definitions are retrieved from
+$\Sigma^F$. We define the evaluation by transforming the function
+parameters into local variables, assigned to the arguments' values.
+Notice that the arguments are evaluated before their assignment,
+although \eqlabel{EE-Assign} would have evaluated them anyway. The
+reason is, the arguments need to be evaluated outside of the
+function's scope; otherwise, capture problems could occur (think for
+instance of {\tt f=function(x) return x end; local x; f(x)}):
+
+$$ \frac{
+  \begin{array}{c}
+    \Sigma, E_f \evalstoE (\Sigma_1^L,\Sigma_1^T,\Sigma_1^F), f\\
+    \Sigma^F_1(f) = \Function{\bar v}{\bar S}\\
+    (\Sigma_1^L,\Sigma_1^T,\Sigma_1^F), \bar E \evalstoEbar
+    \Sigma_2, \bar P\\
+    \Sigma_2, (\Local{\bar v}; \bar v = \bar P; \bar S)
+    \evalstoSbar
+    \Sigma_3, \Return{\bar P}
+  \end{array}
+  }
+  {\Sigma, E_f(\bar E)_E \evalstoE \Sigma_3, \bar P}
+  \quad
+  (\textit{EE-Apply})$$
+
+\subparagraph{Function creations}
+As seen in \eqlabel{EE-Apply}, function definitions are retrieved from
+$\Sigma^F$. They're stored in it, under a fresh name $f$, when the
+{\tt function ... end} expression is found:
+
+$$\frac{
+  E_f = \Function{\bar v}{\bar S}
+  \qquad
+  f \textrm{ free in } \Sigma^F
+}{
+  (\Sigma^L,\Sigma^T,\Sigma^F), E_f
+  \evalstoE 
+  (\Sigma^L,\Sigma^T,\Sigma^F[f\leftarrow E_f]), f
+}\quad\eqlabel{EE-Function}$$
+
+
+\subparagraph{Literal tables}
+To evaluate a literal table, we evaluate every key and value in order,
+chaining environment modifications, then store the (key, value)
+evaluated pairs in $\Sigma^T$:
+
+$$\frac{
+  \begin{array}{c}
+    t \textrm{ free in } \Sigma_{2m}^T\\
+    (\forall n\in[1...m])\ 
+    \left\{
+    \begin{array}{l}
+    \Sigma_{2n-2}, E_k^n \evalsto \Sigma_{2n-1}, (P_k^n; \bar P_k^n)\\
+    \Sigma_{2n-1}, E_v^n \evalsto \Sigma_{2n\phantom{-1}}, (P_v^n;
+    \bar P_v^n)\\
+    \end{array}\right.\\
+    \Sigma^T_\star = \Sigma_{2m}^T
+    [(t, P_k^n)\leftarrow P_v^n]^
+    {\forall n\in[1...m]}
+  \end{array}
+}{
+\Sigma_0, ([E_k^n]=E_v^n)^{\forall n\in[1...m]}\\
+\evalstoE
+(\Sigma_{2m}^L,\Sigma^T_\star,\Sigma_{2m}^F), t\\
+}\quad\eqlabel{EE-Table}$$
+
+\subparagraph{Accessing table contents}
+When a value is indexed, it must evaluate to a table reference; then
+the value associated with the corresponding key is retrieved from the
+store $\Sigma^T$:
+
+$$\frac{
+\Sigma,E_T \evalsto \Sigma_1, t
+\quad
+\Sigma_1, E_k \evalsto \Sigma_2, (P_k^1;\bar P_k)
+\quad
+\Sigma_2^T(t, P_k^1) = P_v
+} {
+\Sigma, E_T[E_k] \evalsto \Sigma_2, P_v
+}\quad\eqlabel{EE-Index}$$
+
+In Lua, a key which has never been set in a table is associated with
+value \Nil. To reflect this, an evaluation must start with all
+table/key pairs associated with $\Nil$:
+
+$$(\forall t)(\forall P)\ \Sigma^T(t, P) = \Nil$$
+
+\subsection{How evaluation can fail}
+
+The operational semantics above defines the result of programs, as
+long as they:
+\begin{itemize}
+\item don't get stuck in infinite recursion;
+\item don't try to index a non-table (cf. premises of
+  $\eqlabel{EE-Index}$, which is the only evaluation rule applying to
+  terms of the form $E[E]$, and requires the indexed object to be a
+  reference to a table);
+\item don't try to apply a non-function (cf. premises of
+  $\eqlabel{EE-Apply}$, which is the only evaluation rule applying to
+  terms of the form $E(\bar E)$, and requires the applied object to be
+  a reference to a function;);
+\item always return a value from a function, i.e. all function bodies,
+  when parameters are substituted with arguments, evaluate to a
+  $\Return{\bar P}$ statement value. It's easily proved that by
+  appending a $\Return{\Nil}$ at the end of the function's body, a
+  function body evaluating to $\varnothing_S$ will evaluate to
+  $\Return{\Nil}$ instead.
+\end{itemize}
+
+The last point is very easily addressed, and the first one is well
+known as undecidable; the most reasonable definition of static
+correctness, for a program, is to provably perform no indexing of a
+non-table value, and no function call on a non-function. A sound type
+system for the present calculus will provide formal proofs that a
+given term cannot involve such incorrect sub-terms. The design of such
+a type system is the subject of the next section.

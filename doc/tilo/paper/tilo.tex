@@ -1,0 +1,82 @@
+\documentclass{article}
+\usepackage{amssymb}
+%\usepackage{amsmath}
+\usepackage[all]{xy}
+
+\title{A Typed Lua Calculus}
+\author{Fabien Fleutot}
+
+
+\newcommand{\Function}[2]{\texttt{function(}#1\texttt{)\ }#2\texttt{\  end}}
+\newcommand{\Return}[1]{\texttt{return\ }#1}
+\newcommand{\Local}[1]{\texttt{local\ }#1}
+\newcommand{\Nil}{\texttt{nil}}
+\newcommand{\Table}[1]{\{\ #1\ \}}
+
+\newcommand{\eqlabel}[1]{(\textit{#1})}
+\newcommand{\compseq}[2]{\left\{ #1\ \middle/\ #2 \right\}}
+\newcommand{\Leq}{\stackrel{L}{=}}
+
+\newcommand{\evalsto}{\Rightarrow}
+\newcommand{\evalstoX}[1]{\stackrel{#1}{\evalsto}}
+\newcommand{\evalstoE}{\evalstoX{E}}
+\newcommand{\evalstoEbar}{\evalstoX{\bar E}}
+\newcommand{\evalstoS}{\evalstoX{S}}
+\newcommand{\evalstoSbar}{\evalstoX{\bar S}}
+\newcommand{\evalstoL}{\evalstoX{L}}
+\newcommand{\evalstoLbar}{\evalstoX{\bar L}}
+
+\newcommand{\rewritesL}{\stackrel{\T L}\Leftarrow}
+\newcommand{\rewritesT}{\stackrel{\T T}\Leftarrow}
+
+\newcommand{\T}[1]{\mathbb{#1}}
+\newcommand{\Tstring}{\texttt{string}}
+\newcommand{\Tboolean}{\texttt{boolean}}
+\newcommand{\Tnumber}{\texttt{number}}
+\newcommand{\Tnil}{\texttt{nil}}
+
+\newcommand{\Tconst}[1]{\texttt{const }#1}
+\newcommand{\Tvar}[1]{\texttt{var }#1}
+\newcommand{\Tcurrently}[1]{\texttt{currently }#1}
+\newcommand{\Twriteonly}[1]{\texttt{writeonly }#1}
+\newcommand{\Tfield}{\texttt{field}}
+
+
+\newcommand{\Tnofield}{\varnothing_{\T{F}}}
+\newcommand{\Tnoreturn}{\varnothing_{\T{S}}}
+
+\newcommand{\update}[2]{\textrm{update}(#1, #2)}
+\newcommand{\trim}[2]{\textrm{trim}_{#1}({#2})}
+
+\newcommand{\todo}[1]{
+  \begin{center}
+    \begin{tabular}{|p{10cm}|}
+      \hline
+      {\bf TODO:}~~~{\it #1}\\
+      \hline
+    \end{tabular}
+  \end{center}}
+
+\newcommand{\J}{\texttt{just }}
+\newcommand{\C}{\texttt{currently }}
+\newcommand{\V}{\texttt{var }}
+\newcommand{\K}{\texttt{const }}
+\newcommand{\F}{\texttt{field}}
+
+\begin{document}
+\maketitle
+\input{tilo-intro}
+\input{tilo-semantics}
+\input{tilo-typedef}
+\input{tilo-typing}
+\input{tilo-nextstep}
+
+%\input{tilo-annot}
+
+%% \begin{displaymath}
+%%   \xymatrix{
+%%         A \ar[d] \ar[dr] \ar[r] & B \\
+%%         D                       & C }
+%% \end{displaymath}
+
+\end{document}

@@ -1,0 +1,42 @@
+%-*-mode:latex; eval:(whizzytex-mode);-*-
+%; whizzy-master tilo.tex
+
+This article proposes a sound type system for the Lua programming
+language. It's intended to be later combined with gradual typing and
+partial type inference, so that users can blend statically and
+dynamically typed program fragments, as best suits their development
+needs.
+
+Lua~\cite{lua} is a dynamic, imperative programming language, similar
+in expressiveness to other modern languages such as Python, Ruby or
+Javascript; compared to these, Lua specifically shines by its
+embeddability, frugality in terms of hardware resources, tight
+integration with C; its speed performances are also
+noteworthy~\cite{perf-lua}, especially when run through a JIT
+compiler~\cite{perf-luajit}. Finally, there is, by design, a proper
+subset of the language which is widely acknowledged as
+beginner-friendly~\cite{usability-ms}. Due to those qualities, Lua is
+widely used in domains such as high-performance video games, embedded
+devices or highly user-customizable systems.
+
+Static typing is not always beginner-friendly; however, a well
+designed, statically typed third party API is generally easier to use,
+because many usage mistakes can be caught sooner, either when
+compiling or immediately by a type-checking IDE. While introducing a
+mandatory static type system in Lua would ruin several of the
+language's key features, supporting optional types would significantly
+improve the experience of many users.
+
+We aim at offering such a fine-grained integration of static and
+dynamic program fragments, by building upon the research on gradual
+typing~\cite{gradual}. As a first step, we propose a type system,
+inspired by theoretical studies of records and objects
+typing~\cite{remy,sigma}, which accepts a significant proportion of
+idiomatic Lua programs.
+
+A preliminary, necessary step is the definition of a formal calculus
+capturing the key semantic characteristics of Lua. Then we will
+propose a type system for this calculus, which allows to check a
+properly annotated program against illegal operations. We'll then hint
+at ways to integrate gradual typing in this system, and partial
+inference to lighten the amount of necessary annotations.

@@ -1,0 +1,77 @@
+%-*-mode:latex; eval:(whizzytex-mode);-*-
+
+\section{Terms annotation}
+
+In this section, we propose a way to annotate Lua terms with
+types. We'll talk about concrete syntax matters here, not only formal
+considerations.
+
+First let's define the fully annotated calculus, holding all the
+typing annotations potentially needed to typecheck a program. We'll
+later discuss the possibility to leave some annotations missing, and
+how they should be interpreted. We'll also leave out facilities such
+as type alias definitions for now: the goal here is to determine how
+much annotation is needed to check a term.
+
+$$
+\begin{array}{rcll}
+E &::=& L & \eqlabel{E-Left} \\
+  &|&   P & \eqlabel{E-Primitive} \\
+  &|&   E(\bar E)_E & \eqlabel{E-Apply} \\
+  &|&   \Function{\bar A}{\bar S}  & \eqlabel{E-Function} \\
+  &|&   \Table{ \compseq{[E^k_n]=E^v_n}{n\in[1...n]} } & \eqlabel{E-Table} \\
+L &::=& v\ \sharp \T E & \eqlabel{E-Variable} \\
+  &|&   E[E] & \eqlabel{E-Index} \\
+P &::=& \langle\textrm{string}\rangle & \eqlabel{E-String} \\
+  &|&   \langle\textrm{number}\rangle & \eqlabel{E-Number} \\
+  &|&   \texttt{true} & \eqlabel{E-True} \\
+  &|&   \texttt{false} & \eqlabel{E-False} \\
+  &|&   \texttt{nil} & \eqlabel{E-Nil} \\
+  &|&   t & \eqlabel{E-TableRef} \\
+  &|&   f & \eqlabel{E-ClosureRef} \\
+S &::=& \Local{\bar v} & \eqlabel{S-Local} \\
+  &|&   \bar L = \bar E & \eqlabel{S-Assign} \\
+  &|&   E(\bar E)_S & \eqlabel{S-Apply} \\
+  &|&   \Return \bar E & \eqlabel{S-Return} \\
+  &|&   \sharp \Return{\bar\T E}\\
+A &::=& v\ |\  v\ \sharp \T E\\
+\T E &::=& [\T F; \overline{P:\T F}]\\
+  &|&   v\\
+  &|&   \star_{\T E}\\
+  &|&   \T E[P]\\
+  &|&   \bar\T E \rightarrow \bar\T E\\
+\bar\T E &::=& \star_{\bar\T E}\ |\ v_{\bar\T E}\ |\ (\overline{ \T E}) \\
+\T F &::=& \Tcurrently{\T E}\\
+  &|&   \Tvar{\T E}\\
+  &|&   \Tconst{\T E}\\
+  &|&   \Tfield\\
+\end{array}
+$$
+
+With this annotation system:
+\begin{itemize}
+\item function parameters are explicitly typed; The result is
+  inferred, but can be forced with a statement annotation;
+\item locals aren't typed at decalaration (they contain \Nil\ anyway)),
+  but variable assignmnents are annotated. This allows to specify
+  variable type changes when allowed by the type system;
+\item tables are not annotated, but as soon as they're assigned in a
+  variable, this assignement operation is annotated;
+\item table field updates. Overriding \Tvar{}fields is OK as long as
+  the type doesn't change; for \Tcurrently{}fields, we need to guess
+  the type. It probably doesn't matter that much, since those types
+  are easily overridden; \todo{a covariant subtyping rule
+    might be missing here, ot go from e.g. {\tt currently positive} to
+    {\tt var number}}
+\item function applications are typed are deduced from the function's
+  type;
+\item of course $P$ values are typed;
+\item table field accesses are only typed if the table is typed;
+\item return statements are inferred.
+\end{itemize}
+
+
+Unannotated function parameters will be treated as dynamic types;
+we'll try to guess a static type for unannotated local vars, though:
+if we don't, all function calls using them will become dynamic, and
+little actual type-checking will be able to take place.

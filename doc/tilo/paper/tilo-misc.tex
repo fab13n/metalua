@@ -1,0 +1,193 @@
+%-*-mode:latex; eval:(whizzytex-mode);-*-
+\documentclass{article}
+\usepackage{amssymb}
+\title{A Typed Lua Calculus}
+\author{Fabien Fleutot}
+\newcommand{\Function}[2]{\texttt{function(}#1\texttt{)\ }#2\texttt{\  end}}
+\newcommand{\Return}[1]{\texttt{return\ }#1}
+\newcommand{\Local}[1]{\texttt{local\ }#1}
+\newcommand{\Nil}{\texttt{nil}}
+\newcommand{\Table}[1]{\{\ #1\ \}}
+\newcommand{\eqlabel}[1]{(\textit{#1})}
+\newcommand{\compset}[2]{\left\{ #1\ \middle/\ #2 \right\}}
+\newcommand{\Leq}{\stackrel{L}{=}}
+\begin{document}
+\maketitle
+
+\section{Type system}
+
+\subsubsection{Syntax}
+
+\paragraph{Expressions}
+Expression types are either primitives (bool, number etc.) or
+structural table types, inspired by the $\varsigma$-caluculus and
+R\'emy records. Given the verbosity of the latter, a system of names
+aliases will be needed.
+
+Some libraries in default libraries require a type union
+operator. Such an operator wouldbreak apart any hope of type
+inference, so introducting it in the system will only be envisionned
+latter.
+
+In the type system we add a joker \# for dynamic terms, those which
+will be typed at runtime. This type is neither top nor bottom: because
+it must be accepted everywhere it's similar to bottom, and beacause
+every type can be ``weakened'' into it it's similar to top, but
+admitting that top=bottom would collapse the whole type system into
+something unusable where all types are equal. Therefore we'll rely on
+the concept of ``compatibility'', mostly orthogonal with subtyping,
+which is the core of gradual typing.
+
+\begin{equation}
+\begin{array}{rcll}
+T_E &::=& \texttt{nil} | \texttt{boolean}
+     | \texttt{string} | \texttt{number} & \eqlabel{T-Prim} \\
+    &|&   v & \eqlabel{T-Opaque} \\
+    &|&   [\overline{E: T_F}; T_F] & \eqlabel{T-Table}\\
+    &|&   T_{\bar E} \rightarrow T_{\bar E} & \eqlabel{T-Func} \\
+    &|&   \# & \eqlabel{T-Dynamic} \\
+\end{array}
+\end{equation}
+
+\paragraph{Expression sequences} For function arguments and returns, list
+of values can be taken and returned. These lists might have a fixed
+size (i.e. all elements of index big enough have type {\tt nil}), or
+an unknown type \# indicating that we have no idea what might be
+passed as extra arguments. So the last type listed by an expression
+list type is the one of all remaining argument, up to $+\infty$.
+
+\begin{equation}
+\begin{array}{rcll}
+T_{\bar E} &::=& \bar E; E... & \eqlabel{T-Sequence} \\
+\end{array}
+\end{equation}
+
+\paragraph{Table fields}
+Out of R\'emy's calculus, we retain the following field types in a
+first step: Unknown ($U$), present ($P(T)$). The ``absent'' type is
+also in the system, encoded as {\it P(Nil)}. Unknown means we don't
+know whether this given field is present or not in the table, so we
+can neither get it nor set it (because it might be already there with
+an uncompatible type). Present(T) means the field is present and has
+type T. It can be read with {\it(Index)}, and the resulting term
+will have type T; it can also be written with {\it(Set)}, accepting
+terms of types smaller than T.
+
+In latter steps, we'll probably want to introduce {\it Virtual(T)}, a
+field that's needed for the table to be callable, but still not
+provided. A table with virtual fields can be written but not read;
+writing in a virtual field turns it into a present one.
+
+We'll also introduce the $\varsigma$ binder, which allows object types
+to refer to themselves. This operator is mainly tricky in case of
+inheritance, a construction which is not central to Lua (the binder
+introduces contravariance in object types which are otherwise
+covariant)
+
+\begin{equation}
+\begin{array}{rcll}
+T_F &::=& T_E & \eqlabel{T-Present} \\
+  &|&   ? & \eqlabel{T-Unknown} \\
+\end{array}
+\end{equation}
+
+\paragraph{Statements}
+Statement types describe what they return
+
+\begin{equation}
+\begin{array}{rcll}
+T_S &::=& x & \eqlabel{X} \\
+  &|&   y & \eqlabel{Y} \\
+\end{array}
+\end{equation}
+
+
+\begin{equation}
+\begin{array}{rcll}
+T_{\bar S} &::=& x & \eqlabel{X} \\
+  &|&   y & \eqlabel{Y} \\
+\end{array}
+\end{equation}
+
+\subsection{Typing rules}
+
+$$ \frac
+  {\Gamma \vdash E_1: T_{\bar E 2} \rightarrow T_{\bar E}
+    \quad
+    \Gamma \vdash \bar E: T_{\bar E 2}}
+  {\Gamma \vdash E_1(\bar E): T_{\bar E}}
+  \quad
+  (\textit{R-Apply})$$
+
+
+\section{Type annotated terms}
+
+\begin{equation}
+\begin{array}{rcll}
+E &::=& L & \eqlabel{Left} \\
+  &|&   P & \eqlabel{Primitive} \\
+  &|&   E(\bar E) & \eqlabel{Apply-E} \\
+  &|&   \Function{\overline{v:T_E}; T_E...}{\bar S}:T_{\bar E} & \eqlabel{Function} \\
+  &|&   \Table{ \overline{[E]=E} } & \eqlabel{Table} \\
+\end{array}
+\end{equation}
+
+\begin{equation}
+\begin{array}{rcll}
+L &::=& v & \eqlabel{Variable} \\
+  &|&   E[E] & \eqlabel{Index} \\
+\end{array}
+\end{equation}
+
+\begin{equation}
+\begin{array}{rcll}
+P &::=& \langle\textrm{string}\rangle & \eqlabel{String} \\
+  &|&   \langle\textrm{number}\rangle & \eqlabel{Number} \\
+  &|&   \texttt{true} & \eqlabel{True} \\
+  &|&   \texttt{false} & \eqlabel{False} \\
+  &|&   \texttt{nil} & \eqlabel{Nil} \\
+\end{array}
+\end{equation}
+
+\begin{equation}
+\begin{array}{rcll}
+S &::=& \Local{\bar v:\bar E} & \eqlabel{Local} \\
+  &|&   \bar L = \bar E & \eqlabel{Set} \\
+  &|&   E(\bar E) & \eqlabel{Apply-S} \\
+  &|&   \Return \bar E & \eqlabel{Return} \\
+\end{array}
+\end{equation}
+
+Type annotations are added at local var creations (function parameters
+and local statements), and the functions' result sequences are
+type-declared as well. In concrete syntax, lack of explicit
+declaration will be interpreted as dynamic type \#.
+
+
+\section{scratch}
+
+Unmanaged: weird operators involving metatables and fenv, arithmetic
+operators (especially overridden ones), metamethods, equality
+operators.
+
+\begin{equation}
+\begin{array}{rcll}
+X &::=& x & \eqlabel{X} \\
+  &|&   y & \eqlabel{Y} \\
+\end{array}
+\end{equation}
+
+``{\tt repeat S until E}'' is encoded as ``{\tt while true do S; if E then
+  break end end}''.
+
+``{\tt local v = E}'' is encoded as ``{\tt local v; v = e}''.
+
+``{\tt P:method(E)}'' is encoded as ``{\tt P.method(P, E)}'', and
+``{\tt v:method(E)}'' as ``{\tt v.method(v, E)}''.  There is still an
+issue for non-primitive objects, especially when their evaluation
+causes side effects, but it's always easy to write programs so that
+such expressions are first stored in local variables, so that the
+second encoding works.
+
+\end{document}
+

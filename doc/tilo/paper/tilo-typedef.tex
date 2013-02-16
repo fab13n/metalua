@@ -1,0 +1,391 @@
+%-*-mode:latex; eval:(whizzytex-mode);-*-
+%; whizzy-master tilo.tex
+
+\section{Static type system}
+
+In the previous section, we've seen that we wanted a type system to
+prevent indexing of non-tables as well as application of
+non-functions. We've also mentioned that a type system which
+eliminates all incorrect terms will also eliminate some correct ones
+(a direct consequence of the calculus' T\"uring-completeness, easily
+demonstrated by encoding the $\lambda$-calculus in it). This section
+will try to find a reasonable compromise: a type system which accepts
+a lot of ``reasonable'' terms, catches all incorrect ones, and doesn't
+force too much book-keeping on users.
+
+\subsection{Notations}
+%\begin{itemize} \item 
+$<:$ denotes subtyping. $\T T_1 <: \T T_2$ means that
+$\T T_1$ is a subtype of $\T T_2$, i.e. a term of type $\T T_1$ can
+be used everywhere a term of type $\T T_2$ is expected.
+%\end{itemize}
+
+\subsection{Type System}
+
+$$\begin{array}{rcll}
+\T E &::=& [\overline{P:\T F}| \T F]  &\eqlabel{TE-Table}\\
+&|& \T P & \eqlabel{TE-Primitive}\\
+&|& \bar\T E \rightarrow \bar\T E &\eqlabel{TE-Function}\\
+%&|& v &\eqlabel{TE-Variable} \\
+&|& \top &\eqlabel{TE-Top} \\
+\\
+\T P &::=& \Tnil\ |\ \Tboolean\ |\ \Tnumber\ |\ \Tstring\\
+\\
+\T F &::=&  \J{\T E} &\eqlabel{TF-Just} \\
+&|&  \C{\T E} &\eqlabel{TF-Currently} \\
+&|& \V{\T E} &\eqlabel{TF-Var} \\
+&|& \K{\T E} &\eqlabel{TF-Const} \\
+&|& \F &\eqlabel{TF-Field} \\
+\\
+\T S &::=& \Return{\bar\T E} &\eqlabel{TS-Return}\\
+&|& \Tnoreturn &\eqlabel{TS-None}\\
+\end{array}$$
+
+
+\paragraph{Lua key features to respect}
+
+The type system should capture as many Lua-specific idioms as
+possible. Tables are of course central in Lua, and quite similar in
+some respects to objects of calculi such as Abadi \&
+Cardelli's~\cite{sigma}, Fisher Honsell \& Mitchell~\cite{fhm}, or
+R\'emy's~\cite{remy}. Among others, they are defined with no native
+notion of classes. The most striking Lua-specific features are:
+
+\begin{itemize}
+\item Lua tables---and therefore Lua itself---are deeply
+  imperative. There are primitives in Lua to alter a table, but
+  neither to copy nor to functionally update it; despite closures and
+  tail-call optimization, idiomatic Lua code is not functional. This
+  contrasts with most theoretical studies of object-oriented calculi,
+  which inherit from $\lambda$-calculus a preference for functional
+  primitives and idioms.
+\item Lua tables are arbitrary value$\rightarrow$value hashtables,
+  whereas object calculi typically index object fields with labels
+  taken from a separate (enumerable) set. In the first version of our
+  type system, we'll only type tables whose keys have primitive types
+  \verb+string+, \verb+number+ or \verb+boolean+. Homogeneously typed
+  hashtables should be easy to add at a later stage---they mostly
+  behave as simplified functions, type-wise; but arbitrarily mixed
+  tables, acting as a raw mix of records and hashtables, are untypable
+  in general.
+\item Lua makes a distinction between statements and expressions. This
+  means that two distinct type kinds $\T S$ and $\T E$ are
+  defined. This is again in contrast with most theoretical calculi,
+  which are purely expression-based.
+\item There's no notion of ``undefined label'': all table keys except
+  \verb+nil+ are defined in all tables; keys which haven't been
+  explicitly assigned are associated with the value \verb+nil+.
+\item A key consequence is that an table's type changes during its
+  lifetime: when created all its fields have type \verb+nil+, then
+  these field types are modified as meaningful values are put in
+  them. Whereas most calculi allow to add fields to object, ours will
+  allow to change their type.
+\item Lua functions take multiple arguments, and return multiple
+  values.
+\item Expressions can be collected into expression sequences, to be
+  used in assignments, function calls and function results. They get
+  their dedicated type kind $\bar\T E$.
+\end{itemize}
+
+Beyond those specific needs, the type system will include many staples
+of modern type systems, such as structural subtyping, functions
+contravariant in their arguments and covariant in their results,
+covariant read-only table fields, invariant read+write fields.
+
+Types will not be nullable (there won't be any legal way to derive
+$\Nil<:\T E$ for any $\T E$ other than \Nil): catching ``NPE'' ({\em
+  Null Pointer Exceptions}, as nicknamed by traumatized Java
+developers) has been done for ages in ML-inspired languages; Hoare
+himself, who first introduced implicitly nullable types in Algol,
+called them ``{\em my billion dollar mistake}''~\cite{?}.  However,
+since nullable function arguments and results are an important idiom
+in Lua, future versions of the calculus will have to support either an
+explicit \verb+nullable+ type modifier, or a generic union type, allowing
+to type e.g. an optional number as \verb+nil|number+.
+
+\paragraph{Tables}
+Lua tables accept all values as keys except \Nil, and there's no
+notion of unset/undefined key; it's legal to request {\tt foo["bar"]}
+even if the key {\tt"bar"} has never been set in {\tt foo}: it will
+return \Nil. So in practice, all but a finite set of keys in a given
+table will return a value other than \Nil. To reflect this in the type
+system, a table type will contain a default field type, shared by all
+but a finite number of its fields; this type will usually be set to
+some variant of \Nil. The other key/type pairs are listed explicitly.
+For instance, $[\texttt{"x"}:\K{\Tnumber}|\K\Nil]$ describes a table
+such as \verb+{["x"]=1}+, with a field {\tt"x"} of type $\K\Tnumber$,
+and all other fields left to \Nil.
+
+In the current version, field keys are limited to values of atomic
+types \verb+string+, \verb+number+ or \verb+boolean+. Tables using
+other keys will not be typable statically. Some future extensions are
+possible, and will be studied separately.
+
+In contrast with type systems inspired by Abadi \& Cardelli's, we
+won't introduce a $\zeta(s)$ self-type binder in the type
+system~\cite{sigma}: it substantially complicates it, mostly to allow a
+functional-style use of objects that doesn't seem to correspond to any
+widespread Lua idiom.
+
+Table types are considered equal modulo fields reordering, and
+expansion of the default field type; the following types are all
+considered equal:
+
+$$\begin{array}{ll}
+ \phantom{{}={}}
+    [P_1: \T F_1; P_2:\T F_2|\T F_d]\\
+ {}=[P_2: \T F_2; P_1:\T F_1| \T F_d] & \eqlabel{reordering}\\
+ {}=[P_1: \T F_1; P_2:\T F_2; P_3:\T F_d| \T F_d]
+    & \eqlabel{default expansion} \\
+\end{array}$$
+
+Moreover, it's illegal for a field key to appear more than once in the
+same table: $[P_1:\T F_1; P_1:\T F_2 | \T F_d]$ is not a well-formed
+type.
+
+Finally, we'll admit as a shortcut that $[\overline{P:\T F}]$ means
+$[\overline{P:\T F}|\F]$.
+
+\paragraph{Field types}
+
+Field types are expression types with a prefix modifier: $\J\T E$,
+$\C\T E$, $\V\T E$, $\K\T E$, and simply $\F$ without a type
+parameter. They give control over field variance, i.e. they prevent
+some operations, but in exchange allow more permissive subtyping, and
+hence allow to use tables in more contexts. \verb+var+, \verb+const+
+and \verb+field+ will be familiar to people who studied structural
+subtyping, and offer the expected variance properties. $\J\T E$ and
+$\C\T E$ are more unusual, and allow to change a value's type for an
+unrelated one, under specific conditions.
+
+
+\subparagraph{Read-write fields}
+$\V\T E$ is the type of a field which can be read and written with
+values of type $\T E$. It's not covariant, i.e. even if $\T E_1<:\T
+E_2$, we don't have $[P:\V\T E_1]<: [P:\V\T E_2]$. To see why, let's
+consider the subtyping relationship $\texttt {positive} <: \texttt
+{number}$ \footnote{Positive numbers are numbers, but not the other
+  way around. This example of subtyping has been chosen because it's
+  hopefully familiar and intuitive for everyone; but it's only
+  intended to illustrate variance issues, and the calculus won't have
+  a specific {\tt positive} type.}. If we had $[P:\V\texttt
+    {positive}] <: [P:\V\texttt {number}]$, we could take a
+table of type $[P:\V\texttt {positive}]$, partially
+forget its type through subtyping into $[P:\V\texttt
+    {number}]$, then write a negative number in its field
+$P$. Other parts of the program, which retained the more precise
+type $[ P: \V\texttt{positive}]$ for the same
+table, might break because they take for granted that $P$'s
+content is positive.
+
+\subparagraph{Read-only fields}
+If we promise not to overwrite a field, however, we can make it
+covariant. This is the purpose of $\K\T E$ fields: the type system
+will prevent from updating such fields, but in exchange, whenever we
+have $\T E_1<:\T E_2$, we also get $\K\T E_1<: \K\T E_2$. Adapting the
+previous example, $[P: \K\texttt {positive}]$ is a subtype of $[P:
+  \K\texttt {number}]$, because when reading its $P$ field, one
+gets a {\tt positive} which is indeed a {\tt number}; since we can't
+write in it, there's no danger of putting a negative number where the
+type system expects to find only positive ones.
+
+\subparagraph{Contravariant fields}
+Symmetrically, we could promise not to read a field, and get
+contravariance in exchange (whenever $\T E_1<:\T E_2$, we get
+$[P:\texttt{writeonly }\T E_2]<:[P:\texttt{writeonly }\T E_1]$). However,
+this seems of limited practical use, so we'll leave this out of the
+type system.
+
+\subparagraph{All fields} If we promise neither to read nor
+to write a given field, it becomes bivariant: whether $\T E_1<:\T E_2$
+or $\T E_2<:\T E_1$, or even if $\T E_1$ and $\T E_2$ are
+incomparable, we'd still have $\F\ \T E_1 <: \F\ \T
+E_2$. We'll therefore simply write it $\F$: no need to keep $\T
+E$ in it, since it isn't used anyway. It's the super-type of all other
+type fields, and it acts as the {\tt private} modifier does in C++
+inspired languages: you can neither override nor use a field of this
+type.
+
+\subparagraph{Type-changing field types}
+
+$\C\T E$ means that a field currently has type $\T E$, but that this
+type can be changed without breaking the program. This is an
+unusually liberal typing rule, and as such, it will only be allowed
+under strictly controlled circumstances. Most notably, a table type
+with some \verb+currently+ fields will have to be used linearly: if
+several variables allowed access to the same \verb+currently+ field, one
+variable could change the field's content type without the other
+variable's knowledge, and break the program in unpredictable
+ways. Hence, it will be mandatory to weaken the type of $\C\T
+E$ fields into \F, before using them in non-linear ways, thus
+preventing both read and write operations on it.
+
+$\C\T E$ field types are intended to allow idioms such as ``{\tt
+  x=\verb+{ }+;x.f\_1= E1; ...; x.f\_n=En}''; the type of \verb+x+ in
+this program will change at each statement of this sequence, from
+$[|\C\Nil]$ to $[\texttt{"f\_1"}:\C\T E_1; ...; \allowbreak
+  \texttt{"f\_n"}:\C\T E_n|\C\Nil]$.
+
+We mentioned a criterion of linearity: there must be at most one
+reference to a $\C\T E$ field. Otherwise, one reference might change
+the type of the field's content without the other references'
+knowledge. The typing rules will be designed in such a way that
+whenever extra references to it are created, these will be typed as
+\F, i.e. inaccessible.
+
+\subparagraph{Unreferenced field types}
+
+Finally, we need a type indicating that an object is completely
+unreferrenced, and can therefore be stored safely into a $\C\T E$
+field. For instance, in {\tt x=\{foo=1\}}, if the right-hand-side
+table was typed $[\texttt{"foo"}:\C\Tnumber| \allowbreak \C\Nil]$, it
+would have to be weakened into $[|\F]$ before being stored in $x$, in
+case there was already a reference to it. 
+
+Therefore, we distinguisg $\C\T E$ the type of a field referenced
+once, and $\J\T E$ the type of a field which isn't referenced at
+all. In the example above, the right-hand-side is typed
+$[\texttt{"foo"}:\J\Tnumber|\J\Nil]$, and weakened into
+$[\texttt{"foo"}:\C\Tnumber| \allowbreak \texttt{cur}\-\texttt{rently
+  }\Nil]$ when stored into \verb+x+. A further \verb+y=x+ statement
+would see the type stored in \verb+y+ weakened to $[|\F]$.
+
+\subsection{Subtyping rules}
+The subtyping relationship is a partial order, defined as the smallest
+transitive closure of the rules listed in this subsection.
+
+\paragraph{Structural rules}
+The subtyping relationship, defined over expression, field and
+statement types, is reflexive and transitive; $\top$ is the biggest
+expression type:
+
+$$
+\frac{}{
+\T E <: \top
+}\eqlabel{$<:\top$}
+$$
+$$
+\frac{}{\T E<:\T E}
+\qquad
+\frac{}{\T F<:\T F}
+\qquad
+\frac{}{\T S<:\T S}
+\qquad
+\eqlabel{$<:$Refl}
+$$
+$$
+\frac{\T E_1<:\T E_2 \quad \T E_2 <: \T E_3}{\T E_1<:\T E_3}
+\quad
+\frac{\T F_1<:\T F_2 \quad \T F_2 <: \T F_3}{\T F_1<:\T F_3}
+\quad
+\frac{\T S_1<:\T S_2 \quad \T S_2 <: \T S_3}{\T S_1<:\T S_3}
+$$
+$$
+\eqlabel{$<:Trans$}
+$$
+
+
+\paragraph{Fields subtyping}
+
+We have $\V\T E<:\K\T E$, \verb+const+'s covariance, and
+\F\ the top field type:
+
+$$
+\frac{}{
+{\T F} <: \F
+}\eqlabel{$<:$Field}
+$$
+$$
+\frac{}{
+\V{\T E} <: \K{\T E}
+}\eqlabel{$<:$Const}
+%
+\qquad
+%
+\frac{
+\T E_1 <: \T E_2
+}{
+\K{\T E_1} <: \K{\T E_2}
+}\eqlabel{$<:$Const${}^+$}
+$$
+$$
+\frac{}{
+\J\T E<:\C\T E}
+\eqlabel{$<:$Currently}
+\qquad
+\frac{}{
+\J\T E<:\V\T E}
+\eqlabel{$<:$Var}
+$$
+$$
+\frac{
+\T E_1 <: \T E_2
+}{
+\J{\T E_1} <: \J{\T E_2}
+}\eqlabel{$<:$Just${}^+$}
+$$
+
+We do {\em not} have $\C\T E<:\V\T E$. Indeed, mutable field types are
+not a special case of variable fields: the latter can be used with
+less restrictions when linearity cannot be guaranteed. For instance,
+if $\texttt{x}: [\V\Tnumber]$, its content can be assigned to \verb+y+
+with ``\verb+x=y+'', and \verb+y+ will also have type $[\V\Tnumber]$.
+However, if \verb+x+ had type $[\C\Tnumber]$, \verb+y+ would only get
+type $[\F]$, because the following statement might be e.g. ``{\tt
+  x=false}'': one cannot count on \verb+y+ keeping its \Tnumber\ type.
+
+\paragraph{Functions subtyping}
+Functions are contravariant in their arguments, and covariant in their
+results:
+$$
+\frac{
+\bar\T E_?^2 <: \bar\T E_?^1
+\quad
+\bar\T E_!^1 <: \bar\T E_!^2
+}{
+\bar\T E_?^1 \rightarrow \bar\T E_!^1
+<:
+\bar\T E_?^2 \rightarrow \bar\T E_!^2
+}\eqlabel{$<:$Function}
+$$
+
+
+\paragraph{Tables subtyping}
+
+Subtyping between tables is directly lifted from field subtyping;
+unreferenced tables, marked with a prime, can be considered as
+regular table whenever suitable.
+
+$$\frac{
+  (\forall n\in[0...m])\
+  \T F_n^a <: \T F_n^b
+}{
+  [(P_n:\T F_n^a)^{\forall n\in[1...m]}|\T F_0^a] <:
+  [(P_n:\T F_n^b)^{\forall n\in[1...m]}|\T F_0^a]
+}\eqlabel{$<:$Table}
+$$
+
+% probably no need for structurel subtyping inside linear tables.
+
+\paragraph{Expression sequences subtyping}
+Subtyping between expression sequences is only defined between
+sequences of the same length. Typing rules will pad sequence with
+\verb+nil+s on the right whenever appropriate:
+
+$$\frac{ (\forall n\in[1...m])\ \T E_1^n <: \T E_2^n }{
+  (\T E_1^n)^{\forall n\in[1...m]} <: (\T E_2^n)^{\forall
+    n\in[1...m]} }\eqlabel{$<:\bar\T E$}$$
+
+\paragraph{Statements subtyping}
+Statement types are either $\Tnoreturn$, or of the form $\Return\bar\T
+E$. In the latter case, subtyping is lifted from
+expression sequences subtyping:
+
+$$
+\frac{
+\bar\T E_1 <: \bar\T E_2
+}{
+\Return{\bar\T E_1} <:  \Return{\bar\T E_2}
+}\eqlabel{$<:$Return}
+$$
+

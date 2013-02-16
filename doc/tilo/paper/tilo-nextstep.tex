@@ -1,0 +1,40 @@
+%-*-mode:latex; eval:(whizzytex-mode);-*-
+%; whizzy-master lucal.tex
+
+\section{Future work}
+This section sums up a list tasks remaining to be completed, in order
+to turn this calculus into a useful type-checker for actual Lua
+programs.
+
+\begin{itemize}
+\item Implement a type checker for the existing calculus.
+\item Produce a soundness proof (formal demonstration that a typed
+  term can't cause a runtime type error).
+\item Combine with gradual typing.
+\item Define a pragmatic syntax: allow to omit easily guessed type
+  annotations, have sensible defaults for missing indications such as
+  field type modifiers, etc.
+\item Consider an alternative, Lua compatible syntax for types which
+  fits into Lua comments. This version would be backward-compatible
+  with plain Lua compilers, and would certainly present similarities
+  with Luadoc-like tools.
+\item Support for (limited) type inference. Unwritten types must not
+  be all interpreted as dynamic types; otherwise, no type checking at
+  all would occur in programs which aren't fully annotated. A
+  reasonable compromize would probably be that unannotated function
+  parameters are dynamic, but unnanotated locals are to be guessed
+  through inference.
+\item Clarify what typed programs look like. Not all Lua programming
+  styles will be supported: for instance, modules which pollute global
+  variables will probably not be accepted. The choices about what's
+  acceptable for the type system must not only be made: their
+  rationales and their price must be carefully justified.
+\item Extend the calculus with missing parts of Lua. Some should be
+  easy to incorporate in the type system (loop statements,
+  pseudo-fields based on \verb+__index+ tables); others
+  would have to remain dynamically typed (binary operators,
+  varargs...). Here gradual typing really saves the day: constructs
+  which no current type system handles satisfactorily, such as
+  covariant binary operators, can be left dynamically typed without
+  making the whole type system fall apart.
+\end{itemize}

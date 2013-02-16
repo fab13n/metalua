@@ -1,0 +1,623 @@
+%-*-mode:latex; eval:(whizzytex-mode);-*-
+%; whizzy-master tilo.tex
+
+\subsection{Typing rules}
+
+This section gives the typing rules, which allow to determine the
+belonging of terms to certain types. To do that, we'll enrich the
+calculus with a couple of type annotations. We won't discuss the
+possibility to algorithmically infer some of those.
+
+\paragraph{Typing environments}
+
+The rules exposed below use typing environments $\Gamma: v\mapsto\T
+F$, functions from variables to field types (rather than, as one could
+have expected, expression types). Indeed, being able to separate
+constants from variables in the type system is valuable, and more
+importantly, the linearity issues handled by the \verb+currently+
+modifier occur with local variables as well as with table fields.
+
+This section won't address variable shadowing
+issues\footnote{i.e. homonymies, as in ``{\tt local x; x=function(x)
+    return x end}'', where there are two distinct variables which both
+  share the name {\tt x}.}: since we work on static terms which we
+don't evaluate, an appropriate $\alpha$-renaming before typing can
+ensure that no such shadowing occurs.
+
+\paragraph{Notations}
+\begin{itemize}
+\item $\Gamma[v \leftarrow \T F]$ is the function which, to $v$,
+  associates $\T F$, and to all other values $w\in\textrm{dom} (\Gamma)
+  \backslash \{v\}$ associates $\Gamma(w)$.
+\item This definition is extended homomorphically to sequences of
+  variables and values $\Gamma [\bar v \leftarrow \bar\T F]$.
+\item The empty environment, i.e. the function with an empty domain,
+  is written $\varnothing_\Gamma$.
+%% \item $\Gamma_1\cup\Gamma_2$ is the function defined over
+%%   $\textrm{dom}(\Gamma_1) \cup \textrm{dom}(\Gamma_2)$ which, to $v$,
+%%   associates $\Gamma_1(v)$ or $\Gamma_2(v)$, when
+%%   $\textrm{dom}(\Gamma_1) \cap \textrm{dom}(\Gamma_2) =
+%%   \varnothing_\Gamma$.
+%%
+%% \item $\T F_1\lhd\T E=\T F_2$ means that it's legal to store an
+%%   expression of type $\T E$ in a field of type $\T F_1$, and that
+%%   afterward, the field's type becomes $\T F_2$. If the final type
+%%   doesn't matter, the notation can be abridged into $\T F_1\lhd\T E$.
+%% \item $(\T E_1, P)\lhd\T E = \T E_2$ is a variant of the above,
+%%   operating on expression types. It means that an object of type $\T
+%%   E_1$ can support an update of its field $P$ with an expression of
+%%   type $\T E$, and that the receiving object's type becomes $\T E_2$.
+\item $\Gamma\vdash T:\T T$ means that under the assumptions in
+  environment $\Gamma$, term $T$ has type $\T T$.
+\item The notation $\Gamma\vdash E\therefore\T F$ describes the types
+  of left-hand sides operands in ``$=$'' assignment statements; these
+  variables and table fields must retain field types rather than
+  expression types, because their field qualifier indicates whether
+  and how they can be updated.  It means ``under the assumptions
+  $\Gamma$, and in an assignment's left-hand side context, expression
+  $E$ has type $\T F$''.
+\item We'll refer to expressions which can syntactically appear on the
+  left-hand-side of an assignments, and in a ``$\therefore$''
+  judgment, as ``slots''. Those are local variables
+  \eqlabel{E-Variable} and indexed tables \eqlabel{E-Index}.
+%% \item $\T Q$ denotes operators which prefix expression types $\T E$ 
+%%   with annotations \verb+currently+, \verb+var+, \verb+const+, or
+%%   simply return field type \verb+field+.
+\end{itemize}
+
+\paragraph{Calculus extensions}
+The untyped calculus is extended with a couple of annotations which
+will allow to insert typing hints at appropriate places in programs.
+Syntactically, typing annotations will make heavy use of the pound
+$\#$ ascii character. This character, unused in Lua where type
+annotations may occur, will hopefully make typing annotations stand
+out visually, and make it easy to preprocess them out of a program's
+sources, so that it can be used by other interpreters.
+
+\begin{itemize}
+\item statement $\#\Return{\bar{\T E}}; \bar S$ weakens the type of
+  statements sequence $\bar S$ to statement type $\Return\bar\T E$.
+\item $\Function{\overline{v\ \# \T E}}{\bar S}$ allows to give type
+  annotations to function parameters, which are notoriously hard to
+  infer effectively.
+%% \item $\#v:\T F;\bar S$ allows to weaken the type of variable $v$ to
+%%   $\bar F$ when typing the remaining of the statements sequence $\bar
+%%   S$. This is especially useful to weaken \verb+currently+ fields into
+%%   \verb+const+ or \verb+var+ ones, so that they can be used in
+%%   non-linear conditions.
+\item Left-hand sides of assignments take a type field, allowing to
+  handle \verb+currently+ field type updates, and linearity
+  issues: $\overline{L\ \#\T F} = \bar\T E$.
+\end{itemize}
+%
+$$
+\frac{}{\Sigma,(\#\Return{\bar\T E};\bar S) \Rightarrow \Sigma, \varnothing_S}
+%
+\quad
+%
+\frac{\Sigma_1, \Function{\bar v}{\bar S} \Rightarrow \Sigma_2, f}
+{\Sigma_1, \Function{\overline{v\ \#\T E}}{\bar S} \Rightarrow \Sigma_2, f}
+$$
+$$
+\frac{
+\Sigma_1, (\Local \bar L=\bar E;\bar S) \evalsto \Sigma_2, S
+}{
+\Sigma_1, (\Local \overline{L\ \#\T F}=\bar E;\bar S) \evalsto \Sigma_2, S
+}
+$$
+
+%%%% Wrong: it only allows to change #currently types.
+%% Notice that a dummy assignment $L_1\ \#\T F_1=L_1$, while not
+%% having any side effect, allows to retype the variable/field $L_1$,
+%% provided that the environment $\Gamma$ allows it. In an actual
+%% implementation of tha calculus, some syntax sugar for this use case
+%% would most likely be desirable.
+
+\paragraph{Expression sequences}
+Expressions in Lua can evaluate into multiple values. When
+concatenating expressions in a sequence, Lua only keeps the first
+value of each expression's evaluation, except for the last one which
+is expanded \eqlabel{EE-Sequence}.  For instance, if we have
+$\texttt{a}:(\T E_a^1;\T E_a^2)$, $\texttt{b}:(\T E_b^1;\T E_b^2)$
+and $\texttt{c}:(\T E_c^1;\T E_c^2)$, then the type of the sequence
+$(\texttt{a}; \texttt{b}; \texttt{c})$ is $(\T E_a^1; \T E_b^1;
+\T E_c^1; \T E_c^2)$. A noteworthy property is that the number of
+elements in the type might be bigger than the number of expressions in
+the sequence. Another is that appending \Nil types at the end of a
+sequence type doesn't change it: {\tt number, number, nil} must be
+treated as equal to {\tt number, number}. This will be ensured by
+every rule effectively combining expression type sequences.
+
+$$
+\frac{
+(\forall n\in[1...m]) \quad \Gamma\vdash E_n:(\T E_n^1;\bar\T E_n)
+}{
+\Gamma\vdash \bar E:(\T E_n^1)^{\forall n\in[1...m]};\bar\T E_m
+}\eqlabel{TR-$\bar E$}
+$$
+
+\paragraph{Primitive expressions}
+
+$$
+\frac{}{\Gamma\vdash \langle\textrm{number}\rangle:\Tnumber}
+\quad
+\frac{}{\Gamma\vdash \langle\textrm{string}\rangle:\Tstring}
+$$
+$$
+\frac{}{\Gamma\vdash \texttt{true}: \texttt{boolean}}
+\quad
+\frac{}{\Gamma\vdash \texttt{false}: \texttt{boolean}}
+$$
+$$\eqlabel{TR-P}$$
+
+%% \todo{We might have to type t and f table/function references too, in
+%%   order to get some subject reduction lemma. Not sure how to do that
+%%   in big-step semantics, though, as I won't get any Felleisen-style
+%%   syntactic criterion.}
+
+\paragraph{Statement sequences} 
+Statement sequences appear in function bodies. What we need to know
+about them, besides the fact that they don't fail during evaluation,
+is the type of the expression sequences they return. Therefore we have
+two families of statement types: $\Tnoreturn$ for terms which don't
+return, and $\Return{\bar\T E}$ for terms returning a sequence of
+expressions of type $\bar\T E$.
+
+$$
+\frac{
+\Gamma\vdash S: \Tnoreturn
+\quad
+\Gamma\vdash \bar S: \T S
+}{
+\Gamma\vdash (S;\bar S): \T S
+}\eqlabel{TR-$\Tnoreturn$}
+%
+\qquad
+%
+\frac{
+\Gamma\vdash S: \Return{\bar\T E}
+}{
+\Gamma\vdash (S;\bar S): \Return{\bar\T E}
+}\eqlabel{TR-{\tt return}}
+$$
+%
+$$
+\frac{
+\Gamma\vdash\bar S:\Return{\bar\T E_1}
+\quad
+\bar\T E_1 <: \bar\T E_2
+}{
+\Gamma\vdash(\#\Return{\bar\T E_2}; \bar S):\Return{\bar\T E_2}
+}
+\eqlabel{TR-\#{\tt return}}
+$$
+\paragraph{Variables}
+Variable types are remembered in the environment $\Gamma$. They're
+slots, and have a field type $\T F$ rather than an expression type $\T
+E$. This allows to use them on the left-hand-side of assignements, to
+remember whether they're constant, private, or whether their current
+type can be updated. Field type judgments use the operator
+``$\therefore$'', to avoid being confused with expression type
+judgments using ``:''.
+
+$$
+\frac{
+\Gamma(v) = \T F
+}{
+\Gamma \vdash v \therefore \T F
+}
+\eqlabel{TR-$\therefore$}
+$$
+
+When a slot $L$ is used as a normal expression rather than an
+assignment's left-hand-side, its field type can be projected into an
+expression type:
+
+$$
+\frac{
+\Gamma \vdash L \therefore \C\T E
+}{
+\Gamma \vdash L:\T E
+}
+\quad
+\frac{
+\Gamma \vdash L \therefore \V\T E
+}{
+\Gamma \vdash L:\T E
+}
+\quad
+\frac{
+\Gamma \vdash L \therefore \K\T E
+}{
+\Gamma \vdash L:\T E
+}
+\quad\eqlabel{TR-L}
+$$
+
+There's no rule to project type \F: it's never legal to use such a
+field in an expression's context. We'll see that no rule to project
+\verb+just+ types is needed either, because there's no legal way to
+derive a \verb+just+ type for a left-hand=side expression.
+
+\paragraph{Table fields} 
+In this rule, the variable $\phi$ denotes a set of key/field types,
+plus the table's default type.
+
+$$\frac{
+\Gamma\vdash E_T: [P: {\T F_K};\phi]
+}{
+\Gamma\vdash E_T[P] \therefore \T F_K
+}\eqlabel{TR-$[\ ]$}$$
+
+In some cases, an expansion of the default field type might be needed,
+e.g. we have ${\Gamma\vdash E:[|\K\Nil]} \over {\Gamma\vdash
+  E[\texttt{"x"}] \therefore \K\Nil}$, because $[|\K\Nil] =
+[\texttt{"x"}:\K\Nil|\K\Nil]$.
+
+\paragraph{Literal tables}
+Literal tables have all their fields typed with \verb+just+ modifiers.
+When the literal table will be stored in a variables, the field types
+will be weakened into either {\tt currently}, {\tt var}, {\tt const}
+or {\tt field} types.
+
+$$
+\frac{
+(\forall n\in[1...m]) \quad \Gamma\vdash E_n:(\T E_n^1;\bar\T E_n)
+}{
+  \Gamma\vdash \{([P_n] = E_n)^{\forall n\in[1...m]}\}:
+  [(P_n:\J{\T E_n^1})^{\forall n\in[1...m]}|\J\Nil]
+}$$
+\vspace{-2em}
+\begin{flushright}
+  $\eqlabel{TR-Table}$
+\end{flushright}
+ 
+
+
+\paragraph{Local variable declarations}
+
+Unlike in most type systems, newly created variables are given the
+\Nil\ type, rather than the type of their future content. This is
+because assignment statements change the type of the variables on
+which they operate, as we'll see below. Besides, typing as non-\Nil\ a
+variable while it contains \Nil\ wouldn't be sound.
+
+$$
+\frac{
+\Gamma[\bar v\leftarrow\overline{\C\Nil}]\vdash S:\T S
+}{
+\Gamma\vdash (\Local{\bar v}; \bar S) : \T S
+}\eqlabel{TR-Local}
+$$
+
+\paragraph{Assignments}
+
+Assignments can change the type of \verb+currently+ variables and
+fields in $\Gamma$; they can also perform weakenings, essentially
+changing \verb+var+ field types into \verb+const+s. They must be
+preventing from altering \verb+const+ and \verb+field+ slots.  To type
+them, we'll need two auxiliary predicates:
+
+\begin{itemize}
+\item $\Gamma\vdash\update{L}{\T F}=[\sigma]$ checks whether
+  variable/field $L$ is allowed to have its current type changed into
+  $\T F$. If it is, it returns a substitution $[\sigma]$ over
+  environments, so that $\Gamma[\sigma]$ is the typing environment in
+  effect after the assignment has been performed.
+\item $\T F_L \rhd \T F_R$ checks whether the content of slot of type
+  $\T F_R$ can be stored in a slot of type $\T F_L$. It is, as we'll
+  see, a subset of $:>$ the opposite of the subtyping relationship.
+\end{itemize}
+
+The former will prevent from changing the type of \verb+var+ fields,
+and from changing the content of \verb+field+ or \verb+const+ fields:
+there will be no rule allowing to derive $\Gamma\vdash\update{L}{\K\T
+  E}=[\sigma]$; moreover, $\Gamma\vdash\update{L}{\V\T E}=[\ ]$ will
+only be derivable from $\Gamma\vdash L\therefore\V\T E$, and will only
+produce empty type substitutions $[\ ]$. Once update() has allowed an
+assignment based on the field's former and new types, $\rhd$ checks
+that the content put in the field is consistent with the new type, to
+prevent such unsound assignments as {\tt v \#var number="abc"}.
+
+The following rule allows to change the content of a \verb+var+ slot,
+as long as its type isn't changed:
+
+$$\frac
+{\Gamma\vdash L \therefore \V\T E}
+{\Gamma\vdash \update{L}{\V\T E} = [\ ]}
+\eqlabel{UP-{\tt var}}
+$$
+
+
+\verb+currently+ slots can change the type of the value they contain,
+but the slot type itself can also be changed, into a \verb+var+, a
+\verb+const+ or even a \verb+field+.
+
+$$\frac
+{\Gamma\vdash v \therefore \C\T E}
+{\Gamma\vdash \update{v}{\T F} = [v\leftarrow\T F]}
+\eqlabel{UP-{\tt cur}}
+$$
+
+\verb+currently+ fields within tables pose an additional difficulty:
+if the field's type changes, the type of the table containing it also
+changes. Therefore, the table itself must also be stored in a
+\verb+currently+ slot, etc.\ recursively until we reach a top-level
+\verb+currently+ variable. The typing of assignments to those fields
+is therefore defined recursively, with \eqlabel{UP-{\tt cur}} as a
+base case, and \eqlabel{UP-{\tt cur}$[\ ]$} below as the inductive
+rule:
+%
+$$\frac
+{ 
+  \begin{array}{c}
+    \Gamma\vdash L \therefore \C[P:\C\T E; \phi]\\
+    \Gamma\vdash \update{L}{\C[P:\T F; \phi]} = [\sigma]\\
+  \end{array}
+} {
+  \Gamma\vdash\update{L[P]}{\T F} = [\sigma]
+}
+\eqlabel{UP-{\tt cur}$[\ ]$}
+$$
+
+
+As a usage example, let's consider an object \verb+x+ with a field
+\verb+y+ currently containing a number, and updated to a string
+variable. To make the proof tree terser, we'll use the following
+definitions for \verb+x+'s former type $\T F_1$, its new type $\T
+F_2$, and the typing environment before assignment $\Gamma$
+respectively:
+%
+$$
+  \begin{array}{l}
+    \T F_1 = \C[\texttt{"y"}:\C\Tnumber]\\
+    \T F_2 = \C[\texttt{"y"}:\V\Tstring]\\
+    \Gamma = \{\texttt{x}\mapsto\T F_1\} \\
+  \end{array}
+$$
+%
+The soundness of environmnent substitution $[x\leftarrow\T F_2]$ is
+computed by \eqlabel{UP-{\tt cur}} over {\tt x}; from there, it's
+concluded by \eqlabel{UP-{\tt cur}$[\ ]$} that \verb+x["y"]+ can also
+cause this substitution, because both \verb+x+ and \verb+x["y"]+ are
+\verb+currently+ slots:
+
+$$\frac
+{
+          \frac
+              {\displaystyle \Gamma(\texttt{x}) = \T F_1}
+              {\displaystyle \Gamma\vdash \texttt{x} \therefore \T F_1}
+              \eqlabel{TR-$\therefore$}
+    \qquad
+    \frac
+        {\displaystyle
+          \frac
+              {\displaystyle \Gamma(\texttt{x}) = \T F_1}
+              {\displaystyle \Gamma\vdash \texttt{x} \therefore \T F_1}
+              \eqlabel{TR-$\therefore$}
+        }
+        {\displaystyle \Gamma\vdash\update {\texttt{x}}{\T F_2} = [x\leftarrow \T F_2]}
+        \eqlabel{UP-{\tt cur}}
+}
+{ \Gamma\vdash\update{\texttt{x["y"]}}{\T F_2} = [x\leftarrow\T F_2] }
+\eqlabel{UP-{\tt cur}$[\ ]$}
+$$
+
+Because \verb+currently+ fields are only usable when they're inside
+other \verb+currently+ fields all the way up to a variable, there's no
+point having types such as $v \therefore \V[P:\C\T E; \phi]$: it
+wouldn't allow anything more than $v \therefore \V[P:\V\T E; \phi]$.
+
+~
+
+$\T F_L \rhd \T F_R$ checks whether what's stored in a field has an
+appropriate expression type. It also keeps track of linearity, forcing
+to transform $\J\T E$ into $\C\T E$, and $\C\T E$ into $\F$. The
+relation is expressed between two fields rather than a field and an
+expression, to ease its recursive over tables (last rule below):
+
+$$
+\frac  {}  {\C\T E \rhd \J\T E}
+%
+\quad
+%
+\frac  {}  {\F \rhd \C\T E}
+$$
+$$
+\frac  { }  {\V\T E \rhd \V\T E}
+%
+\qquad
+%
+\frac  { }  {\K\T E \rhd \K\T E}
+%
+\quad
+%
+$$
+$$
+\frac
+{(\forall n\in[0...m]) \quad \T F_n^L \rhd \T F_n^R}
+{
+\C[(P_n:\T F_n^L)^{\forall n\in[1...m]}|\T F_0^L]
+\rhd
+\J[(P_n:\T F_n^R)^{\forall n\in[1...m]}|\T F_0^R]
+}
+$$
+$$
+\frac
+    {\T F_L \rhd \T F_{R1} \quad \T F_{R1} :> \T F_{R2}}
+    {\T F_L \rhd \T F_{R2}}
+$$
+$$\eqlabel{Accept}$$
+
+Notice that although $\rhd$ is a subset of $:>$, it isn't an order
+relayionship: it isn't idempotent (e.g. $\J\T E\not\rhd\J\T E$). By
+using the composition with $:>$, we can choose to store a \verb+just+
+field inside a table into either a \verb+currently+ or a \verb+var+
+one; the former will allow to change the field's type, but any copy of
+it can't be used (it will have to be further weakened into
+\verb+field+); the latter will lock the type's content, but allows to
+make and use further copies.
+
+It is possible, but pointless, to put a \verb+currently+ field in a
+\verb+var+ one: the outer \verb+var+ one will prevent from modifying
+the inner one, thus making it strictly less usable than a \verb+var+
+field (no type modification and no usable copy).
+
+~
+
+Equipped with these rules, we can now type assignments. But as an
+intermediate step, we'll spell the simpler rule for the special case
+where both left-hand side and right-hand side sequences have only one
+element:
+
+$$
+\frac{
+\begin{array}{c}
+\Gamma\vdash E: \T E
+\qquad
+\T F \rhd \J\T E
+\qquad
+\Gamma\vdash \update{L}{\T F} = [\sigma]
+\qquad
+\Gamma[\sigma]\vdash \bar S:\T S
+\end{array}
+}{
+\Gamma\vdash (L\ \#\T F=E; \bar S) : \T S
+}
+$$
+
+To paraphrase, it must be possible (1) $E$ must be well typed; (2)
+this type must be legal to store in a field of $L$'s new type $\T F$;
+(3) it must be legal to substitute $L$'s former type with the new one
+$\T F$; (4) the rest of the sequence $\bar S$ must be typable with
+the type substitution $[\sigma]$ applied in $\Gamma$.
+
+The actual rule, although more intimidating because it deals with
+sequences of possibly different lengths, is not more
+sophisticated. The two upper premices define a type $\bar\T E$
+corresponding to $\T E$ above, with some \Nil-padding if needed to
+match the right-hand-side's length. The lower one involving $\rhd$ and
+update() corresponds to premices (2) and (3), applied to each (left,
+right) pair; and the final premice chains all substitutions together
+to type the following statements:
+
+$$
+\frac{
+  \begin{array}{l}
+    (\forall n\in [1...p])\ \Gamma\vdash E_n: \T E_n\quad
+    (\forall n\in [p+1...m])\ \T E_n=\Nil\\
+    (\forall n\in [1...m])\ 
+    \T F_n \rhd \J\T E_n \textrm{ and }
+    \Gamma\vdash \update{L_n}{\T F_n} = [\sigma_n]
+  \end{array}
+  %
+  \Gamma[\sigma_1...\sigma_n] \vdash \bar S:\T S
+}{
+\Gamma\vdash ((L_n\ \#\T F_n)^{\forall n\in[1...m]}=(E_n)^{\forall n\in[1...p]}; \bar S) : \T S
+}
+$$
+\vspace{-2em}
+\begin{flushright}
+  $\eqlabel{TR-Assign}$
+\end{flushright}
+
+\todo{Substitution conflicts within an assignment aren't handled,
+  e.g. {\tt x \#[|currently nil] = \{ \}; x.a, x.b = "A", "B"}. The
+  simplest solution is to mandate that substitutions have disjoint
+  domains within an assignment.}
+
+\paragraph{Functions}
+Functions break linearity: they assign arguments to parameters, which
+can create a second reference to a table. Moreover, due to Lua's
+support for full closures, they capture variables defined outside of
+them (these variables are called ``upvalues'' in Lua). Functions don't
+use upvalues' content immediately, where the function is defined;
+instead, they'll use them whenever they're called, and in between, the
+content of a \verb+currently+ field or variable might have been
+changed arbitrarily.
+
+For this reason, when typing the function's body, we weaken every
+ upvalue through $\rhd$, so that it doesn't rely on any variable
+ having a field type of the form $\C\T E$. We elect to type parameters
+ as \verb+var+ slots, thus allowing to change their content in the
+ function's body. It would have been possible to forbid it by typing
+ them with \verb+const+\footnote{I wonder whether typing parameters as
+   {\tt currently} inside the function's body would have been
+   admissible. It's not trivial: we must not allow to change a field
+   in a table, so we must be sure there's no {\tt currently} table
+   fields.}.
+
+$$\frac{
+  \Gamma_{\textrm{in}} \rhd \Gamma_{\textrm{out}}
+  \quad
+  \Gamma_{\textrm{in}}[\bar v\leftarrow\V\bar\T E_?]
+  \vdash \bar S: \Return{\bar\T E_!}\\
+}{
+  \Gamma_{\textrm{out}}\vdash
+  \Function{\overline{v\ \#\T E_?}}{\bar S}:
+  \T E_?\rightarrow\bar\T E_!
+}\eqlabel{TR-Function}$$
+
+\noindent
+(this rule generalizes $\rhd$ over environments, in the obvious way:
+$\Gamma_1\rhd\Gamma_2$ iff $\Gamma_1$ has the same domain $D$ as
+$\Gamma_2$, and $(\forall v \in D)\ \Gamma_1(v) \rhd \Gamma_2(v)$)
+
+
+\paragraph{Function applications}
+As we did for \eqlabel{TR-Assign}, let's demystify the function
+application rule, by first giving the simplified version with one
+parameter, one argument and one result: (1) what's applied must be a
+function, (2) the argument must be well typed, and (3) this argument
+type must be compatible with the parameter:
+
+$$
+\frac{
+  \Gamma\vdash E_f: (\T E^?)\rightarrow(\T E^!)
+  \qquad
+  \Gamma\vdash E:\T E^a 
+  \qquad
+  \T E^a <: \T E^?
+}{
+\Gamma\vdash E_f(E^a)_E: (\T E^!)
+}
+$$
+
+This rule is extended to multiple parameters / arguments / results
+almost trivially; the only point to take care of is that the argument
+types sequence might be padded with \Nil\ types, if it's shorter than
+the parameter types sequence:
+
+$$
+\frac{
+  \begin{array}{c}
+    \Gamma\vdash E_f:
+    (\T E^?_n)^{\forall n\in[1...m]}\rightarrow
+    (\T E^!_n)^{\forall n\in[1...p]}\\
+    (\forall n\in[1...q])\ \Gamma\vdash E^a_n:\T E^a_n
+    \quad
+    (\forall n\in[q+1...m])\ \T E^a_n = \Nil\\
+    (\forall n\in[1...m])\ \T E^a_n <: \T E^?_n
+  \end{array}
+}{
+\Gamma\vdash E_f((E^a_n)^{\forall n\in[1...q]})_E:
+(\T E^!_n)^{\forall n\in[1...p]}
+}
+\quad
+\eqlabel{TR-Apply-E}
+$$
+
+Finally, function applications in a statement context are typed by
+discarding applying \eqlabel{TR-Apply-E}, then forgetting the results
+and replacing them with the non-returning-statement type
+$\varnothing_{\T S}$:
+
+$$
+\frac{
+\Gamma\vdash E_f(\bar E)_E: \bar\T E
+}{
+\Gamma\vdash E_f(\bar E)_S: \varnothing_{\T S}
+}
+\quad
+\eqlabel{TR-Apply-S}
+$$
