@@ -48,7 +48,7 @@ end
 
 -- Builds a list of directly connected variable names 
 -- (name -> name set) out a a gamma.constraint.
-local function get_synonyms(constraint)
+local function constraint2synonyms(constraint)
     checks('gamma.constraint')
 
     local synonyms = { } -- name -> name set
@@ -63,66 +63,80 @@ local function get_synonyms(constraint)
     return synonyms
 end
 
--- Get the transitive closure of a synonyms set as returned by
--- `get_synonyms`. If the constraints represents equality, the
--- resulting sets are the equivalence classes induced by the equality.
--- (this implementation should be faster than Warshall's algorithm
--- for graphs with few edges)
-local function close_synonyms(synonyms)
+-- synonyms -> (var_name=>canon_name)
+local function synonyms2canon(synonyms)
     if not next(synonyms) then return { } end
+    local canon = { } -- var -> var_canon
+
+    -- var_name -> canonical var_name
     repeat
-        local again=false
+        local again = false
         for v1, synonyms_v1 in pairs(synonyms) do
+            local canon_v1=canon[v1]
+            if not canon_v1 then canon[v1], canon_v1, again = v1, v1, true end
             for v2 in pairs(synonyms_v1) do
-                local synonyms_v2 = synonyms[v2]
-                if v1~=v2 and synonyms_v2 then
+                local canon_v2 = canon[v2]
+                if canon_v2 ~= canon_v1 then
                     again=true
-                    for v3 in pairs(synonyms_v2) do 
-                        synonyms_v1[v3]=true
+                    if canon_v2 then
+                        for v, vc in pairs(canon) do
+                            if vc==canon_v2 then canon[v] = canon_v1 end
+                        end
                     end
-                    synonyms[v2] = nil -- remove them from v2
                 end
             end
         end
     until not again
-    for canon, synonyms in pairs(synonyms) do
-        local line = { canon, "=" }
-        for s, _ in pairs(synonyms) do
-            table.insert(line, s)
-        end
-        log('CONSTRAINT', 'DEBUG', "Synonyms: %s", table.concat(line, " "))
-    end
+    return canon
 end
 
--- Convert closed synonyms table (var_name -> var_name set)
--- into a (var_name -> term) substitution.
-local function synonyms2sigma(synonyms, constraint)
-    local name2term = { }
-    --print"SYNO:"table.print(synonyms)
-    for v1 in constraint :get_vars() do
+-- (var_name=>canon_name) -> (canon_name=>var_name set)
+local function canon2classes(canon)
+    local classes = { }
+    for v, canon_v in pairs(canon) do
+        local c = classes[canon_v]
+        if c then c[v]=true
+        else classes[canon_v]={[v]=true} end
+    end
+    return classes
+end
+
+-- (canon_name=>var_name set) -> (var_name => term)
+local function classes2sigma(classes, canon, constraint)
+    local sigma = { }
+    for canon_v, class in pairs(classes) do
         local t = nil
-        local synonyms_v1 = synonyms[v1] or {[v1]=true}
-        for v2 in pairs(synonyms_v1) do
-            local _, bound = constraint :get_content (v2)
+        for v, _ in pairs(class) do
+            local _, bound = constraint :get_content (v)
             if bound then
                 if t and not cmp.eq.ast(t, bound) then error "multiple bounds not implemented"
                 else t = bound end
             end
         end
-        t = t or `TId{ v1 }
-        --printf("TO T2N: %s -> %s", table.tostring(synonyms_v1), a2s(t))
-        for v2 in pairs(synonyms_v1) do 
-            if t.tag~='TId' or t[1]~=v1 then name2term[v2]=t end
+        t = t or `TId{ canon_v }
+        for v, _ in pairs(class) do
+            if t.tag~='TId' or t[1]~=canon_v then sigma[v]=t end
         end
     end
-    --print"N2T:" table.print(name2term)
-    return name2term
+    for v, _ in pairs(constraint.content) do
+        if not canon[v] then
+            local _, t = constraint :get_content (v)
+            sigma[v] = assert(t)
+        end
+    end
+    return sigma
 end
 
 function CONSTRAINT :get_sigma()
-    local synonyms = get_synonyms(self)
-    close_synonyms(synonyms)
-    return synonyms2sigma(synonyms, self)
+    local synonyms = constraint2synonyms(self)
+    --log('CONSTRAINT', 'DEBUG', "Synonyms = %s", table.tostring(synonyms))
+    local canon = synonyms2canon(synonyms)
+    --log('CONSTRAINT', 'DEBUG', "Canon = %s", table.tostring(canon))
+    local classes = canon2classes(canon)
+    --log('CONSTRAINT', 'DEBUG', "Classes = %s", table.tostring(classes))
+    local sigma = classes2sigma(classes, canon, self)
+    --log('CONSTRAINT', 'DEBUG', "Sigma = %s", table.tostring(sigma))
+    return sigma
 end
 
 function new_constraint(set_name, op_name, combine)

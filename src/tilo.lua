@@ -8,6 +8,7 @@ function tilo(x)
     if type(x)=='string' then x = mlc.src_to_ast(x) end
     local gamma = gamma_new()
     local ts = typeof.sbar(gamma, x)
+    print("\n"..gamma :tostring().."\n")
     gamma :close()
     print("\n"..gamma :tostring().."\n")
 
