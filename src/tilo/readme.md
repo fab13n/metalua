@@ -7,19 +7,20 @@ annotations, i.e. on a simple extension of Lua's grammar, although a
 comments-based annotation system could easily be designed for it, thus
 retaining full Lua compatibility.
 
-The ability to mix static types with dynamic parts is based on gradual
-typing, the result of Jeremy Siek's research. This means that a fairly
-strict type system can be used, even if it can't support some
-important idioms, or sometimes requires prohibitive amounts of
-annotations: when it isn't worth it, just turn it off with a dynamic
-type. 
+The ability to mix static types with dynamic parts is based on Jeremy
+Siek's gradual typing approach. This means that a fairly strict type
+system can be used, even if it can't support some important idioms, or
+sometimes requires prohibitive amounts of annotations: when it isn't
+worth it, just turn it off with a dynamic type.
 
-For an in-depth study of gradual typing, go to
-http://ecee.colorado.edu/~siek/gradualtyping.html.
+For an in-depth study of gradual typing, please refer to
+http://ecee.colorado.edu/~siek/gradualtyping.html. Some further
+publications by Siek and others detail how to integrate gradual types
+with subtyping and type inference.
 
 The type system relies on partial type inference: when a program
 isn't fully annotated, it tries to guess the missing annotations, and
-will cause an error if it find an inconsistency in the process. For
+will cause an error if it finds an inconsistency in the process. For
 instance, when calling a typed function with untyped arguments, it
 will infer types for the latter. Otherwise, no type errors could be
 found in untyped program fragments, thus dramatically reducing the
@@ -30,8 +31,8 @@ Current state
 =============
 
 Tidal Lock is a work in progress, in a early stage. At its core is a
-formal essay describing the underlying type system, which isn't in a
-publishable state yet. I can send drafts upon request, though.
+formal essay describing the underlying type system; it still misses
+some key parts, most prominently a soundness theorem demonstration.
 
 The compiler is, at this stage, still an exploratory tool to test the
 paper's theories. It's written in Metalua, an self-extensible dialect
@@ -60,8 +61,8 @@ The subset of the language currently supported is:
 * table indexing;
 * primitives (strings, numbers, booleans, nil).
 
-Binary operators, if/then/else and loops will soon be added, to allow useful
-programs.
+Binary operators, if/then/else and loops will soon be added, to allow
+useful programs.
 
 
 Available types
@@ -111,6 +112,9 @@ Types `Fn` are "field types", i.e. they're annotated with
 accessibility modifiers such as `var` or `const`, which will be
 described later.
 
+For instance, `{x=1, y="abc"}` could be typed
+`["x": var number, "y": const string | const nil]`.
+
 For tables used as real hashtables or lists, rather than as records, a
 generic hashtable parametrized with key type and value type `[E=>F]`
 can easily be added to the system. By making the key type and/or the
@@ -118,11 +122,15 @@ value type dynamic, we can further relax the constraints on a table's
 content. Such facilities haven't been put in the type system yet,
 though.
 
+We'll admit as syntax sugar that `[pn: En]` is a shortcut for
+`[pn: En | field]` (cf. below "Field types" for the signification of
+`field`).
+
 
 Local variable types
 --------------------
 
-As table values, variable are annotated with "field types", i.e.
+As table values, variables are annotated with "field types", i.e.
 accessibility modifiers. A noteworthy modifier is `currently`, which
 allows to change a variable's type within a program. It is necessary
 to type many idiomatic Lua programs, as we shall see later.
@@ -171,8 +179,8 @@ type idiomatic fragments such as `M={ }; M.f1=function() ... end`,
 where a table's type changes gradually as methods and/or fields are
 added in it.
 
-We'll admit as syntax sugar that `[pn:En]` is a shortcut for
-`[pn:En|field]`.
+A `just` modifier appears transiently in the typing rules, but users
+don't need to bother about it.
 
 Some remarks about the type system
 ==================================
@@ -248,7 +256,7 @@ allow to change a variable's type, as long as the type system can keep
 track of it statically. The main use is to gradually add new fields
 and methods in an initially empty table. This requires to forbid some
 operations; more precisely, it requires to make sure that the content
-of `currently` slot cannot be reached from more than one path. If two
+of `currently` slots cannot be reached from more than one path. If two
 variables `a` and `b` refer to the same table of type
 `[x: currently number]`, and `a.x="abc"` is performed, the type system
 can remember that `a.x`'s type changed, but won't realize that `b.x`'s
@@ -280,16 +288,15 @@ delinearization:
   appropriate).
 
 The handling of linear types is the trickiest part of the type system,
-and a rigorous presentation of it goes beyond this summary. A paper
-will be published later about how this works, formally and
-pragmatically.
+and a rigorous presentation of it goes beyond this summary. Please
+refer to the paper for a detailed presentation.
 
 
 Syntax
 ======
 
 Type annotations are introduced with the "#" character, after the slot
-they alter. It can appear:
+/ term they alter. It can appear:
 
 * after a function parameter:
   `function string.rep(str #string, n #number) ... end`;
@@ -298,7 +305,8 @@ they alter. It can appear:
   annotation: `local n #var number, x #currently string = 1, "foo"`.
   It can also modify a table field, `t.x #currently number = 3`, but
   for this to be legal, both `t` and `t.x` must be `currently` slots
-  (since `t`'s type also changes as a result).
+  (since changing the type of `t.x` implies to also change the type of
+  `t`).
 
 * in front of a sequence of statements, introduced by `return`. For
   instance, if a block returns a pair of numbers, it can be written
@@ -308,15 +316,15 @@ they alter. It can appear:
 
 Some support for type aliases is planned, to avoid repeating long
 structural type. They will probably look like
-`#point:=[x:const number; y:const number]`; but they present no
+`#point = [x:const number; y:const number]`; but they present no
 theoretical interest, and haven't been implemented yet. Notice that
 the question of their scope will have to be addressed.
 
 Finally, typing statements will probably prove necessary to integrate
-dynamic modules in typed ones, and check their proper use. A sentence
-like `#string.rep: const (string,number)->(string)` means "trust me,
-this slot has exactly this type; now you can ensure that I use it
-soundly".
+untyped modules in typed ones, and check their proper use. A sentence
+like `#assume string.rep: const (string,number)->(string)` means
+"trust me, this slot has exactly this type; now you can ensure that I
+use it soundly".
 
 
 Future extensions
@@ -328,7 +336,7 @@ Globals
 Global variables in Lua are stored in a special table, with their name
 as a string key. An access to global variable `foo` is equivalent to
 `_ENV["foo"]`, with `_ENV` a variable holding the global variables
-table (i)t is even implemented that way in the Lua 5.2 VM). That's how
+table (it is even implemented that way in the Lua 5.2 VM). That's how
 we'll eventually type global variables.
 
 The global table's content will have to be passed to modules, for them
@@ -414,21 +422,22 @@ Nullable or optional types
 The type system is intended to catch nil-indexing errors: those make
 up an important proportion of type errors, and although languages
 descending from Algol traditionally don't try to catch them, languages
-of the ML family have been doing soundly since the early 70's, without
-requiring much additional bookkeeping from their users.
+of the ML family have been soundly doing so since the early 70's,
+without requiring much additional bookkeeping from their users.
 
 This means that to be usable, the type system will require either a
 "nullable" modifier `?`, as in `?number`, or a union type, as in
 `nil|number`. The latter seems more satisfying intellectually, but
-it remains to be seen whether it's worth it in terms of type complexity.
+they would probably create much more complications than they're worth.
 
-To support nullable types, we need a deconstructor: a language
-feature which guarantees that a given instance of a nullable type
-isn't null. Since we don't want to extend Lua, this will be done by
+To support nullable types, we need a deconstructor: a language feature
+which guarantees that a given instance of a nullable type isn't
+null. This role is taken by structural pattern matching in ML-family
+languages. Since we don't want to extend Lua, this will be done by
 recognizing the pattern `if E==nil then ... end` and its variants: the
-versions in `else` or `elseif` clauses, and the shorter `if E then`
-when E can't be `false`. Pathological use cases will have to remain
-dynamically typed.
+versions where the test is reversed, or in an `elseif` clause, and the
+shorter `if E then ... end` (when `E` can't be `false`). Pathological
+use cases will have to remain dynamically typed.
 
 
 Hashtables
@@ -438,11 +447,11 @@ The type system treats hashtables as records, with keys taken from the
 set of Lua primitives (this set has nice properties, most notably
 being enumerable and enjoying a straightforward definition of
 equality). An additional "generic hashtable" type can be added without
-great difficulty: from a type system point of view, it behaves
-similarly to a function with one parameter and one result. It will
-probably be written `[E=>E]` (no need to put a slot annotation on the
-values type: the type system won't be able to keep track of constants,
-let alone the types of `currently` slots).
+great difficulty: from a type system point of view, it behaves mostly
+like a function of one parameter with one result. It will probably be
+written `[E=>E]`, or possibly `[F=>E]`: it should be possible to
+annotate the key type with `var` or `const`, to allow read-only
+covariant hashtables.
 
 A notable type is `[number=>E]`, i.e. the lists of `E`. It's probably
 worthy of some syntax sugar.
@@ -452,8 +461,8 @@ get types such as `[number=>*]`, a list of dynamic values. `[*=>*]` is
 an hasshtable about which we don't know anything, besides the fact
 that it's a hashtable.
 
-However, it's difficult to create hybrid types between hash-table and
-record-table types: we would have to make sure that hash-table keys
+However, it's difficult to create hybrid types between hashtable and
+record-table types: we would have to make sure that hashtable keys
 can't overwrite record-table keys. Some special cases, such as
 list-table + string-keyed record-tables are theoretically possible; it
 remains to be seen whether they're practical, but such structures are
@@ -500,14 +509,14 @@ fit Lua's typical usage: there's no well established inheritance
 mechanism, and tables typically alter themselves rather than returning
 functional copies.
 
-In addition to being of dubious use in realistic Lua programs, sigma
-binders dramatically complicate type systems, and the ability to
+In addition to being of dubious usefulness in realistic Lua programs,
+sigma binders dramatically complicate type systems, and the ability to
 perform inference on them. For those reasons, they're most likely to
 stay out of Tidal Lock forever. If type variables were to be
 introduced in the system, ML-style polymorphism would surely be much
 more beneficial. But even this doesn't cohabit too easily with
-subtyping, and might be worth the pain. Anecdotal evidences of this
-include Go's lack of generics, and the misunderstanding of Java's
+subtyping, and might not be worth the pain. Anecdotal evidences of
+this include Go's lack of generics, and the misunderstanding of Java's
 generics by most seasoned Java developers.
 
 [3] http://lucacardelli.name/indexPapers.html#Objects
