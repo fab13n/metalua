@@ -77,8 +77,10 @@ local function synonyms2canon(synonyms)
             for v2 in pairs(synonyms_v1) do
                 local canon_v2 = canon[v2]
                 if canon_v2 ~= canon_v1 then
+                    --printf("Making %s the canon for %s instead of %s",
+                    --       canon_v1, v2, tostring(canon_v2))
                     again=true
-                    if canon_v2 then
+                    if not canon_v2 then canon[v2] = canon_v1 else
                         for v, vc in pairs(canon) do
                             if vc==canon_v2 then canon[v] = canon_v1 end
                         end

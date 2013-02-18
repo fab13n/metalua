@@ -3,6 +3,7 @@
 log = require 'log'
 cmp = require 'tilo.compare'
 a2s = require 'metalua.compiler.ast_to_src'
+u   = require 'tilo.termutils'
 new_constraint = require 'tilo.constraint'
 
 GAMMA = { }
@@ -21,7 +22,7 @@ function GAMMA :accept(tf_l, tf_r)
     | { tag=_, te_l }, `TJust{ te_r } -> -- recursively compare fields
         match te_l, te_r with
         | `TTable{...}, `TTable{...} ->
-            for tf_l2, tf_r2 in field_pairs(te_l, te_r) do
+            for tf_l2, tf_r2 in u.field_pairs(te_l, te_r) do
                 self :accept(tf_l2, tf_r2)
             end
         | _, _ -> self :sub_te(te_r, te_l)
@@ -149,9 +150,7 @@ function GAMMA :sub_te(te1, te2)
         end
         self :sub_tebar(res1, res2)
     | `TTable{ def1, pairs1 }, `TTable{ def2, pairs2 } ->
-        local tf_pairs = field_pairs(te1, te2)
-        for _, tf_pair in ipairs(tf_pairs) do
-            local tf1, tf2 = unpack(tf_pair)
+        for tf1, tf2 in u.field_pairs(te1, te2) do
             self :sub_tf (tf1, tf2)
         end
     | _, _ -> type_error('te', te1, "<:", te2)
