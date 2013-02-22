@@ -273,35 +273,33 @@ function GAMMA :tostring()
 end
 
 
-function GAMMA :close()
-
-    -- Check that a<:b when x:>a and x<:b
-    -- TODO: also check equality's consistency when applicable
-    log('GAMMA', 'DEBUG', "Checking boundaries consistency")
-    for relation, set in pairs{sub_te=self.te; sub_tebar=self.tebar} do
-        --print("***"..relation)
-        --table.print(set.eq.content, 1)
-        for v1 in set.sub_pos :get_vars() do
-            local vars1, bound1 = set.sub_pos :get_content(v1)
-            local vars2, bound2 = set.sub_neg :get_content(v1)
-            if bound1 and bound2 then self[relation](self, bound2, bound1) end
-        end
-    end
+-- Turns inequalities constraints into equalities, 
+function GAMMA :simplify()
 
     -- Turn boundaries into equalities when there's no equality
     log('GAMMA', 'DEBUG', "Changing some '<:' into '='.")
     for _, set in ipairs{ self.te; self.tebar } do
+        local all_vars = { }
         for _, constraint in ipairs{ set.eq, set.sub_pos, set.sub_neg } do
-            for v in constraint :get_vars() do
-                local vars1, bound1 = set.eq :get_content(v)
-                local vars2, bound2 = set.sub_pos :get_content(v)
-                local vars3, bound3 = set.sub_neg :get_content(v)
-                local x = bound1 or bound2 or bound3
-                if not x then x = vars2 and next(vars2) or vars3 and next(vars3)
-                    if x then x=`TId{x} end
-                end
-                if x then set.eq :add (v, x) end
+            for v in constraint :get_vars() do all_vars[v] = true end
+        end
+        -- check that upper_bound is indeed bigger than lower bound. As this
+        -- might create additional constraints, it's run for all variables
+        -- before simplifications.
+        for v, _ in pairs(all_vars) do
+            local vars1, bound1 = set.sub_pos :get_content(v)
+            local vars2, bound2 = set.sub_neg :get_content(v)
+            if bound1 and bound2 then self[relation](self, bound2, bound1) end
+        end
+        for v, _ in pairs(all_vars) do
+            local vars1, bound1 = set.eq :get_content(v)
+            local vars2, bound2 = set.sub_pos :get_content(v)
+            local vars3, bound3 = set.sub_neg :get_content(v)
+            local x = bound1 or bound2 or bound3
+            if not x then x = vars2 and next(vars2) or vars3 and next(vars3)
+                if x then x=`TId{x} end
             end
+            if x then set.eq :add (v, x) end
         end
     end
 end

@@ -4,12 +4,12 @@ local M = { }
 
 function M.fresh_tvar(prefix)
     fresh_idx = fresh_idx + 1
-    return `TId{ prefix .. '_' .. fresh_idx }
+    return `TId{ prefix .. fresh_idx }
 end
 
 function M.fresh_tbarvar(prefix)
     fresh_idx = fresh_idx + 1
-    return `TIdbar{ prefix .. '_' .. fresh_idx }
+    return `TIdbar{ prefix .. fresh_idx }
 end
 
 -- Test two primitive terms for equality

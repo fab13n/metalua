@@ -5,14 +5,22 @@ mlc = require 'metalua.compiler'
 
 function tilo(x)
     checks('string|sbar')
-    if type(x)=='string' then x = mlc.src_to_ast(x) end
+    if type(x)=='string' then
+        if x:sub(1,1)=='@' then x = mlc.srcfile_to_ast(x:sub(2,-1))
+        else x = mlc.src_to_ast(x) end
+    end
+
     local gamma = gamma_new()
     local ts = typeof.sbar(gamma, x)
 
     print("\nRaw constraints:\n"..gamma :tostring().."\n")
 
-    gamma :close()
+    gamma :simplify()
     local sigma = gamma.te.eq :get_sigma()
+    gamma.tebar.eq :get_sigma(sigma)
+    --gamma.te.eq :get_sigma(sigma)
+    --gamma.tebar.eq :get_sigma(sigma)
+
     for name, cell in pairs(gamma.var_types) do
         cell.type = cmp.subst(cell.type, sigma)
     end

@@ -47,7 +47,8 @@ end
 -- Equality between expression sequence types.
 function eq.tebar(gamma, a, b)
     checks('gamma', 'tebar', 'tebar')
-    if a.tag or a.tag then return false end
+    if a==b then return true end
+    if a.tag ~= b.tag then return false end
     local n = math.max(#a, #b)
     local r = { }
     for i=1, n do

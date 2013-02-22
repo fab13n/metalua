@@ -4,6 +4,7 @@ CONSTRAINT.__type  = 'gamma.constraint'
 
 function CONSTRAINT :add (var_name, val)
     checks('gamma.constraint', 'string', 'te|tebar')
+    --local a2s=table.tostring
     log('CONSTRAINT', 'DEBUG', "%s: %s %s %s",
         self.set_name, var_name, self.op_name, a2s(val))
     local x = self.content[var_name]
@@ -104,8 +105,8 @@ local function canon2classes(canon)
 end
 
 -- (canon_name=>var_name set) -> (var_name => term)
-local function classes2sigma(classes, canon, constraint)
-    local sigma = { }
+local function classes2sigma(classes, canon, constraint, sigma)
+    local sigma = sigma or { }
     for canon_v, class in pairs(classes) do
         local t = nil
         for v, _ in pairs(class) do
@@ -129,14 +130,14 @@ local function classes2sigma(classes, canon, constraint)
     return sigma
 end
 
-function CONSTRAINT :get_sigma()
+function CONSTRAINT :get_sigma (sigma)
     local synonyms = constraint2synonyms(self)
     --log('CONSTRAINT', 'DEBUG', "Synonyms = %s", table.tostring(synonyms))
     local canon = synonyms2canon(synonyms)
     --log('CONSTRAINT', 'DEBUG', "Canon = %s", table.tostring(canon))
     local classes = canon2classes(canon)
     --log('CONSTRAINT', 'DEBUG', "Classes = %s", table.tostring(classes))
-    local sigma = classes2sigma(classes, canon, self)
+    local sigma = classes2sigma(classes, canon, self, sigma)
     --log('CONSTRAINT', 'DEBUG', "Sigma = %s", table.tostring(sigma))
     return sigma
 end

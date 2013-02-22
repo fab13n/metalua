@@ -9,8 +9,13 @@ function checkers.callable(f)
     return mt and mt.__call
 end
 
+local tebar_tags = { TIdbar=1, TCatbar=2, TDynbar=0 }
+
 function checkers.tebar(x)
     if type(x)~='table' then return false end
+    local n=tebar_tags[x.tag]
+    if n then return n==#x end
+    if x.tag then return false end
     for _, y in ipairs(x) do if not checkers.te(y) then return false end end
     return true
 end
@@ -52,9 +57,9 @@ function checkers.p(x)
     return t[x.tag]
 end
 
+local te_tags = { TDyn=0, TId=1, TFunction=2, TTable=2 }
 function checkers.te(x)
     if type(x)~='table' then return false end
-    local t = {TDyn=1,TId=1,TFunction=1,TTable=1}
     if x.tag=='TTable' then
         if #x~=2 then return false end
         if x[2].tag then return false end
@@ -62,7 +67,8 @@ function checkers.te(x)
             if p.tag~='TPair' then return false end
         end
     end
-    return t[x.tag]
+    local n = te_tags[x.tag]
+    if n then return #x==n end
 end
 
 function checkers.vbar(x)

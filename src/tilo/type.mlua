@@ -6,26 +6,27 @@
 --
 -- Terms
 -- =====
--- e ::= `Function{ ebar, sbar }
+-- e ::= `Function{ ebar, sbar, {annot*}? }
 --     | `Table{ (`Pair{ p, e } | e)* }
---     | `Call{ te, te* } | `Index{ te, te }
---     | p | `Id{ name }
+--     | `Call{ te, te* } | `Op{ name, e, e? }
+--     | L | p
 --
--- expressions can have an annot field
+-- L ::= `Index{ te, te } | `Id{ name }
 --
 -- p ::= `Number{ <number> } | `String{ <string> }
 --     | `True | `False | `Nil
 --
--- s ::= `Set{ { L* } , ebar } | `Local{ { v* } }
+-- s ::= `Set{ { L* } , ebar, {annot*}? }
+--     | `Local{ { v* }, tebar, {annot*}? }
 --     | `Call{ te, te* }
---
 --
 -- Types
 -- =====
--- te ::= `TDyn | `TId{ <string> }
+--
+-- te ::= `TDyn
+--      | `TId{ <string> }
 --      | `TFunction{ tebar, tebar }
 --      | `TTable{ tf, { `TPair{ P, tf }* } }
---      | `TTabsub{ te, P, tf } -- change a table's field.
 --
 -- tebar ::= `TDynbar | `TCatbar{ te, tebar } | `TIdbar{ <string>
 --         | { te* }
@@ -222,7 +223,7 @@ function typeof.Call(gamma, f, args)
         local tebar_params  = u.fresh_tbarvar(name..'_p')
         gamma :eq_te (te_f, `TFunction{ tebar_params, tebar_results })
         if tebar_args.tag ~= nil then error "not implemented" end
-        tebar_params = tebar_to_te(gamma, tebar_params, #tebar_args)
+        tebar_params = { tebar_to_te(gamma, tebar_params, #tebar_args) }
         for i, te_param in ipairs(tebar_params) do
             gamma :sub_te(tebar_args[i], te_param)
         end
@@ -250,7 +251,7 @@ function typeof.Index(gamma, t, k)
         -- aren't normally hidden in a `TId.
         gamma :sub_te (tt, tt_max)
         return v
-    | `TTable{ ... } | `TTabsub{ ... }->
+    | `TTable{ ... } ->
         match u.get_field_type(tt, k) with
         | { tag=_, e } -> return e -- currently/var/const
         | `TField -> error "Can't read private field"
@@ -361,7 +362,7 @@ function typeof.ell(gamma, ell)
             local tf = { tag=guessed_tag, v }
             gamma :sub_te (te_t, `TTable{ `TField; {`TPair{p_k, tf}} })
             return tf
-        | `TTable{ ... } | `TTabsub{ ... }->
+        | `TTable{ ... } ->
              return u.get_field_type(te_t, p_k)
         | `TDyn -> return `TCurrently{ `TDyn } -- TODO: is "currently" ok here?
         end
@@ -371,17 +372,18 @@ end
 -- Returns the smallest tf which accepts `tf_right`, with a preference
 -- for `TCurrently over `TVar.
 -- Used by typeof.Set to guess a type for a variable
-local function guess_lhs(gamma, tf_right)
-    checks('gamma', 'tf')
+local function guess_lhs(gamma, is_field, tf_right)
+    checks('gamma', 'boolean', 'tf')
     match tf_right with
     | `TCurrently{ ... } | `TField -> return `TField
     | `TConst{ ... } | `TVar{ ... } -> return tf_right
     | `TJust{ te }->
+        local tag = is_field and 'TVar' or 'TCurrently'
         match te with
-        | `TId{ ... } | `TDyn | `TFunction{ ... } ->
-            return `TCurrently{ te }
+        | `TId "nil" -> return `TCurrently{ te }
+        | `TId{ ... } | `TDyn | `TFunction{ ... } -> return{tag=tag; te }
         | `TTable{ ... } ->
-            return `TCurrently{ u.table_map(te, |tf| guess_lhs(gamma, tf)) }
+            return `TCurrently{ u.table_map(te, |tf| guess_lhs(gamma, true, tf)) }
         end
     end
 end
@@ -397,7 +399,7 @@ function typeof.Set(gamma, terms_left, terms_right, annots)
         local new_left = annots[i]
         if not new_left then -- Guess a decent future field type
             match old_left with
-            | `TCurrently{ _ } -> new_left = guess_lhs(gamma, `TJust{ te_right })
+            | `TCurrently{ _ } -> new_left = guess_lhs(gamma, term_left.tag=='Index', `TJust{ te_right })
             | `TVar{ _ }       -> new_left = old_left
             | `TConst{ _ }     -> error "Don't override a constant field"
             | `TField          -> error "Don't write in a private field"
