@@ -326,6 +326,85 @@ like `#assume string.rep: const (string,number)->(string)` means
 "trust me, this slot has exactly this type; now you can ensure that I
 use it soundly".
 
+Some examples
+=============
+
+So Tidal Lock offers:
+
+1. a sound, annotation-based type system;
+2. support for (annotation-based) gradual typing, through the `*` type;
+3. type inference, to try and guess annotations where they're missing.
+
+Of course, we'd like to have most if not all types guessed rather that
+explicitly annotated, but in the general case we can't, because the
+type system doesn't enjoy the _principal type_ property: for a given
+term, there isn't always a single best type, so that any other type
+would either be a subtype of that principal type, or would accept
+terms causing errors. The pragmatic approach is to try and guess
+something that works well 90% of times, and let users put annotations
+when the inference heuristic guessed wrong.
+
+Let's start with a very simple example:
+
+    $ tilo() { lua -l metalua -l tilo -e "tilo[[$1]]" ; }
+    $ tilo "return 123"
+    Result: return number
+
+Tidal Lock will do a decent job of tracking the types of primitives,
+even if composed into tables:
+
+    $ tilo "local x = { }; x.num=123; x.str='abc'; return x"
+    Result: return ["num"=var number, "str"=var string|currently nil]
+
+Here it chose to type fields as `var` rather than `currently`: by
+default, local vars are typed `currently` unless they're upvalues, and
+table fields are typed `var`. This is because in general, table
+contents are more structured, and more likely to be passed around, so
+having a stable type is more desirable. They could even have been made
+`const` by default, but in such an imperative language as Lua, it
+seemed too coercive. These choices can be overridden through
+annotations, though:
+
+    $ tilo "local x = { };
+            x.num #currently number = 123;
+            x.str #const string = 'abc'
+            return x"
+    Result: return ["num"=currently number, "str"=const string|currently nil]
+
+Constant fields are enforced:
+
+    $ tilo "local x = { }; x.y = 123; x.y=234; return x"
+    Result: return ["y"=var number|currently nil]
+    $ tilo "local x = { }; x.y #const number = 123; x.y=234; return x
+    "tilo.type": Don't override a constant field
+
+Things become more complex with unannotated function
+parameters. Operators help to detect primitive types:
+
+    $ tilo "return function(x) return x+1 end"
+    Result: return (number)->(number)
+
+For table parameters, we try to guess `const` types rather than `var`
+ones, because the typing rule `var E <: const E` allows to pass a
+variable where a constant was expected
+
+    $ tilo "return function(x) x.a=x.b+1 end"
+    Result: return (["b"=const number, "a"=var number])->(nil)
+
+However, such a choice might not be what's expected, e.g if the
+parameter is returned as a result:
+
+    $ tilo "return function(x) x.a=x.b+1; return x end"
+    Result: return
+    (["b"=const number, "a"=var number])->(["b"=const number, "a"=var number])
+
+Here the choice to be more compliant with the function's parameters
+made the function's returned type more vague. There's no way to guess
+what the user prefers, so such a case deserves an annotation. More
+generally, explicitly typing function parameters is a good way to
+document the code and to enforce stable invariants, and should be
+encouraged.
+
 
 Future extensions
 =================
