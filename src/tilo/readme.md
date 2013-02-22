@@ -329,7 +329,7 @@ use it soundly".
 Some examples
 =============
 
-So Tidal Lock offers:
+Tidal Lock offers:
 
 1. a sound, annotation-based type system;
 2. support for (annotation-based) gradual typing, through the `*` type;

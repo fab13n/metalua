@@ -1,7 +1,9 @@
-require 'metalua.package'
-require 'tilo.type'
-require 'tilo.gamma'
-mlc = require 'metalua.compiler'
+require 'metalua.package' -- load metalua sources
+local typeof    = require 'tilo.type'
+local gamma_new = require 'tilo.gamma'
+local ord       = require 'tilo.order'
+local mlc       = require 'metalua.compiler'
+local u         = require 'tilo.termutils'
 
 function tilo(x)
     checks('string|sbar')
@@ -22,7 +24,7 @@ function tilo(x)
     --gamma.tebar.eq :get_sigma(sigma)
 
     for name, cell in pairs(gamma.var_types) do
-        cell.type = cmp.subst(cell.type, sigma)
+        cell.type = u.subst(cell.type, sigma)
     end
 
     print("\nAfter heuristic simplifications:\n"..gamma :tostring().."\n")
@@ -30,13 +32,13 @@ function tilo(x)
     if false then
         local acc = { }
         for k, v in pairs(sigma) do
-            table.insert(acc, string.format("%s->%s", k, a2s(v)))
+            table.insert(acc, string.format("%s->%s", k, mlc.ast_to_src(v)))
         end
         local sigma_str = table.concat(acc, "; ")
-        printf("cmp.subst(%s, <<%s>>)", a2s(ts), sigma_str)
+        printf("ord.subst(%s, <<%s>>)", mlc.ast_to_src(ts), sigma_str)
     end
 
-    ts = cmp.subst(ts, sigma)
+    ts = u.subst(ts, sigma)
     print("Result: "..mlc.ast_to_src(ts))
     return ts
 end

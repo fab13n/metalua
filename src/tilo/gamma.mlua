@@ -1,12 +1,12 @@
 -{ extension 'match' }
 
-log = require 'log'
-cmp = require 'tilo.compare'
-a2s = require 'metalua.compiler.ast_to_src'
-u   = require 'tilo.termutils'
-new_constraint = require 'tilo.constraint'
+local log = require 'log'
+local ord = require 'tilo.order'
+local a2s = require 'metalua.compiler.ast_to_src'
+local u   = require 'tilo.termutils'
+local new_constraint = require 'tilo.constraint'
 
-GAMMA = { }
+local GAMMA = { }
 GAMMA.__index = GAMMA
 GAMMA.__type  = 'gamma'
 
@@ -306,7 +306,7 @@ end
 
 --- Empty environmnent constructor
 function gamma_new()
-    -- cmp.eq.* return true/false. To use them as min/max like operators,
+    -- ord.eq.* return true/false. To use them as min/max like operators,
     -- they need to return false when the two terms are different, and
     -- one of the terms when they're equal. `f` transforms the former kind
     -- of equality operators into the latter.
@@ -318,13 +318,13 @@ function gamma_new()
         var_types = { },
         te = {
             sharp = { },
-            eq      = new_constraint('TE', '=',  f(cmp.eq.te)),
-            sub_pos = new_constraint('TE', '<:', cmp.min.te),
-            sub_neg = new_constraint('TE', ':>', cmp.max.te) },
+            eq      = new_constraint('TE', '=',  f(ord.eq.te)),
+            sub_pos = new_constraint('TE', '<:', ord.min.te),
+            sub_neg = new_constraint('TE', ':>', ord.max.te) },
         tebar = {
-            eq      = new_constraint('TEBAR', '=',  f(cmp.eq.tebar)),
-            sub_pos = new_constraint('TEBAR', '<:', cmp.min.tebar),
-            sub_neg = new_constraint('TEBAR', ':>', cmp.max.tebar) } }
+            eq      = new_constraint('TEBAR', '=',  f(ord.eq.tebar)),
+            sub_pos = new_constraint('TEBAR', '<:', ord.min.tebar),
+            sub_neg = new_constraint('TEBAR', ':>', ord.max.tebar) } }
     for _, x in ipairs{ 'te', 'tebar' } do
         for _, y in ipairs{ 'eq', 'sub_pos', 'sub_neg' } do
             self[x][y].gamma = self
@@ -333,3 +333,4 @@ function gamma_new()
     return setmetatable(self, GAMMA)
 end
 
+return gamma_new

@@ -39,12 +39,15 @@
 
 -{ extension 'match' }
 
-local a2s = require 'metalua.compiler.ast_to_src'
+local log   = require 'log'
+local a2s   = require 'metalua.compiler.ast_to_src'
 local gamma = require 'tilo.gamma'
-local u = require 'tilo.termutils'
+local u     = require 'tilo.termutils'
+
+require 'checks'
 require 'tilo.checkers'
 
-typeof = { }
+local M = { }
 
 -- Returns the type of the n first expressions in a sequence thereof.
 local function tebar_to_te(gamma, tebar, n)
@@ -76,7 +79,7 @@ local primitive_tags = { Number=1; String=1; Nil=1; True=1; False=1; }
 local is_primitive   = |t| primitive_tags[t.tag]
 
 -- Returns the type of e, i.e. a list of expression types.
-function typeof.e(gamma, e)
+function M.e(gamma, e)
     log('TYPING', 'DEBUG', "E:  %s", a2s(e))
     checks('gamma', 'e')
     match e with
@@ -84,13 +87,13 @@ function typeof.e(gamma, e)
     | `True | `False -> return {`TId 'boolean'}
     | `Nil           -> return {`TId 'nil'}
     | `String{...}   -> return {`TId 'string'}
-    | `Table{...}    -> return { typeof.Table(gamma, e) }
-    | `Call{f, ...}  -> return typeof.Call(gamma, f, {...})
-    | `Id{name, ...} -> return { typeof.Id(gamma, name) }
-    | `Index{t, k}   -> return { typeof.Index(gamma, t, k) }
-    | `Op{name, ...} -> return { typeof.Op(gamma, name, {...}) }
-    | `Function{ params, body, annots } -> return { typeof.Function(gamma, params, body, annots) }
-    | `Function{ params, body } -> return { typeof.Function(gamma, params, body, { }) }
+    | `Table{...}    -> return { M.Table(gamma, e) }
+    | `Call{f, ...}  -> return M.Call(gamma, f, {...})
+    | `Id{name, ...} -> return { M.Id(gamma, name) }
+    | `Index{t, k}   -> return { M.Index(gamma, t, k) }
+    | `Op{name, ...} -> return { M.Op(gamma, name, {...}) }
+    | `Function{ params, body, annots } -> return { M.Function(gamma, params, body, annots) }
+    | `Function{ params, body } -> return { M.Function(gamma, params, body, { }) }
     | _ -> error(table.tostring(e).." isn't a valid expression")
     end
 end
@@ -99,14 +102,14 @@ local tebar_zero = { }
 
 -- Returns the type of an expression sequence.
 -- Might add constraints in `Gamma` or raise an error.
-function typeof.ebar(gamma, ebar)
+function M.ebar(gamma, ebar)
     checks('gamma', 'ebar')
     local n = #ebar
     if n==0 then return tebar_zero else
         local result = { }
         local tebar_i
         for i=1, n do
-            tebar_i = typeof.e(gamma, ebar[i])
+            tebar_i = M.e(gamma, ebar[i])
             result[i] = tebar_to_te(gamma, tebar_i)
         end
         if tebar_i.tag then error "support for final tebar var not implemented" end
@@ -117,34 +120,34 @@ end
 
 -- Returns the type of a statements sequence.
 -- Might add constraints in `Gamma` or raise an error.
-function typeof.sbar(gamma, sbar, from)
+function M.sbar(gamma, sbar, from)
     checks('gamma', 'sbar', '?number')
     from = from or 1
     local s1 = sbar[from]
     if not s1 then return `TPass end -- empty sequence
     log('TYPING', 'DEBUG', "S:  %s", a2s(s1))
     match s1 with
-    | `Annot{ s }         -> return typeof.Annot(gamma, s, sbar, from+1)
-    | `Local{ left, right } -> typeof.Local(gamma, left);  typeof.Set(gamma, left, right, { })
-    | `Local{ left, right, annots } -> typeof.Local(gamma, left);  typeof.Set(gamma, left, right, annots)
-    | `Set{ left, right, annots } -> typeof.Set(gamma, left, right, annots)
-    | `Set{ left, right } -> typeof.Set(gamma, left, right, { })
-    | `Call{ f, ... }     -> typeof.e(gamma, s1)
-    | `Return{ ... }      -> return typeof.Return(gamma, {...})
+    | `Annot{ s }         -> return M.Annot(gamma, s, sbar, from+1)
+    | `Local{ left, right } -> M.Local(gamma, left);  M.Set(gamma, left, right, { })
+    | `Local{ left, right, annots } -> M.Local(gamma, left);  M.Set(gamma, left, right, annots)
+    | `Set{ left, right, annots } -> M.Set(gamma, left, right, annots)
+    | `Set{ left, right } -> M.Set(gamma, left, right, { })
+    | `Call{ f, ... }     -> M.e(gamma, s1)
+    | `Return{ ... }      -> return M.Return(gamma, {...})
     | _ -> error (table.tostring(s1).." isn't a valid statement")
     end
-    return typeof.sbar(gamma, sbar, from+1)
+    return M.sbar(gamma, sbar, from+1)
 end
 
 local tn = `TId "number"
 local op_types = { add=tn, sub=tn, mul=tn, div=tn, mod=tn, pow=tn,
                    unm=tn, concat = `TId "string" }
 
-function typeof.Op(gamma, name, args)
+function M.Op(gamma, name, args)
     checks('gamma', 'string', 'ebar')
     local t = op_types[name] or `TDyn
     for _, e in ipairs(args) do
-        local tebar = typeof.e(gamma, e)
+        local tebar = M.e(gamma, e)
         local te = tebar_to_te(gamma, tebar)
         gamma :eq_te (te, t)
     end
@@ -153,22 +156,22 @@ end
 
 -- Returns a variable's type. If it hasn't been defined in
 -- the current sbar, the type is weakened to its future type.
-function typeof.Id(gamma, name)
+function M.Id(gamma, name)
     checks('gamma', 'string')
     return gamma :get_var_te (name)
 end
 
 -- Weakens the type of `sbar` into type `annot`.
 -- To
-function typeof.Annot(gamma, annot, sbar, from)
+function M.Annot(gamma, annot, sbar, from)
     checks('gamma', 'ts', 'sbar', '?number')
-    local ts = typeof.sbar(gamma, sbar, from)
+    local ts = M.sbar(gamma, sbar, from)
     gamma :sub_ts (ts, annot)
     return annot
 end
 
 -- Type all variables in `vars` to `nil`
-function typeof.Local(gamma, vars)
+function M.Local(gamma, vars)
     checks('gamma', 'vbar')
     for _, var in ipairs(vars) do
         local var_name = var[1]
@@ -178,13 +181,13 @@ function typeof.Local(gamma, vars)
 end
 
 -- Wrap the type of the result into `TReturn`
-function typeof.Return(gamma, results)
+function M.Return(gamma, results)
     checks('gamma', 'ebar')
-    return `TReturn{ typeof.ebar (gamma, results) }
+    return `TReturn{ M.ebar (gamma, results) }
 end
 
 -- Type a literal table with `TCurrently` fields 
-function typeof.Table(gamma, t)
+function M.Table(gamma, t)
     checks('gamma', 'e')
     local prs = { }
     local result = `TTable{ `TJust{ `TId 'nil' }, prs }
@@ -193,8 +196,8 @@ function typeof.Table(gamma, t)
         local k, v
         if item.tag=='Pair' then k, v = unpack(item)
         else i=i+1; k, v =`Number{i}, item end
-        typeof.e (gamma, k) -- find type errors in k
-        local tv = tebar_to_te (gamma, typeof.e(gamma, v))
+        M.e (gamma, k) -- find type errors in k
+        local tv = tebar_to_te (gamma, M.e(gamma, v))
         if not is_primitive(k) then
             -- TODO: try to weaken the table's type to `Dyn
             error "Only primitive keys are supported"
@@ -205,10 +208,10 @@ function typeof.Table(gamma, t)
 end
 
 -- Check that args<:params, return results type
-function typeof.Call(gamma, f, args)
+function M.Call(gamma, f, args)
     checks('gamma', 'e', 'ebar')
-    local te_f = tebar_to_te(gamma, typeof.e(gamma, f))
-    local tebar_args = typeof.ebar(gamma, args)
+    local te_f = tebar_to_te(gamma, M.e(gamma, f))
+    local tebar_args = M.ebar(gamma, args)
     match te_f with
     | `TDyn -> -- pass
     | `TFunction{ tebar_params, tebar_results } -> -- we know it's a function
@@ -234,10 +237,10 @@ end
 
 
 -- I need to know the type of what's in field k from gamma!!!
-function typeof.Index(gamma, t, k)
+function M.Index(gamma, t, k)
     checks('gamma', 'e', 'e')
     if not is_primitive(k) then error 'non-primitive key' end
-    local ttbar = typeof.e(gamma, t)
+    local ttbar = M.e(gamma, t)
     local tt = tebar_to_te(gamma, ttbar)
     match tt with
     | `TDyn -> -- pass
@@ -261,7 +264,7 @@ function typeof.Index(gamma, t, k)
     end
 end
 
-function typeof.Function(gamma, params, body, annots)
+function M.Function(gamma, params, body, annots)
     checks('gamma', 'vbar', 'sbar', 'table')    local tebar_params = { }
     gamma :enter_frame()
     for i, var in ipairs(params) do
@@ -271,7 +274,7 @@ function typeof.Function(gamma, params, body, annots)
         tebar_params[i] = te
     end
     gamma :enter_frame() -- will force to complete param types
-    local ts_body = typeof.sbar(gamma, body)
+    local ts_body = M.sbar(gamma, body)
     local tebar_result
     match ts_body with
     | `TReturn{ tebar } -> tebar_result = tebar
@@ -317,7 +320,7 @@ end
 -- new_tf: type to be given to etable[ekey]
 function assign_cur_index(gamma, etable, ekey, new_tf)
     checks('gamma', 'e', 'e', 'tf')
-    local old_tf_table = typeof.ell(gamma, etable)
+    local old_tf_table = M.ell(gamma, etable)
     printf("Compute gamma |- assign(%s[%s], %s), old_etable=%s",
            a2s(etable), a2s(ekey), a2s(new_tf), a2s(old_tf_table))
     match old_tf_table with
@@ -338,7 +341,7 @@ function assign_cur_id(gamma, name, new_tf)
 end
 
 -- Type an expression on the left-hand-side of an assignment
-function typeof.ell(gamma, ell)
+function M.ell(gamma, ell)
     checks('gamma', 'ell')
     match ell with
     | `Id{ var_name } -> return gamma :get_var_tf (var_name)
@@ -346,13 +349,13 @@ function typeof.ell(gamma, ell)
         -- TODO: check if e_t is TCurrently. If it is and te_t is as well,
         -- guess a currently type rather than a var
         if not is_primitive(p_k) then error "can't type this key" end
-        local tebar_t = typeof.e(gamma, e_t)
+        local tebar_t = M.e(gamma, e_t)
         local te_t = tebar_to_te(gamma, tebar_t)
         match te_t with
         | `TId{ tvar_name } -> -- I'm going to guess that it's non-linear
             local guessed_tag = 'TVar'
             if e_t.tag=='Index' or e_t.tag=='Id' then
-                local ell2=typeof.ell(gamma, e_t)
+                local ell2=M.ell(gamma, e_t)
                 if ell2.tag=='TCurrently' then 
                     guessed_tag='TCurrently'
                 end
@@ -371,7 +374,7 @@ end
 
 -- Returns the smallest tf which accepts `tf_right`, with a preference
 -- for `TCurrently over `TVar.
--- Used by typeof.Set to guess a type for a variable
+-- Used by M.Set to guess a type for a variable
 local function guess_lhs(gamma, is_field, tf_right)
     checks('gamma', 'boolean', 'tf')
     match tf_right with
@@ -388,14 +391,14 @@ local function guess_lhs(gamma, is_field, tf_right)
     end
 end
 
-function typeof.Set(gamma, terms_left, terms_right, annots)
+function M.Set(gamma, terms_left, terms_right, annots)
     checks('gamma', 'table', 'table', 'table')
-    local tebar_right = typeof.ebar(gamma, terms_right)
+    local tebar_right = M.ebar(gamma, terms_right)
     tebar_right = { tebar_to_te(gamma, tebar_right, #terms_left) }
 
     for i, term_left in ipairs(terms_left) do
         local te_right = tebar_right[i]
-        local old_left = typeof.ell(gamma, term_left)
+        local old_left = M.ell(gamma, term_left)
         local new_left = annots[i]
         if not new_left then -- Guess a decent future field type
             match old_left with
@@ -413,3 +416,5 @@ function typeof.Set(gamma, terms_left, terms_right, annots)
     end
     return `TPass
 end
+
+return M
