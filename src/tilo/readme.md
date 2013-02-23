@@ -329,6 +329,9 @@ use it soundly".
 Some examples
 =============
 
+**Warning:** *The examples below show the results of a type-guessing
+heuristic which isn't mature; they may go out-of-cate without notice.*
+
 Tidal Lock offers:
 
 1. a sound, annotation-based type system;
