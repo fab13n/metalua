@@ -39,6 +39,7 @@ function tilo(x)
     end
 
     ts = u.subst(ts, sigma)
+    --print("Result: "..table.tostring(ts))
     print("Result: "..mlc.ast_to_src(ts))
     return ts
 end

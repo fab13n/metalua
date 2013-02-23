@@ -31,8 +31,7 @@ function eq.te(gamma, a, b)
             if not eq.tf(gamma, tfa, tfb) then return false end
         end
         return true, { }
-    | `TId{ na }, _ if not gamma.prim_types[na] -> gamma.te.eq :add (na, b); return b
-    | _, `TId{ nb } if not gamma.prim_types[nb] -> gamma.te.eq :add (nb, a); return a
+    | `TUnk{ n }, te | te, `TUnk{ n } -> gamma.te.eq :add (n, te); return te
     | _, _ -> return false
     end
 end
@@ -93,8 +92,7 @@ function minmax.te(gamma, this_op, opposite_op, a, b)
             end
         end
         return `TTable{ def_c, pairs_c }
-    | `TId{ na }, _ if not gamma.prim_types[na] -> gamma.te.eq :add (na, b); return b
-    | _, `TId{ nb } if not gamma.prim_types[nb] -> gamma.te.eq :add (nb, a); return a
+    | `TUnk{ n }, te | te, `TUnk{ n } -> gamma.te.eq :add (n, te); return te
     | _, _ -> return false -- absorbing element instead?
     end
 end
@@ -121,6 +119,7 @@ function minmax.tebar(gamma, this_op, opposite_op, tebar1, tebar2)
 end
 
 -- Binary min/max for field types.
+-- TODO: don't I need support for `Just?
 function minmax.tf(gamma, this_op, opposite_op, tf1, tf2)
     checks('gamma', 'table', 'table', 'tf', 'tf')
     match tf1, tf2 with

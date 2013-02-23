@@ -25,6 +25,7 @@
 --
 -- te ::= `TDyn
 --      | `TId{ <string> }
+--      | `TUnk{ <string> }
 --      | `TFunction{ tebar, tebar }
 --      | `TTable{ tf, { `TPair{ P, tf }* } }
 --
@@ -57,10 +58,10 @@ local function tebar_to_te(gamma, tebar, n)
     match tebar with
     | { tag=nil, ... } ->
         for i=1, n do r[i] = tebar[i] or `TId 'nil' end
-    | `TIdbar{ name } ->
+    | `TUnkbar{ name } ->
         local tebar2 = u.fresh_tbarvar(name.."_rest")
         for i=n, 1, -1 do
-            local v = u.fresh_tvar(name.."_"..i)
+            local v = u.fresh_tvar(name..i.."_")
             r[i] = v
             tebar2 = `TCatbar{v, tebar2}
         end
@@ -221,10 +222,11 @@ function M.Call(gamma, f, args)
             gamma :accept (`TVar{ te_param }, `TJust{ te_arg })
         end
         return tebar_results
-    | `TId{ name } -> -- we just learned it's a function
+    | `TUnk{ name } -> -- we just learned it's a function
         local tebar_results = u.fresh_tbarvar(name..'_r')
         local tebar_params  = u.fresh_tbarvar(name..'_p')
         gamma :eq_te (te_f, `TFunction{ tebar_params, tebar_results })
+        -- Not implemented: passed arguments in unknown number
         if tebar_args.tag ~= nil then error "not implemented" end
         tebar_params = { tebar_to_te(gamma, tebar_params, #tebar_args) }
         for i, te_param in ipairs(tebar_params) do
@@ -244,10 +246,10 @@ function M.Index(gamma, t, k)
     local tt = tebar_to_te(gamma, ttbar)
     match tt with
     | `TDyn -> -- pass
-    | `TId{ name } ->
-        local suffix = 'idx'
+    | `TUnk{ name } ->
+        local suffix
         if k.tag=='String' and string['match'](k[1], "^[A-Za-z0-9_]+$")
-        then suffix=k[1] end
+        then suffix=k[1] else suffix = 'idx' end -- nicer fresh var name
         local v = u.fresh_tvar(name..'_'..suffix)
         local tt_max = `TTable{ `TField, {`TPair{ k, `TConst{ v }}} }
         -- It should work with `TCurrently as well, but such fields
@@ -352,7 +354,9 @@ function M.ell(gamma, ell)
         local tebar_t = M.e(gamma, e_t)
         local te_t = tebar_to_te(gamma, tebar_t)
         match te_t with
-        | `TId{ tvar_name } -> -- I'm going to guess that it's non-linear
+        | `TUnk{ tvar_name } -> 
+            -- I'm going to guess that it's non-linear:
+            -- if it was linear I would probably know it.
             local guessed_tag = 'TVar'
             if e_t.tag=='Index' or e_t.tag=='Id' then
                 local ell2=M.ell(gamma, e_t)

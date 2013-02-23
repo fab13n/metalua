@@ -38,11 +38,11 @@ end
 function GAMMA :eq_tebar(tebar1, tebar2)
     checks('gamma', 'tebar', 'tebar')
     match tebar1, tebar2 with
-    | `TIdbar{ name }, `TIdbar{ name } -> -- pass
-    | `TIdbar{ name1 }, `TIdbar{ name2 } ->
+    | `TUnkbar{ name }, `TUnkbar{ name } -> -- pass
+    | `TUnkbar{ name1 }, `TUnkbar{ name2 } ->
         self.tebar.eq :add(name1, tebar2)
         self.tebar.eq :add(name2, tebar1)
-    | `TIdbar{ name }, tebar | tebar, `TIdbar{ name } ->
+    | `TUnkbar{ name }, tebar | tebar, `TUnkbar{ name } ->
         self.tebar.eq :add(name, tebar)
     | `TDynbar, _  | _, `TDynbar -> -- pass
     | `TCatbar, _ | _, `TCatbar -> error "not implemented"
@@ -72,17 +72,15 @@ end
 function GAMMA :eq_te(te1, te2)
     checks('gamma', 'te', 'te')
     match te1, te2 with
-    | `TDyn, _ | _, `TDyn -> -- pass
-    | `TId{ name }, `TId{ name } -> -- pass
-    | `TId{ n1 }, `TId{ n2 } -> -- n1 ~= n2
-        -- TODO: determine if symmteric equality has consequences on transitive closure
-        local p1, p2 = self.prim_types[n1], self.prim_types[n2]
-        if p1 and p2 then  type_error ('te', te1, '=', te2) end
-        if not p1 then self.te.eq :add (n1, te2) end
-        if not p2 then self.te.eq :add (n2, te1) end
-    | `TId{ name }, te | te, `TId{ name } -> -- te isn't a TId nor a TDyn
-        if self.prim_types[name] then type_error ('te', te1, '=', te2)
-        else self.te.eq :add(name, te) end
+    | `TDyn, _ | _, `TDyn 
+    | `TId{ name }, `TId{ name }
+    | `TUnk{ name }, `TUnk{ name } -> -- pass
+    -- 2-ways storage probably unnecessary; superceded by case below, then
+    --| `TUnk{ n1 }, `TUnk{ n2 } ->
+    --    self.te.eq :add (n1, te2)
+    --    self.te.eq :add (n2, te1)
+    | `TUnk{ name }, te | te, `TUnk{ name } -> -- te isn't a TId nor a TDyn
+        self.te.eq :add(name, te)
     | `TTable{...}, `TTable{...} ->
         for tf1, tf2 in field_pairs(te1, te2) do
             self :eq_tf (tf1, tf2)
@@ -103,7 +101,7 @@ function GAMMA :sub_tebar(tebar1, tebar2)
     checks('gamma', 'tebar', 'tebar')
     match tebar1, tebar2 with
     | `TDynbar, _ | _, `TDynbar -> -- pass
-    | `TIdbar{ name }, `TIdbar{ name } -> -- pass
+    | `TUnkbar{ name }, `TUnkbar{ name } -> -- pass
     | _, _ if tebar1.tag==nil and tebar2.tag==nil ->
         --| {tag=nil}, {tag=nil} -> --bug in match?!
         for i=1, math.max(#tebar1, #tebar2) do
@@ -111,15 +109,25 @@ function GAMMA :sub_tebar(tebar1, tebar2)
             local te2 = tebar2[i] or `TId 'nil'
             self :sub_te(te1, te2)
         end
-    | `TIdbar{ name1 }, `TIdbar{ name2 } ->
+    | `TUnkbar{ name1 }, `TUnkbar{ name2 } ->
         self.tebar.sub_pos :add (name1, tebar2)
         self.tebar.sub_neg :add (name2, tebar1)
-    | `TIdbar{ name }, tebar ->
+    | `TUnkbar{ name }, tebar ->
         self.tebar.sub_pos :add(name, tebar)
-    | tebar, `TIdbar{ name } ->
+    | tebar, `TUnkbar{ name } ->
         self.tebar.sub_new :add(name, tebar)
-    | `TCatbar{ car, cdr }, _ | _, `TCatbar{ car, cdr} ->
-        error "not implemented"
+    | `TCatbar{ car1, cdr1 },`TCatbar{ car2, cdr2} ->
+        self :sub_te (car1, car2)
+        self :sub_tebar (cdr1, cdr2)
+    | `TCatbar{ car1, cdr1 }, {tag=nil, car2, ... } ->
+        local cdr2 = {...}
+        self :sub_te (car1, car2)
+        self :sub_tebar (cdr1, cdr2)
+    | {tag=nil, car1, ... }, `TCatbar{ car2, cdr2 } ->
+        local cdr1 = {...}
+        self :sub_te (car1, car2)
+        self :sub_tebar (cdr1, cdr2)
+    | _, _ -> type_error ('tebar', te1, '<:', te2)
     end
 end
 
@@ -130,18 +138,14 @@ end
 function GAMMA :sub_te(te1, te2)
     checks('gamma', 'te', 'te')
     match te1, te2 with
-    | `TDyn{...}, _ | _, `TDyn{...} -> -- pass
-    | `TId{ name }, `TId{ name } -> -- pass
-    | `TId{ name1 }, `TId{ name2 } ->
-        local p1 = self.prim_types[name1]
-        local p2 = self.prim_types[name2]
-        if p1 and p2 then type_error('te', te1, "<:", te2) end
-        if not p1    then self.te.sub_pos :add (name1, te2) end
-        if not p2    then self.te.sub_neg :add (name2, te1) end
-    | `TId{ name }, te if not self.prim_types[name]->
-        self.te.sub_pos :add(name, te)
-    | te, `TId{ name } ->
-        self.te.sub_neg :add(name, te)
+    | `TDyn{...}, _ | _, `TDyn{...}
+    | `TId{ name }, `TId{ name }
+    | `TUnk{ name }, `TUnk{ name } -> -- pass
+    | `TUnk{ name1 }, `TUnk{ name2 } ->
+        self.te.sub_pos :add (name1, te2)
+        self.te.sub_neg :add (name2, te1)
+    | `TUnk{ name }, te -> self.te.sub_pos :add (name, te)
+    | te, `TUnk{ name } -> self.te.sub_neg :add (name, te)
     | `TFunction{ args1, res1 }, `TFunction{ args2, res2 } ->
         for i=1, math.max(#args1, #args2) do
             local arg1 = args1[i] or `TCurrently{ `TId 'nil' }
@@ -214,9 +218,9 @@ function GAMMA :set_var_type (var_name, tf)
     cell.type = tf
 end
 
+-- Change into set_upvalue
 function GAMMA :set_sharp (var_name)
     checks('gamma', 'string')
-    if self.prim_types[var_name] then return end
     self.te.sharp[var_name] = true
     log('GAMMA', 'DEBUG', "#:  %s is non-linear", var_name)
 end
@@ -297,7 +301,7 @@ function GAMMA :simplify()
             local vars3, bound3 = set.sub_neg :get_content(v)
             local x = bound1 or bound2 or bound3
             if not x then x = vars2 and next(vars2) or vars3 and next(vars3)
-                if x then x=`TId{x} end
+                if x then x=`TUnk{x} end
             end
             if x then set.eq :add (v, x) end
         end
@@ -312,7 +316,6 @@ function gamma_new()
     -- of equality operators into the latter.
     local f = |eq| |gamma, a, b| eq(gamma, a, b) and a or false
     local self = {
-        prim_types = { number=1, string=1, boolean=1, ['nil']=1 },
         stacked_frames = { },
         current_frame = 1,
         var_types = { },

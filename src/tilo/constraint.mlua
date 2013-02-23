@@ -10,10 +10,9 @@ function CONSTRAINT :add (var_name, val)
     log('CONSTRAINT', 'DEBUG', "%s: %s %s %s",
         self.set_name, var_name, self.op_name, a2s(val))
     local x = self.content[var_name]
-    local isnt_prim = val.tag=='TId' and not self.gamma.prim_types[val[1]]
     match val, x with
-    | `TId{ name }, { vars=v } if isnt_prim -> v[name]=true; x=nil
-    | `TId{ name }, nil if isnt_prim -> x = { vars={[name]=true}, bound=false }
+    | `TUnk{ name }, { vars=v } -> v[name]=true; x=nil
+    | `TUnk{ name }, nil -> x = { vars={[name]=true}, bound=false }
     | t, { bound=false } -> x.bound=t; x=nil
     | t, nil -> x = { vars={ }; bound=t }
     | t, { bound=b } -> x.bound=self.combine(self.gamma, b, t); x=nil
@@ -49,7 +48,7 @@ function CONSTRAINT :tostring()
     return table.concat(r, "\n")
 end
 
--- Builds a list of directly connected variable names 
+-- Builds a list of directly connected variable names
 -- (name -> name set) out a a gamma.constraint.
 local function constraint2synonyms(constraint)
     checks('gamma.constraint')
@@ -118,9 +117,9 @@ local function classes2sigma(classes, canon, constraint, sigma)
                 else t = bound end
             end
         end
-        t = t or `TId{ canon_v }
+        t = t or `TUnk{ canon_v }
         for v, _ in pairs(class) do
-            if t.tag~='TId' or t[1]~=canon_v then sigma[v]=t end
+            if t.tag~='TUnk' or t[1]~=canon_v then sigma[v]=t end
         end
     end
     for v, _ in pairs(constraint.content) do

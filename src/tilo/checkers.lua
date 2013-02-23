@@ -9,7 +9,7 @@ function checkers.callable(f)
     return mt and mt.__call
 end
 
-local tebar_tags = { TIdbar=1, TCatbar=2, TDynbar=0 }
+local tebar_tags = { TUnkbar=1, TCatbar=2, TDynbar=0 }
 
 function checkers.tebar(x)
     if type(x)~='table' then return false end
@@ -57,7 +57,7 @@ function checkers.p(x)
     return t[x.tag]
 end
 
-local te_tags = { TDyn=0, TId=1, TFunction=2, TTable=2 }
+local te_tags = { TDyn=0, TId=1, TUnk=1, TFunction=2, TTable=2 }
 function checkers.te(x)
     if type(x)~='table' then return false end
     if x.tag=='TTable' then

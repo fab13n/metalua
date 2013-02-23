@@ -650,6 +650,16 @@ function M:tebar(node)
     end
 end
 
+function M:TUnkbar(node, name)
+    self:acc '~~'
+    self:acc (name)
+end
+
+function M:TUnk(node, name)
+    self:acc '~'
+    self:acc (name)
+end
+
 for name, tag in pairs{ const='TConst', var='TVar', currently='TCurrently', just='TJust' } do
     M[tag] = function(self, node, te)
         self:acc (name..' ')

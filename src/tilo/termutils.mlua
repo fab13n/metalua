@@ -4,12 +4,12 @@ local M = { }
 
 function M.fresh_tvar(prefix)
     fresh_idx = fresh_idx + 1
-    return `TId{ prefix .. fresh_idx }
+    return `TUnk{ prefix .. fresh_idx }
 end
 
 function M.fresh_tbarvar(prefix)
     fresh_idx = fresh_idx + 1
-    return `TIdbar{ prefix .. fresh_idx }
+    return `TUnkbar{ prefix .. fresh_idx }
 end
 
 -- Test two primitive terms for equality
@@ -93,10 +93,12 @@ end
 -- their name's counterpart in sigma the substitution table.
 -- Example: subst(`Op{ 'add', `TId 'x', `TId 'y' }, { x=`String "FOO" })
 -- ==> `Op{ 'add', `String "FOO", `TId 'y' }
+--
+-- TODO: detect infinite substitutions?
 local function subst(term, sigma)
     checks('!', 'table')
     if type(term)~='table' then return term end
-    if term.tag=='TId' or term.tag=='TIdbar' then
+    if term.tag=='TUnk' or term.tag=='TUnkbar' then
         local new_subterm = sigma[term[1]]
         if new_subterm then
             --local tmp = new_subterm
