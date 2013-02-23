@@ -119,7 +119,7 @@ local function classes2sigma(classes, canon, constraint, sigma)
         end
         t = t or `TUnk{ canon_v }
         for v, _ in pairs(class) do
-            if t.tag~='TUnk' or t[1]~=canon_v then sigma[v]=t end
+            if t.tag~='TUnk' or t[1]~=v then sigma[v]=t end
         end
     end
     for v, _ in pairs(constraint.content) do
@@ -141,6 +141,14 @@ function CONSTRAINT :get_sigma (sigma)
     local sigma = classes2sigma(classes, canon, self, sigma)
     --log('CONSTRAINT', 'DEBUG', "Sigma = %s", table.tostring(sigma))
     return sigma
+end
+
+function sigma2string(sigma)
+    local acc = { }
+    for v, t in pairs(sigma) do
+        table.insert(acc, v..' <- '..a2s(t))
+    end
+    return '['..table.concat(acc, '; ')..']'
 end
 
 function new_constraint(set_name, op_name, combine)

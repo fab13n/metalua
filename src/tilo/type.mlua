@@ -113,9 +113,16 @@ function M.ebar(gamma, ebar)
             tebar_i = M.e(gamma, ebar[i])
             result[i] = tebar_to_te(gamma, tebar_i)
         end
-        if tebar_i.tag then error "support for final tebar var not implemented" end
-        for j=2, #tebar_i do result[n+j-1] = tebar_i[j] end
-        return result
+        if tebar_i.tag then -- Size of last element unknown: fold in ++
+            local x = tebar_i
+            for i = n-1, 1, -1 do
+                x = `TCatbar{ result[i], x }
+            end
+            return x
+        else -- Expand extra returns of last element
+            for j=2, #tebar_i do result[n+j-1] = tebar_i[j] end
+            return result
+        end
     end
 end
 

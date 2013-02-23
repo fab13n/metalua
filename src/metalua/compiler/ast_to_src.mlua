@@ -638,7 +638,7 @@ end
 
 function M:TCatbar (node, a, b)
     self:node(a)
-    self:acc '++'
+    self:acc ' ++ '
     self:node(b)
 end
 

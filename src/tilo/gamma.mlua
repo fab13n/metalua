@@ -197,9 +197,10 @@ end
 function GAMMA :new_var (var_name, tf)
     checks('gamma', 'string', 'tf')
     if self.var_types[var_name] then
-        error("Variable shadowing, please alphs-rename")
+        error("Variable shadowing, please alpha-rename")
     end
     self.var_types[var_name] = { type=tf, frame=self.current_frame }
+    log('GAMMA', 'DEBUG', "V:  %s: %s", var_name, a2s(tf))
 end
 
 -- Must elapse when leaving frame,

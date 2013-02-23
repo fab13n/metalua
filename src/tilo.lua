@@ -27,20 +27,13 @@ function tilo(x)
         cell.type = u.subst(cell.type, sigma)
     end
 
-    print("\nAfter heuristic simplifications:\n"..gamma :tostring().."\n")
+    print("\nAfter heuristic simplifications:\n"..gamma :tostring())
 
-    if false then
-        local acc = { }
-        for k, v in pairs(sigma) do
-            table.insert(acc, string.format("%s->%s", k, mlc.ast_to_src(v)))
-        end
-        local sigma_str = table.concat(acc, "; ")
-        printf("ord.subst(%s, <<%s>>)", mlc.ast_to_src(ts), sigma_str)
-    end
+    printf("\nSigma = %s", sigma2string(sigma))
 
     ts = u.subst(ts, sigma)
     --print("Result: "..table.tostring(ts))
-    print("Result: "..mlc.ast_to_src(ts))
+    print("\nResult: "..mlc.ast_to_src(ts))
     return ts
 end
 
