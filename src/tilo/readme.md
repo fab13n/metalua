@@ -409,6 +409,53 @@ document the code and to enforce stable invariants, and should be
 encouraged.
 
 
+Heuristics
+==========
+
+When a function parameter or the left-hand-side of an assignment isn't
+annotated, a heuristic guesses a type for it. It is an empirical
+process: there's no principal type (informally, no "single best
+possible type"), we aim at making the most frequently correct
+assumption, whic of course depends on the programming style
+considered. This heuristic is therefore likely to keep evolving, as
+experience is accumulated.
+
+The typing process assigns type variables ("unknowns") to
+non-annotated expressions and expression sequences; it then
+accumulates constraints on them (e.g. "this type is a function with at
+least 3 results", "this must be a subtype of that", etc.). These
+constraints are checked for inconsistencies; if none is found, types
+are found by simplifying constraints on unknowns (transforming `a<:b`
+contraints into `a=b`), and removing remaining unknowns (remplacing
+them with the dynamic type `*`).
+
+Besides respecting the obvious constraints (terms which are called are
+functions, terms which are indexed are tables etc.), some guesses are
+made:
+
+* by default, local variables are typed `currently` if they aren't
+  used as upvalues, `var` if they are;
+
+* when a table field is updated with a non-`nil` value, by default
+  this field is set as `var`;
+
+* unset fields in literal tables are typed as `currently nil` so that
+  they can be updated;
+
+* fields which are only read, never written, in function parameters
+  are typed `const`. Thanks to `var E <: const E`, objects with
+  variable fields are still accepted;
+
+* when a type `T` isn't fully determined by a constraint `T=U`, it's
+  set to its upper bound `T<:U` if there's one, or its lower bound
+  `U<:T` it there's only a lower bound. If it is left completely
+  unconstrained, it's converted to the dynamic type `*`. Notice that
+  this last operation is still losing information: for instance,
+  `forall a, b. (a, b)->(b)` is less general than `(*, *)->(*)`. But
+  the combined support of subtyping `<:` with type parameters `forall`
+  gives impractically complicated type systems, so Tidal Lock only
+  suports the former.
+
 Future extensions
 =================
 
