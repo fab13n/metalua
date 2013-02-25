@@ -1,4 +1,5 @@
 local a2s = require 'metalua.compiler.ast_to_src'
+local u = require 'tilo.termutils'
 
 CONSTRAINT = { }
 CONSTRAINT.__index = CONSTRAINT
@@ -113,7 +114,7 @@ local function classes2sigma(classes, canon, constraint, sigma)
         for v, _ in pairs(class) do
             local _, bound = constraint :get_content (v)
             if bound then
-                if t and not cmp.eq.ast(t, bound) then error "multiple bounds not implemented"
+                if t and not u.eq(t, bound) then error "multiple bounds not implemented"
                 else t = bound end
             end
         end

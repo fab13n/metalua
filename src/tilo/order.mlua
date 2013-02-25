@@ -6,22 +6,10 @@ local u = require 'tilo.termutils'
 
 local eq = { }
 
--- Structural equality between arbitrary ASTs. No semantic awareness,
--- e.g. table fields won't be reordered nor expanded.
-function eq.ast(a,b)
-    if a==b then return true
-    elseif type(a) ~= 'table' then return false
-    elseif type(b) ~= 'table' then return false
-    elseif a.tag~=b.tag then return false
-    elseif #a ~= #b then return false end
-    for i=1,#a do if not eq.ast(a[i], b[i]) then return false end end
-    return true
-end
-
 -- Equality between expression types.
 function eq.te(gamma, a, b)
     checks('gamma', 'te', 'te')
-    if eq.ast(a, b) then return true end
+    if u.eq(a, b) then return true end
     match a, b with
     | `TFunction{ pa, ra }, `TFuntion{ pb, rb } ->
         return eq.tebar(gamma, pa, pb) and eq.tebar(gamma, ra, rb)

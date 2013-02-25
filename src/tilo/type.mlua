@@ -136,10 +136,10 @@ function M.sbar(gamma, sbar, from)
     log('TYPING', 'DEBUG', "S:  %s", a2s(s1))
     match s1 with
     | `Annot{ s }         -> return M.Annot(gamma, s, sbar, from+1)
-    | `Local{ left, right } -> M.Local(gamma, left);  M.Set(gamma, left, right, { })
+    | `Local{ left, right } -> M.Local(gamma, left);  M.Set(gamma, left, right, { }, sbar, from+1)
     | `Local{ left, right, annots } -> M.Local(gamma, left);  M.Set(gamma, left, right, annots)
-    | `Set{ left, right, annots } -> M.Set(gamma, left, right, annots)
-    | `Set{ left, right } -> M.Set(gamma, left, right, { })
+    | `Set{ left, right, annots } -> M.Set(gamma, left, right, annots, sbar, from+1)
+    | `Set{ left, right } -> M.Set(gamma, left, right, { }, sbar, from+1)
     | `Call{ f, ... }     -> M.e(gamma, s1)
     | `Return{ ... }      -> return M.Return(gamma, {...})
     | _ -> error (table.tostring(s1).." isn't a valid statement")
@@ -383,6 +383,22 @@ function M.ell(gamma, ell)
     end
 end
 
+-- Temporary hack to check whether a var is an upvalue. To be redone
+-- properly when shadowing will be handled.
+-- TODO: when ell is a table index, tracking access is trickier
+local function is_upvalue(ell, t, from)
+    checks('e', '!', 'number')
+    match t with
+    | `Function{ _, body, ... } -> return u.occurs(ell, body)
+    | {...} ->
+        for i = from, #t do
+            if is_upvalue(ell, t[i], 1) then return true end
+        end
+        return false
+    | _ -> return false
+    end
+end
+
 -- Returns the smallest tf which accepts `tf_right`, with a preference
 -- for `TCurrently over `TVar.
 -- Used by M.Set to guess a type for a variable
@@ -392,7 +408,11 @@ local function guess_lhs(gamma, is_field, tf_right)
     | `TCurrently{ ... } | `TField -> return `TField
     | `TConst{ ... } | `TVar{ ... } -> return tf_right
     | `TJust{ te }->
-        local tag = is_field and 'TVar' or 'TCurrently'
+        -- Upvalue must be tagged as vars
+        local tag
+        if is_field -- TODO: or ell occurs in upvalue
+        then tag = 'TVar'
+        else tag = 'TCurrently' end
         match te with
         | `TId "nil" -> return `TCurrently{ te }
         | `TId{ ... } | `TDyn | `TFunction{ ... } -> return{tag=tag; te }
@@ -402,8 +422,8 @@ local function guess_lhs(gamma, is_field, tf_right)
     end
 end
 
-function M.Set(gamma, terms_left, terms_right, annots)
-    checks('gamma', 'table', 'table', 'table')
+function M.Set(gamma, terms_left, terms_right, annots, sbar, from)
+    checks('gamma', 'table', 'table', 'table', 'sbar', 'number')
     local tebar_right = M.ebar(gamma, terms_right)
     tebar_right = { tebar_to_te(gamma, tebar_right, #terms_left) }
 
@@ -413,11 +433,14 @@ function M.Set(gamma, terms_left, terms_right, annots)
         local new_left = annots[i]
         if not new_left then -- Guess a decent future field type
             match old_left with
-            | `TCurrently{ _ } -> new_left = guess_lhs(gamma, term_left.tag=='Index', `TJust{ te_right })
             | `TVar{ _ }       -> new_left = old_left
             | `TConst{ _ }     -> error "Don't override a constant field"
             | `TField          -> error "Don't write in a private field"
             | `TJust{ _ }      -> assert(false) -- cannot be on left
+            | `TCurrently{ _ } ->
+                local try_cur = term_left.tag=='Index' and
+                    not is_upvalue(term_left[1], sbar, from)
+                new_left = guess_lhs(gamma, try_cur, `TJust{ te_right })
             end
         end
         -- Is it legal to write term_right into term_left?
