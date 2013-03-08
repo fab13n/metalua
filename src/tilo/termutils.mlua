@@ -113,6 +113,8 @@ local function occurs (what, where)
     return false
 end
 
+M.occurs=occurs
+
 -- Substitutes occurences of `TId and `TIdbar with
 -- their name's counterpart in sigma the substitution table.
 -- Example: subst(`Op{ 'add', `TId 'x', `TId 'y' }, { x=`String "FOO" })
