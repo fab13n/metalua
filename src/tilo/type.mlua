@@ -137,7 +137,7 @@ function M.sbar(gamma, sbar, from)
     match s1 with
     | `Annot{ s }         -> return M.Annot(gamma, s, sbar, from+1)
     | `Local{ left, right } -> M.Local(gamma, left);  M.Set(gamma, left, right, { }, sbar, from+1)
-    | `Local{ left, right, annots } -> M.Local(gamma, left);  M.Set(gamma, left, right, annots)
+    | `Local{ left, right, annots } -> M.Local(gamma, left);  M.Set(gamma, left, right, annots, sbar, from+1)
     | `Set{ left, right, annots } -> M.Set(gamma, left, right, annots, sbar, from+1)
     | `Set{ left, right } -> M.Set(gamma, left, right, { }, sbar, from+1)
     | `Call{ f, ... }     -> M.e(gamma, s1)
