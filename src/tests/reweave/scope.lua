@@ -1,3 +1,0 @@
-do
-  print("scope")
-end

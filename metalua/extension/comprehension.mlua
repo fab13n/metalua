@@ -1,0 +1,282 @@
+-------------------------------------------------------------------------------
+-- Copyright (c) 2006-2013 Fabien Fleutot and others.
+--
+-- All rights reserved.
+--
+-- This program and the accompanying materials are made available
+-- under the terms of the Eclipse Public License v1.0 which
+-- accompanies this distribution, and is available at
+-- http://www.eclipse.org/legal/epl-v10.html
+--
+-- This program and the accompanying materials are also made available
+-- under the terms of the MIT public license which accompanies this
+-- distribution, and is available at http://www.lua.org/license.html
+--
+-- Contributors:
+--     Fabien Fleutot - API and implementation
+--
+-------------------------------------------------------------------------------
+--
+-- This extension implements list comprehensions, similar to Haskell and
+-- Python syntax, to easily describe lists.
+--
+-- * x[a ... b] is the list { x[a], x[a+1], ..., x[b] }
+-- * { f()..., b } contains all the elements returned by f(), then b
+--   (allows to expand list fields other than the last one)
+-- * list comprehensions a la python, with "for" and "if" suffixes:
+--   {i+10*j for i=1,3 for j=1,3 if i~=j} is { 21, 31, 12, 32, 13, 23 }
+--
+-------------------------------------------------------------------------------
+
+-{ extension ("match", ...) }
+
+local SUPPORT_IMPROVED_LOOPS   = true
+local SUPPORT_IMPROVED_INDEXES = false -- depends on deprecated table.isub
+local SUPPORT_CONTINUE         = true
+local SUPPORT_COMP_LISTS       = true
+
+assert (SUPPORT_IMPROVED_LOOPS or not SUPPORT_CONTINUE,
+        "Can't support 'continue' without improved loop headers")
+
+local gg  = require 'metalua.grammar.generator'
+local Q   = require 'metalua.treequery'
+
+local function dots_list_suffix_builder (x) return `DotsSuffix{ x } end
+
+local function for_list_suffix_builder (list_element, suffix)
+    local new_header = suffix[1]
+    match list_element with
+    | `Comp{ _, acc } -> table.insert (acc, new_header); return list_element
+    |  _ -> return `Comp{ list_element, { new_header } }
+    end
+end
+
+local function if_list_suffix_builder (list_element, suffix)
+    local new_header = `If{ suffix[1] }
+    match list_element with
+    | `Comp{ _, acc } -> table.insert (acc, new_header); return list_element
+    |  _ -> return `Comp{ list_element, { new_header } }
+    end
+end
+
+-- Builds a statement from a table element, which adds this element to
+-- a table `t`, potentially thanks to an alias `tinsert` to
+-- `table.insert`.
+-- @param core the part around which the loops are built.
+--   either `DotsSuffix{expr}, `Pair{ expr } or a plain expression
+-- @param list comprehension suffixes, in the order in which they appear
+--   either `Forin{ ... } or `Fornum{ ...} or `If{ ... }. In each case,
+--   it misses a last child node as its body.
+-- @param t a variable containing the table to fill
+-- @param tinsert a variable containing `table.insert`.
+--
+-- @return fill a statement which fills empty table `t` with the denoted element
+local function comp_list_builder(core, list, t, tinsert)
+    local filler
+    -- 1 - Build the loop's core: if it has suffix "...", every elements of the
+    --     multi-return must be inserted, hence the extra [for] loop.
+    match core with
+    | `DotsSuffix{ element } ->
+        local x = gg.gensym()
+        filler = +{stat: for _, -{x} in pairs{ -{element} } do (-{tinsert})(-{t}, -{x}) end }
+    | `Pair{ key, value } ->
+        --filler = +{ -{t}[-{key}] = -{value} }
+        filler = `Set{ { `Index{ t, key } }, { value } }
+    |  _ -> filler = +{ (-{tinsert})(-{t}, -{core}) }
+    end
+
+    -- 2 - Stack the `if` and `for` control structures, from outside to inside.
+    --     This is done in a destructive way for the elements of [list].
+    for i = #list, 1, -1 do
+        table.insert (list[i], {filler})
+        filler = list[i]
+    end
+
+    return filler
+end
+
+local function table_content_builder (list)
+    local special = false -- Does the table need a special builder?
+    for _, element in ipairs(list) do
+        local etag = element.tag
+        if etag=='Comp' or etag=='DotsSuffix' then special=true; break end
+    end
+    if not special then list.tag='Table'; return list end
+
+    local t, tinsert = gg.gensym 'table', gg.gensym 'table_insert'
+    local filler_block = { +{stat: local -{t}, -{tinsert} = { }, table.insert } }
+    for _, element in ipairs(list) do
+        local filler
+        match element with
+        | `Comp{ core, comp } -> filler = comp_list_builder(core, comp, t, tinsert)
+        | _ -> filler = comp_list_builder(element, { }, t, tinsert)
+        end
+        table.insert(filler_block, filler)
+    end
+    return `Stat{ filler_block, t }
+end
+
+
+--------------------------------------------------------------------------------
+-- Back-end for improved index operator.
+local function index_builder(a, suffix)
+   match suffix[1] with
+   -- Single index, no range: keep the native semantics
+   | { { e, false } } -> return `Index{ a, e }
+   -- Either a range, or multiple indexes, or both
+   | ranges ->
+      local r = `Call{ +{table.isub}, a }
+      local function acc (x,y) table.insert (r,x); table.insert (r,y) end
+      for _, seq in ipairs (ranges) do
+         match seq with
+         | { e, false } -> acc(e,e)
+         | { e, f }     -> acc(e,f)
+         end
+      end
+      return r
+   end
+end
+
+-------------------------------------------------------------------
+-- Find continue statements in a loop body, change them into goto
+-- end-of-body.
+local function transform_continue_statements(body)
+   local continue_statements = Q(body)
+       :if_unknown() -- tolerate unknown 'Continue' statements
+       :not_under ('Forin', 'Fornum', 'While', 'Repeat')
+       :filter ('Continue')
+       :list()
+   if next(continue_statements) then
+       local continue_label = gg.gensym 'continue' [1]
+       table.insert(body, `Label{ continue_label })
+       for _, statement in ipairs(continue_statements) do
+           statement.tag = 'Goto'
+           statement[1] = continue_label
+       end
+       return true
+   else return false end
+end
+
+-------------------------------------------------------------------------------
+-- Back-end for loops with a multi-element header
+local function loop_builder(x)
+   local first, elements, body = unpack(x)
+
+   -- Change continue statements into gotos.
+   if SUPPORT_CONTINUE then transform_continue_statements(body) end
+
+   -------------------------------------------------------------------
+   -- If it's a regular loop, don't bloat the code
+   if not next(elements) then
+      table.insert(first, body)
+      return first
+   end
+
+   -------------------------------------------------------------------
+   -- There's no reason to treat the first element in a special way
+   table.insert(elements, 1, first)
+
+   -------------------------------------------------------------------
+   -- Change breaks into gotos that escape all loops at once.
+   local exit_label = nil
+   local function break_to_goto(break_node)
+       if not exit_label then exit_label = gg.gensym 'break' [1] end
+       break_node = break_node or { }
+       break_node.tag = 'Goto'
+       break_node[1] = exit_label
+       return break_node
+   end
+   Q(body)
+       :not_under('Function', 'Forin', 'Fornum', 'While', 'Repeat')
+       :filter('Break')
+       :foreach (break_to_goto)
+
+   -------------------------------------------------------------------
+   -- Compile all headers elements, from last to first.
+   -- invariant: `body` is a block (not a statement)
+   local result = body
+   for i = #elements, 1, -1 do
+      local e = elements[i]
+      match e with
+      | `If{ cond }    ->
+         result = { `If{ cond, result } }
+      | `Until{ cond } ->
+         result = +{block: if -{cond} then -{break_to_goto()} else -{result} end }
+      | `While{ cond } ->
+         if i==1 then result = { `While{ cond, result } } -- top-level while
+         else result = +{block: if -{cond} then -{result} else -{break_to_goto()} end } end
+      | `Forin{ ... } | `Fornum{ ... } ->
+         table.insert (e, result); result={e}
+      | _-> require'metalua.pprint'.printf("Bad loop header element %s", e)
+      end
+   end
+
+
+   -------------------------------------------------------------------
+   -- If some breaks had to be changed into gotos, insert the label
+   if exit_label then result = { result, `Label{ exit_label } } end
+
+   return result
+end
+
+
+--------------------------------------------------------------------------------
+-- Improved "[...]" index operator:
+--  * support for multi-indexes ("foo[bar, gnat]")
+--  * support for ranges ("foo[bar ... gnat]")
+--------------------------------------------------------------------------------
+local function extend(M)
+
+    local _M = gg.future(M)
+
+    if SUPPORT_COMP_LISTS then
+        -- support for "for" / "if" comprehension suffixes in literal tables
+        local original_table_element = M.table.element
+        M.table.element = gg.expr{ name="table cell",
+                                   primary = original_table_element,
+                                   suffix  = { name="table cell suffix",
+                                               { "...",                builder = dots_list_suffix_builder },
+                                               { "for", _M.for_header, builder = for_list_suffix_builder  },
+                                               { "if",  _M.expr,       builder = if_list_suffix_builder   } } }
+        M.table.content.builder = table_content_builder
+    end
+
+    if SUPPORT_IMPROVED_INDEXES then
+        -- Support for ranges and multiple indices in bracket suffixes
+        M.expr.suffix:del '['
+        M.expr.suffix:add{ name="table index/range",
+                           "[", gg.list{
+                               gg.sequence { _M.expr, gg.onkeyword{ "...", _M.expr } } ,
+                               separators = { ",", ";" } },
+                           "]", builder = index_builder }
+    end
+
+    if SUPPORT_IMPROVED_LOOPS then
+        local original_for_header = M.for_header
+        M.stat :del  'for'
+        M.stat :del  'while'
+
+        M.loop_suffix = gg.multisequence{
+            { 'while',  _M.expr, builder = |x| `Until{ `Op{ 'not', x[1] } } },
+            { 'until',  _M.expr, builder = |x| `Until{ x[1] } },
+            { 'if',     _M.expr, builder = |x| `If{ x[1] } },
+            { 'for',    original_for_header, builder = |x| x[1] } }
+
+        M.loop_suffix_list = gg.list{ _M.loop_suffix, terminators='do' }
+
+        M.stat :add{
+            'for', original_for_header, _M.loop_suffix_list, 'do', _M.block, 'end',
+            builder = loop_builder }
+
+        M.stat :add{
+            'while', _M.expr, _M.loop_suffix_list, 'do', _M.block, 'end',
+            builder = |x| loop_builder{ `While{x[1]}, x[2], x[3] } }
+    end
+
+    if SUPPORT_CONTINUE then
+        M.lexer :add 'continue'
+        M.stat :add{ 'continue', builder='Continue' }
+    end
+end
+
+return extend

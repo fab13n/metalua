@@ -1,0 +1,31 @@
+-{ extension ('match', ...) }
+
+local M = { }
+
+M.register = { }
+
+local function dollar_builder(e)
+   match e with
+   | `Call{ `Id{name}, ... } ->
+       local entry = M.register[name] or error ("No macro "..name.." registered")
+       return entry(select(2, unpack(e)))
+   | `Id{name} ->
+      local entry = dollar[name] or error ("No macro "..name.." registered")
+      match type(entry) with
+      | 'function' -> return entry()
+      | 'table'    -> return entry -- constant AST
+      | t          -> error ("Invalid macro type "..t)
+      end
+   | _ -> error "Invalid $macro, '$' must be followed by an identifier or function call"
+   end
+end
+
+function M.extend(M)
+    local M = require 'metalua.grammar.generator' .future(M)
+    M.expr.prefix :add {
+        '$', prec = 100, builder = |_, x| dollar_builder(x) }
+    M.stat:add{
+        '$', _M.expr, builder = |x| dollar_builder(x[1]) }
+end
+
+return M
