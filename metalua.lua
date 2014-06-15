@@ -179,6 +179,8 @@ function M.main (...)
        -- into   +{ return (function(...) -{ast} end)(...) }
        local prv_ast = code[last_file_idx]
        local new_ast = { tag='Return', prv_ast }
+       new_ast.source, new_ast.origin, prv_ast.source, prv_ast.origin =
+           prv_ast.source, prv_ast.origin, nil, nil
        code[last_file_idx] = new_ast
    end
 
@@ -197,7 +199,7 @@ function M.main (...)
          local pp_cfg = cfg['print-ast-lineinfo']
              and { line_max=1, fix_indent=1, metalua_tag=1 }
              or  { line_max=1, metalua_tag=1, hide_hash=1  }
-         pp.print(x, 80, pp_cfg)
+         pp.print(x, pp_cfg)
       end
    end
 
