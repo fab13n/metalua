@@ -126,7 +126,7 @@ local op_preprec = {
    { "concat" },
    { "add", "sub" },
    { "mul", "div", "mod" },
-   { "unary", "not", "len" },
+   { "unary", "not", "len", "unm" },
    { "pow" },
    { "index" } }
 
@@ -149,7 +149,7 @@ local op_symbol = {
    div    = " / ",   mod     = " % ",   pow     = " ^ ",
    concat = " .. ",  eq      = " == ",  ne      = " ~= ",
    lt     = " < ",   le      = " <= ",  ["and"] = " and ",
-   ["or"] = " or ",  ["not"] = "not ",  len     = "# " }
+   ["or"] = " or ",  ["not"] = "not ",  len     = "# ", unm = "- "}
 
 --------------------------------------------------------------------------------
 -- Accumulate the source representation of AST `node' in
