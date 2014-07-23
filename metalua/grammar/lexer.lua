@@ -382,6 +382,8 @@ function lexer :extract_short_string()
       if x == '\\' then
         if y == 'z' then -- Lua 5.2 \z
           j = self.src :match ("^%s*()", j+1)
+        elseif y == '\r' then -- Only for windows \\\r\n case
+          j = self.src :match("^[\n]+()", j+1)
         else
           j=j+1  -- escaped char
         end
