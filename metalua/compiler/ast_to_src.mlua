@@ -21,6 +21,7 @@
 
 local M = { }
 M.__index = M
+M.__call = |self, ...| self:run(...)
 
 local pp=require 'metalua.pprint'
 
@@ -160,22 +161,32 @@ local op_symbol = {
 --------------------------------------------------------------------------------
 function M:node (node)
    assert (self~=M and self._acc)
-   if node==nil then self:acc'<<error>>'; return end
-   if not node.tag then -- tagless block.
-      self:list (node, self.nl)
-   else
-      local f = M[node.tag]
-      if type (f) == "function" then -- Delegate to tag method.
-         f (self, node, unpack (node))
-      elseif type (f) == "string" then -- tag string.
-         self:acc (f)
-      else -- No appropriate method, fall back to splice dumping.
-           -- This cannot happen in a plain Lua AST.
-         self:acc " -{ "
-         self:acc (pp.tostring (node, {metalua_tag=1, hide_hash=1}), 80)
-         self:acc " }"
+   if node==nil then self:acc'<<error>>'
+   elseif not self.custom_printer or not self.custom_printer (self, node) then
+       if not node.tag then -- tagless (henceunindented) block.
+           self:list (node, self.nl)
+       else
+          local f = M[node.tag]
+          if type (f) == "function" then -- Delegate to tag method.
+              f (self, node, unpack (node))
+          elseif type (f) == "string" then -- tag string.
+              self:acc (f)
+          else -- No appropriate method, fall back to splice dumping.
+              -- This cannot happen in a plain Lua AST.
+              self:acc " -{ "
+              self:acc (pp.tostring (node, {metalua_tag=1, hide_hash=1}), 80)
+              self:acc " }"
+          end
       end
    end
+end
+
+function M:block(body)
+    if not self.custom_printer or not self.custom_printer (self, body) then
+        self:nlindent ()
+        self:list     (body, self.nl)
+        self:nldedent ()
+    end
 end
 
 --------------------------------------------------------------------------------
@@ -225,9 +236,7 @@ end
 
 function M:Do (node)
    self:acc      "do"
-   self:nlindent ()
-   self:list     (node, self.nl)
-   self:nldedent ()
+   self:block    (node)
    self:acc      "end"
 end
 
@@ -244,9 +253,7 @@ function M:Set (node)
       self:acc      " ("
       self:list     (params, ", ", 2)
       self:acc      ")"
-      self:nlindent ()
-      self:list     (body, self.nl)
-      self:nldedent ()
+      self:block    (body)
       self:acc      "end"
 
    | `Set{ { lhs }, { `Function{ params, body } } } if is_idx_stack (lhs) ->
@@ -256,9 +263,7 @@ function M:Set (node)
       self:acc      " ("
       self:list     (params, ", ")
       self:acc      ")"
-      self:nlindent ()
-      self:list    (body, self.nl)
-      self:nldedent ()
+      self:block    (body)
       self:acc      "end"
 
    | `Set{ { `Id{ lhs1name } == lhs1, ... } == lhs, rhs }
@@ -303,17 +308,13 @@ function M:While (node, cond, body)
    self:acc      "while "
    self:node     (cond)
    self:acc      " do"
-   self:nlindent ()
-   self:list     (body, self.nl)
-   self:nldedent ()
+   self:block    (body)
    self:acc      "end"
 end
 
 function M:Repeat (node, body, cond)
    self:acc      "repeat"
-   self:nlindent ()
-   self:list     (body, self.nl)
-   self:nldedent ()
+   self:block    (body)
    self:acc      "until "
    self:node     (cond)
 end
@@ -325,16 +326,12 @@ function M:If (node)
       self:acc      (i==1 and "if " or "elseif ")
       self:node     (cond)
       self:acc      " then"
-      self:nlindent ()
-      self:list     (body, self.nl)
-      self:nldedent ()
+      self:block    (body)
    end
    -- odd number of children --> last one is an `else' clause --
    if #node%2 == 1 then
       self:acc      "else"
-      self:nlindent ()
-      self:list     (node[#node], self.nl)
-      self:nldedent ()
+      self:block    (node[#node])
    end
    self:acc "end"
 end
@@ -352,9 +349,7 @@ function M:Fornum (node, var, first, last)
       self:node  (node[4])
    end
    self:acc      " do"
-   self:nlindent ()
-   self:list     (body, self.nl)
-   self:nldedent ()
+   self:block    (body)
    self:acc      "end"
 end
 
@@ -364,9 +359,7 @@ function M:Forin (node, vars, generators, body)
    self:acc      " in "
    self:list     (generators, ", ")
    self:acc      " do"
-   self:nlindent ()
-   self:list     (body, self.nl)
-   self:nldedent ()
+   self:block    (body)
    self:acc      "end"
 end
 
@@ -392,7 +385,7 @@ function M:Local (node, lhs, rhs, annots)
             self:list (rhs, ", ")
         end
     else -- Can't create a local statement with 0 variables in plain Lua
-        self:acc (table.tostring (node, 'nohash', 80))
+        self:acc (pp.tostring (node, {metalua_tag=1, hide_hash=1, fix_indent=2}))
     end
 end
 
@@ -406,16 +399,14 @@ function M:Localrec (node, lhs, rhs)
       self:acc      " ("
       self:list     (params, ", ")
       self:acc      ")"
-      self:nlindent ()
-      self:list     (body, self.nl)
-      self:nldedent ()
+      self:block    (body)
       self:acc      "end"
 
    | _ ->
       -- Other localrec are unprintable ==> splice them --
           -- This cannot happen in a plain Lua AST. --
       self:acc "-{ "
-      self:acc (table.tostring (node, 'nohash', 80))
+      self:acc (pp.tostring (node, {metalua_tag=1, hide_hash=1, fix_indent=2}))
       self:acc " }"
    end
 end
@@ -488,9 +479,7 @@ function M:Function (node, params, body, annots)
         self:list (params, ", ")
     end
     self:acc      ")"
-    self:nlindent ()
-    self:list     (body, self.nl)
-    self:nldedent ()
+    self:block    (body)
     self:acc      "end"
 end
 
@@ -690,4 +679,4 @@ for name, tag in pairs{ const='TConst', var='TVar', currently='TCurrently', just
     end
 end
 
-return (|x| M.run(x))
+return M
