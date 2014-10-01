@@ -127,7 +127,7 @@ local op_preprec = {
    { "concat" },
    { "add", "sub" },
    { "mul", "div", "mod" },
-   { "unary", "not", "len" },
+   { "unm", "not", "len" },
    { "pow" },
    { "index" } }
 
@@ -150,7 +150,9 @@ local op_symbol = {
    div    = " / ",   mod     = " % ",   pow     = " ^ ",
    concat = " .. ",  eq      = " == ",  ne      = " ~= ",
    lt     = " < ",   le      = " <= ",  ["and"] = " and ",
-   ["or"] = " or ",  ["not"] = "not ",  len     = "# " }
+   ["or"] = " or ",  ["not"] = "not ",  len     = "# ",
+   ["unm"] = " - ",
+}
 
 --------------------------------------------------------------------------------
 -- Accumulate the source representation of AST `node' in
@@ -272,9 +274,7 @@ function M:Set (node)
       -- In that case, the spliced 1st variable must get parentheses,
       -- to be distinguished from a statement splice.
       -- This cannot happen in a plain Lua AST.
-      self:acc      "("
       self:node     (lhs1)
-      self:acc      ")"
       if lhs[2] then -- more than one lhs variable
          self:acc   ", "
          self:list  (lhs, ", ", 2)
@@ -282,6 +282,10 @@ function M:Set (node)
       self:acc      " = "
       self:list     (rhs, ", ")
 
+  | `Set{{`Paren{lhs}}, rhs} ->
+    self:Set(`Set{{lhs}, rhs})
+  | `Set{{`Paren{lhs}}, rhs, annot} ->
+    self:Set(`Set{{lhs}, rhs, annot})
    | `Set{ lhs, rhs } ->
       -- ``... = ...'', no syntax sugar --
       self:list  (lhs, ", ")
@@ -294,7 +298,7 @@ function M:Set (node)
           local ell, a = lhs[i], annot[i]
           self:node (ell)
           if a then
-              self:acc ' #'
+              self:acc ' --'
               self:node(a)
           end
           if i~=n then self:acc ', ' end
@@ -413,13 +417,21 @@ end
 
 function M:Call (node, f)
    -- single string or table literal arg ==> no need for parentheses. --
-   local parens
+  local parens, wrap
+  match node with
+  | `Call{`Function{...}, _} -> wrap = true
+  | `Call{`Function{...}} -> wrap = true
+  | _ -> wrap = false
+  end --[[ !! I doubt this should be here. Code that produces this AST should
+              produce a syntax error instead. ]]
    match node with
    | `Call{ _, `String{_} }
    | `Call{ _, `Table{...}} -> parens = false
    | _ -> parens = true
    end
+   self:acc  (wrap and "(" or "")
    self:node (f)
+   self:acc  (wrap and ")" or "")
    self:acc  (parens and " (" or  " ")
    self:list (node, ", ", 2) -- skip `f'.
    self:acc  (parens and ")")
@@ -591,11 +603,19 @@ function M:Index (node, table, key)
    end
 end
 
+local function sanitize_name(name)
+  return name:gsub('%.', '__')
+end
+
 function M:Id (node, name)
    if is_ident (name) then
       self:acc (name)
-   else -- Unprintable identifier, fall back to splice representation.
-        -- This cannot happen in a plain Lua AST.
+  else -- Unprintable identifier
+    local sanitized_name = sanitize_name(name)
+    if is_ident(sanitized_name) then
+      self:acc(sanitized_name)
+      return nil
+    end
       self:acc    "-{`Id "
       self:String (node, name)
       self:acc    "}"
@@ -677,6 +697,61 @@ for name, tag in pairs{ const='TConst', var='TVar', currently='TCurrently', just
         self:acc (name..' ')
         self:node(te)
     end
+end
+
+function M:Label(node, name)
+  match name with
+  | `Id{n} -> self:Label(node, n)
+  | _ ->
+    if is_ident(name) then
+      self:acc "::"
+      self:acc(name)
+      self:acc "::"
+    else -- Unprintable identifier
+      local sanitized_name = sanitize_name(name)
+      if is_ident(sanitized_name) then
+        self:acc "::"
+        self:acc(sanitized_name)
+        self:acc "::"
+        return nil
+      end
+      self:acc "-{`Id "
+      self:String(node, name)
+      self:acc "}"
+    end 
+  end
+end
+
+function M:Goto(node, name)
+  match name with
+  | `Id{n} -> self:Goto(node, n)
+  | _ ->
+    if is_ident(name) then
+      self:acc "goto "
+      self:acc(name)
+    else -- Unprintable identifier
+      local sanitized_name = sanitize_name(name)
+      if is_ident(sanitized_name) then
+        self:acc "goto "
+        self:acc(sanitized_name)
+        return nil
+      end
+      self:acc "-{`Goto "
+      self:String(node, name)
+      self:acc "}"
+    end 
+  end
+end
+
+function M:Stat(node, body, ret)
+  self:acc    "(function()"
+  self:nlindent()
+  self:list    (body, self.nl)
+  self:nl      ()
+  self:acc     "return "
+  self:node    (ret)
+  self:nldedent()
+  self:acc     "end)()"
 end
 
 return M
