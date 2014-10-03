@@ -439,13 +439,19 @@ end
 
 function M:Invoke (node, f, method)
    -- single string or table literal arg ==> no need for parentheses. --
-   local parens
+   local parens, wrap
+   match node with
+   | `Invoke{ `String{_}, ...} -> wrap = true
+   | _ -> wrap = false
+   end
    match node with
    | `Invoke{ _, _, `String{_} }
    | `Invoke{ _, _, `Table{...}} -> parens = false
    | _ -> parens = true
    end
+   self:acc    (wrap and "(" or "")
    self:node   (f)
+   self:acc    (wrap and ")" or "")
    self:acc    ":"
    self:acc    (method[1])
    self:acc    (parens and " (" or  " ")
