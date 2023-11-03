@@ -149,17 +149,32 @@ end
 -- Generate a tracable parsing error (not implemented yet)
 -------------------------------------------------------------------------------
 function M.parse_error(lx, fmt, ...)
-   local li = lx:lineinfo_left()
+   local inf = lx:lineinfo_error()
    local file, line, column, offset, positions
-   if li then
+   local p_line, p_column
+   if inf then
+      local li = inf.last
       file, line, column, offset = li.source, li.line, li.column, li.offset
-      positions = { first = li, last = li }
+      local first = inf.first
+      positions = { first = first, last = li }
+
+      local facing = inf.first.facing
+      if facing.line >= first.line and
+          facing.column >= first.column then
+         -- special case when there's no previous token
+         p_line, p_column = first.line, first.column
+      else
+         p_line, p_column = facing.line, facing.column
+      end
    else
-      line, column, offset = -1, -1, -1
+      line, column, offset, p_line, p_column = -1, -1, -1, -1, -1
    end
 
    local msg  = string.format("line %i, char %i: "..fmt, line, column, ...)
    if file and file~='?' then msg = "file "..file..", "..msg end
+   local prev_token = string.format("facing: line %i, char %i", p_line, p_column)
+   msg = string.format("%s\n%s", msg, prev_token)
+
 
    local src = lx.src
    if offset>0 and src then
