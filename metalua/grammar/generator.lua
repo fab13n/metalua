@@ -159,15 +159,22 @@ function M.parse_error(lx, fmt, ...)
       positions = { first = first, last = li }
 
       local facing = inf.first.facing
+      local no_invalid_comment = function(comments)
+         for _, c in ipairs(comments) do
+            if c[1]:match("%[%[") then
+               return false
+            end
+         end
+         return true
+      end
       -- in case of a parse error, the consumed token usually facing the one
       -- that caused the problem is the last valid one, allowing us to point
       -- to the exact location where the invalid token starts
       -- there are exceptions to this, identified so far:
       -- * there's just one token yet
       -- * there are comment(s) after the last valid token
-      if facing.line >= first.line and
-          facing.column >= first.column
-          or facing.comments
+      if (facing.line >= first.line and facing.column >= first.column) or
+          (facing.comments and no_invalid_comment(facing.comments))
       then
          p_line, p_column = first.line, first.column
       else
