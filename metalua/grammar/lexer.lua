@@ -511,6 +511,7 @@ function lexer :next (n)
       -- TODO: is this used anywhere? I think not.  a.lineinfo.last may be nil.
       --self.lastline = a.lineinfo.last.line
    end
+   self.lineinfo_consumed = a.lineinfo
    self.lineinfo_last_consumed = a.lineinfo.last
    return a
 end
@@ -572,6 +573,10 @@ end
 
 function lexer :lineinfo_left()
    return self.lineinfo_last_consumed
+end
+
+function lexer :lineinfo_error()
+   return self.lineinfo_consumed
 end
 
 ----------------------------------------------------------------------
